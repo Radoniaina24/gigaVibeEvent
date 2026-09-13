@@ -116,6 +116,40 @@ body {
   animation: drawer-in 0.22s ease-out;
 }
 
+/* Entrée des modales */
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.overlay-in {
+  animation: overlay-in 0.18s ease-out;
+}
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.modal-in {
+  animation: modal-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .overlay-in,
+  .modal-in,
+  .toast-in,
+  .drawer-in {
+    animation: none;
+  }
+}
+
 /* Entrée des toasts */
 @keyframes toast-in {
   from {

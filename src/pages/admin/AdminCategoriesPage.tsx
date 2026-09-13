@@ -1,20 +1,16 @@
-import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Pencil, Plus, Trash2, X } from 'lucide-react';
+import { useState } from 'react';
+import { Plus } from 'lucide-react';
 import {
   useAdminCategories,
   useCreateCategory,
   useDeleteCategory,
   useUpdateCategory,
 } from '../../features/admin/hooks';
-import { categorySchema, type CategoryInput } from '../../schemas';
+import { CategoryModal } from '../../features/admin/components/CategoryModal';
+import type { CategoryInput } from '../../schemas';
 import type { Category } from '../../types/database';
-import { slugify } from '../../lib/utils';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { Textarea } from '../../components/ui/Fields';
-import { DataTable } from '../../components/admin/DataTable';
+import { CategoriesTable } from '../../features/admin/components/CategoriesTable';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import {
   EmptyState,
@@ -28,54 +24,52 @@ export function AdminCategoriesPage() {
   const updateCategory = useUpdateCategory();
   const deleteCategory = useDeleteCategory();
 
-  const [editing, setEditing] = useState<Category | 'new' | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Category | null>(null);
   const [toDelete, setToDelete] = useState<Category | null>(null);
-  const [serverError, setServerError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    watch,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<CategoryInput>({ resolver: zodResolver(categorySchema) });
+  const openCreate = () => {
+    setEditing(null);
+    setFormError(null);
+    setModalOpen(true);
+  };
 
-  useEffect(() => {
-    if (editing === 'new') {
-      reset({ name: '', slug: '', description: '', icon: '' });
-    } else if (editing) {
-      reset({
-        name: editing.name,
-        slug: editing.slug,
-        description: editing.description ?? '',
-        icon: editing.icon ?? '',
-      });
-    }
-  }, [editing, reset]);
+  const openEdit = (category: Category) => {
+    setEditing(category);
+    setFormError(null);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    if (createCategory.isPending || updateCategory.isPending) return;
+    setModalOpen(false);
+    setFormError(null);
+  };
 
   const onSubmit = async (values: CategoryInput) => {
-    setServerError(null);
+    setFormError(null);
     try {
-      if (editing === 'new') {
-        await createCategory.mutateAsync(values);
-      } else if (editing) {
+      if (editing) {
         await updateCategory.mutateAsync({ id: editing.id, input: values });
+      } else {
+        await createCategory.mutateAsync(values);
       }
-      setEditing(null);
+      setModalOpen(false);
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Enregistrement impossible.');
+      setFormError(err instanceof Error ? err.message : 'Enregistrement impossible.');
     }
   };
 
   const handleDelete = async () => {
     if (!toDelete) return;
-    setServerError(null);
+    setDeleteError(null);
     try {
       await deleteCategory.mutateAsync(toDelete);
       setToDelete(null);
     } catch (err) {
-      setServerError(
+      setDeleteError(
         err instanceof Error
           ? err.message
           : 'Suppression impossible (catégorie utilisée ?).',
@@ -85,73 +79,29 @@ export function AdminCategoriesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">Catégories</h1>
-        {editing === null && (
-          <Button size="sm" onClick={() => setEditing('new')}>
-            <Plus className="size-4" aria-hidden /> Nouvelle catégorie
-          </Button>
-        )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            Catégories
+            {data && data.length > 0 && (
+              <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-zinc-600">
+                {data.length}
+              </span>
+            )}
+          </h1>
+          <p className="mt-0.5 text-sm text-zinc-500">
+            Organisez vos événements : filtres publics, formulaire événement.
+          </p>
+        </div>
+        <Button size="sm" onClick={openCreate}>
+          <Plus className="size-4" aria-hidden /> Nouvelle catégorie
+        </Button>
       </div>
 
-      {serverError && (
+      {deleteError && (
         <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-          {serverError}
+          {deleteError}
         </p>
-      )}
-
-      {editing !== null && (
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          noValidate
-          className="space-y-3 rounded-xl border border-zinc-300 bg-white p-4"
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold">
-              {editing === 'new' ? 'Nouvelle catégorie' : `Modifier ${editing.name}`}
-            </p>
-            <button
-              type="button"
-              onClick={() => setEditing(null)}
-              aria-label="Fermer"
-              className="rounded-md p-1 hover:bg-zinc-100"
-            >
-              <X className="size-4" aria-hidden />
-            </button>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input label="Nom" error={errors.name?.message} {...register('name')} />
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <Input label="Slug" error={errors.slug?.message} {...register('slug')} />
-              </div>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="mb-0.5 h-10"
-                onClick={() =>
-                  setValue('slug', slugify(watch('name') ?? ''), { shouldValidate: true })
-                }
-              >
-                Générer
-              </Button>
-            </div>
-            <Input
-              label="Icône (lucide)"
-              placeholder="music"
-              error={errors.icon?.message}
-              {...register('icon')}
-            />
-          </div>
-          <Textarea label="Description" error={errors.description?.message} {...register('description')} />
-          <Button
-            type="submit"
-            loading={isSubmitting || createCategory.isPending || updateCategory.isPending}
-          >
-            Enregistrer
-          </Button>
-        </form>
       )}
 
       {isPending ? (
@@ -159,51 +109,23 @@ export function AdminCategoriesPage() {
       ) : isError ? (
         <ErrorState description="Impossible de charger les catégories." onRetry={() => refetch()} />
       ) : !data.length ? (
-        <EmptyState title="Aucune catégorie." />
-      ) : (
-        <DataTable
-          caption="Liste des catégories"
-          keyOf={(c) => c.id}
-          rows={data}
-          columns={[
-            { key: 'name', header: 'Nom', render: (c) => <strong>{c.name}</strong> },
-            {
-              key: 'slug',
-              header: 'Slug',
-              render: (c) => <span className="font-mono text-xs">{c.slug}</span>,
-            },
-            {
-              key: 'events',
-              header: 'Événements',
-              render: (c) => <span className="tabular-nums">{c.events_count}</span>,
-            },
-            {
-              key: 'actions',
-              header: 'Actions',
-              render: (c) => (
-                <span className="flex gap-1">
-                  <button
-                    type="button"
-                    title="Modifier"
-                    onClick={() => setEditing(c)}
-                    className="rounded-md p-2 hover:bg-zinc-100"
-                  >
-                    <Pencil className="size-4" aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    title="Supprimer"
-                    onClick={() => setToDelete(c)}
-                    className="rounded-md p-2 text-red-600 hover:bg-red-50"
-                  >
-                    <Trash2 className="size-4" aria-hidden />
-                  </button>
-                </span>
-              ),
-            },
-          ]}
+        <EmptyState
+          title="Aucune catégorie."
+          description="Créez votre première catégorie pour organiser vos événements."
+          action={<Button size="sm" onClick={openCreate}><Plus className="size-4" aria-hidden /> Nouvelle catégorie</Button>}
         />
+      ) : (
+        <CategoriesTable data={data} onEdit={openEdit} onDelete={setToDelete} />
       )}
+
+      <CategoryModal
+        open={modalOpen}
+        category={editing}
+        saving={createCategory.isPending || updateCategory.isPending}
+        serverError={formError}
+        onSubmit={onSubmit}
+        onClose={closeModal}
+      />
 
       <ConfirmDialog
         open={toDelete !== null}
@@ -215,7 +137,7 @@ export function AdminCategoriesPage() {
         onConfirm={handleDelete}
         onClose={() => {
           setToDelete(null);
-          setServerError(null);
+          setDeleteError(null);
         }}
       />
     </div>
