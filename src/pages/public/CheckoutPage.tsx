@@ -1,0 +1,344 @@
+import { useCallback, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
+import { z } from 'zod';
+import { env } from '../../app/config/env';
+import { useAuth } from '../../features/auth/AuthContext';
+import {
+  useCancelOrder,
+  useCreateOrder,
+  type CreateOrderResult,
+} from '../../features/orders/hooks';
+import { useSimulatePayment } from '../../features/orders/hooks';
+import {
+  checkoutLineSchema,
+  type CheckoutLine,
+  type CheckoutPaymentInput,
+} from '../../schemas/orders';
+import { formatAr } from '../../lib/utils';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Card';
+import { EmptyState } from '../../components/ui/States';
+import { AttendeeForm } from '../../features/orders/components/AttendeeForm';
+import { PaymentMethodForm } from '../../features/orders/components/PaymentMethodForm';
+
+const checkoutStateSchema = z.object({
+  eventId: z.string().uuid(),
+  eventSlug: z.string(),
+  eventTitle: z.string(),
+  items: z.array(checkoutLineSchema).min(1).max(10),
+});
+
+interface ValidState {
+  eventId: string;
+  eventSlug: string;
+  eventTitle: string;
+  items: CheckoutLine[];
+}
+
+function parseState(value: unknown): ValidState | null {
+  const r = checkoutStateSchema.safeParse(value);
+  return r.success ? r.data : null;
+}
+
+const STEPS = ['Récapitulatif', 'Participants', 'Paiement', 'Confirmation'];
+
+export function CheckoutPage() {
+  const location = useLocation();
+  const { profile } = useAuth();
+  const parsed = parseState(location.state);
+
+  const [step, setStep] = useState(0);
+  const [names, setNames] = useState<Record<string, string[]>>({});
+  const [showErrors, setShowErrors] = useState(false);
+  const [attendeesValid, setAttendeesValid] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [order, setOrder] = useState<CreateOrderResult | null>(null);
+  const [paidTickets, setPaidTickets] = useState<number | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  const createOrder = useCreateOrder();
+  const simulate = useSimulatePayment();
+  const cancelOrder = useCancelOrder();
+
+  const onValidityChange = useCallback((valid: boolean) => {
+    setAttendeesValid(valid);
+  }, []);
+
+  if (!parsed) {
+    return (
+      <EmptyState
+        title="Panier vide."
+        description="Sélectionnez d'abord vos billets depuis un événement."
+        action={
+          <Link to="/events">
+            <Button size="sm">Voir les événements</Button>
+          </Link>
+        }
+      />
+    );
+  }
+
+  const { eventId, eventSlug, eventTitle, items } = parsed;
+  const total = items.reduce((s, i) => s + i.unit_price * i.quantity, 0);
+  const buyerName =
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') ||
+    profile?.email ||
+    '';
+
+  const initNames = () => {
+    if (Object.keys(names).length === 0) {
+      const next: Record<string, string[]> = {};
+      for (const l of items) {
+        next[l.ticket_type_id] = Array.from({ length: l.quantity }, () => buyerName);
+      }
+      setNames(next);
+    }
+    setShowErrors(false);
+    setStep(1);
+  };
+
+  const submitAttendees = () => {
+    if (!attendeesValid) {
+      setShowErrors(true);
+      return;
+    }
+    setStep(2);
+  };
+
+  const submitPayment = async (values: CheckoutPaymentInput) => {
+    setServerError(null);
+    try {
+      const result = await createOrder.mutateAsync({
+        event_id: eventId,
+        payment_method: values.payment_method,
+        phone: values.phone,
+        items: items.map((l) => ({
+          ticket_type_id: l.ticket_type_id,
+          quantity: l.quantity,
+          holder_names: (names[l.ticket_type_id] ?? []).slice(0, l.quantity),
+        })),
+      });
+      setOrder(result);
+      setStep(3);
+    } catch (err) {
+      setServerError(
+        err instanceof Error ? err.message : 'Création de la commande impossible.',
+      );
+    }
+  };
+
+  const simulateResult = async (success: boolean) => {
+    if (!order) return;
+    setServerError(null);
+    try {
+      const res = await simulate.mutateAsync({
+        order_id: order.order_id,
+        success,
+      });
+      if (res.status === 'paid') {
+        setPaidTickets(res.tickets);
+        setFailed(false);
+      } else {
+        setFailed(true);
+      }
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : 'Simulation impossible.');
+    }
+  };
+
+  const cancelAll = async () => {
+    if (!order) return;
+    try {
+      await cancelOrder.mutateAsync(order.order_id);
+      setOrder(null);
+      setStep(0);
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : 'Annulation impossible.');
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-6">
+      <Link
+        to={`/events/${eventSlug}`}
+        className="inline-flex items-center gap-1 text-sm font-medium text-zinc-600 hover:underline"
+      >
+        <ArrowLeft className="size-4" aria-hidden /> Retour à l'événement
+      </Link>
+      <h1 className="text-2xl font-bold">Commande — {eventTitle}</h1>
+
+      {/* Étapes */}
+      <ol aria-label="Progression" className="flex gap-1">
+        {STEPS.map((label, i) => (
+          <li key={label} className="flex-1">
+            <div
+              aria-current={i === step ? 'step' : undefined}
+              className={`h-1.5 rounded-full ${i <= step ? 'bg-zinc-900' : 'bg-zinc-200'}`}
+            />
+            <p
+              className={`mt-1 text-[11px] ${i === step ? 'font-semibold' : 'text-zinc-500'}`}
+            >
+              {label}
+            </p>
+          </li>
+        ))}
+      </ol>
+
+      {step === 0 && (
+        <Card className="p-5">
+          <ul className="space-y-2 text-sm">
+            {items.map((i) => (
+              <li key={i.ticket_type_id} className="flex justify-between gap-2">
+                <span className="text-zinc-600">
+                  {i.name} · {formatAr(i.unit_price)} × {i.quantity}
+                </span>
+                <strong className="tabular-nums">
+                  {formatAr(i.unit_price * i.quantity)}
+                </strong>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-4 flex justify-between border-t border-zinc-100 pt-3 font-bold">
+            <span>TOTAL</span>
+            <span className="tabular-nums">{formatAr(total)}</span>
+          </p>
+          <Button onClick={initNames} className="mt-4 w-full" size="lg">
+            Continuer
+          </Button>
+        </Card>
+      )}
+
+      {step === 1 && (
+        <div className="space-y-4">
+          <AttendeeForm
+            lines={items}
+            names={names}
+            showErrors={showErrors}
+            onNamesChange={setNames}
+            onValidityChange={onValidityChange}
+          />
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setStep(0)}>
+              Retour
+            </Button>
+            <Button onClick={submitAttendees} className="flex-1">
+              Continuer vers le paiement
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <Card className="p-5">
+          <PaymentMethodForm
+            defaultPhone={profile?.phone ?? ''}
+            isSubmitting={createOrder.isPending}
+            serverError={serverError ?? (createOrder.isError ? 'Commande refusée.' : null)}
+            onSubmit={submitPayment}
+          />
+          <Button variant="ghost" size="sm" className="mt-2" onClick={() => setStep(1)}>
+            Retour
+          </Button>
+        </Card>
+      )}
+
+      {step === 3 && order && (
+        <div className="space-y-4">
+          <Card className="p-5 text-center">
+            {paidTickets !== null ? (
+              <>
+                <CheckCircle2 className="mx-auto size-12 text-green-600" aria-hidden />
+                <h2 className="mt-3 text-lg font-bold">Paiement confirmé !</h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Commande <span className="font-mono font-semibold">{order.order_number}</span> ·{' '}
+                  {paidTickets} billet{paidTickets > 1 ? 's' : ''} généré{paidTickets > 1 ? 's' : ''}.
+                </p>
+                <div className="mt-4 flex justify-center gap-2">
+                  <Link to="/dashboard/tickets">
+                    <Button>Voir mes billets</Button>
+                  </Link>
+                  <Link to={`/dashboard/orders/${order.order_id}`}>
+                    <Button variant="secondary">Détail commande</Button>
+                  </Link>
+                </div>
+              </>
+            ) : failed ? (
+              <>
+                <XCircle className="mx-auto size-12 text-red-600" aria-hidden />
+                <h2 className="mt-3 text-lg font-bold">Paiement échoué</h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Commande <span className="font-mono">{order.order_number}</span> — le stock
+                  réservé a été libéré. Vous pouvez réessayer.
+                </p>
+                <div className="mt-4 flex justify-center gap-2">
+                  <Button variant="secondary" onClick={() => setStep(2)}>
+                    Réessayer le paiement
+                  </Button>
+                  <Link to="/events">
+                    <Button variant="ghost">Voir les événements</Button>
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold">Commande {order.order_number}</h2>
+                <p className="mt-1">
+                  <Badge tone="warning">En attente de paiement</Badge>
+                </p>
+                <p className="mt-2 text-sm text-zinc-500">
+                  Total : <strong className="tabular-nums">{formatAr(order.total)}</strong>.
+                  Composez le code reçu sur votre téléphone pour valider.
+                </p>
+                {env.enablePaymentSimulation ? (
+                  <div className="mt-4 rounded-xl border border-dashed border-amber-400 bg-amber-50 p-4">
+                    <p className="text-xs font-semibold text-amber-800">
+                      DEV UNIQUEMENT — simulation de l'opérateur (remplacée par le webhook Phase 5)
+                    </p>
+                    <div className="mt-2 flex justify-center gap-2">
+                      <Button
+                        size="sm"
+                        loading={simulate.isPending}
+                        onClick={() => simulateResult(true)}
+                      >
+                        Simuler le succès
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={simulate.isPending}
+                        onClick={() => simulateResult(false)}
+                      >
+                        Simuler l'échec
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        loading={cancelOrder.isPending}
+                        onClick={cancelAll}
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4">
+                    <Link to={`/dashboard/orders/${order.order_id}`}>
+                      <Button variant="secondary">Suivre ma commande</Button>
+                    </Link>
+                  </div>
+                )}
+              </>
+            )}
+            {serverError && (
+              <p role="alert" className="mt-3 text-sm text-red-600">
+                {serverError}
+              </p>
+            )}
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
