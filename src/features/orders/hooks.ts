@@ -69,19 +69,47 @@ export function useOrderDetail(orderId: string | undefined) {
       const { data, error } = await supabase
         .from('orders')
         .select(
-          '*, event:events(title,slug,starts_at,venue,city,image_url,partner:partners(id,name,logo_url)), items:order_items(*, ticket_type:ticket_types(name,price)), payments:payments(*)',
+          '*, event:events(title,slug,starts_at,venue,city,image_url,partner:partners!events_partner_id_fkey(id,name,logo_url)), items:order_items(*, ticket_type:ticket_types(name,price)), payments:payments(*)',
         )
         .eq('id', orderId)
         .maybeSingle();
-      if (error) throw error;
-      if (!data) return null;
-      const detail = data as OrderDetail;
-      const { count } = await supabase
-        .from('tickets')
-        .select('id', { count: 'exact', head: true })
-        .eq('order_id', orderId);
-      detail.ticket_count = count ?? 0;
-      return detail;
+      if (!error) {
+        if (!data) return null;
+        const detail = data as OrderDetail;
+        const { count } = await supabase
+          .from('tickets')
+          .select('id', { count: 'exact', head: true })
+          .eq('order_id', orderId);
+        detail.ticket_count = count ?? 0;
+        return detail;
+      }
+      // Fallback DB sans migration 0005 (pas de events.partner_id).
+      const msg = `${error.message ?? ''} ${(error as { details?: string }).details ?? ''}`.toLowerCase();
+      if ((error as { code?: string }).code === 'PGRST200' || msg.includes('could not find a relationship')) {
+        console.warn(
+          '[orders] `events.partner_id` introuvable — appliquez supabase/migrations/0005_platform_v2.sql. Fallback sans partenaire.',
+        );
+        const retry = await supabase
+          .from('orders')
+          .select(
+            '*, event:events(title,slug,starts_at,venue,city,image_url), items:order_items(*, ticket_type:ticket_types(name,price)), payments:payments(*)',
+          )
+          .eq('id', orderId)
+          .maybeSingle();
+        if (retry.error) throw retry.error;
+        if (!retry.data) return null;
+        const detail = {
+          ...(retry.data as object),
+          event: { ...((retry.data as { event: object }).event ?? {}), partner: null },
+        } as unknown as OrderDetail;
+        const { count } = await supabase
+          .from('tickets')
+          .select('id', { count: 'exact', head: true })
+          .eq('order_id', orderId);
+        detail.ticket_count = count ?? 0;
+        return detail;
+      }
+      throw error;
     },
   });
 }
