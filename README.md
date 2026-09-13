@@ -18,6 +18,7 @@ Vite + React + TypeScript + Tailwind CSS v4 + Supabase + TanStack Query + Zod + 
 supabase/migrations/0001_init.sql      -- schéma + RLS + storage
 supabase/migrations/0002_checkout.sql  -- RPC checkout + simulation DEV
 supabase/migrations/0003_audit.sql     -- INSERT audit_logs par les admins
+supabase/migrations/0004_admin.sql     -- promeut ton email en admin (DEV)
 supabase/seed.sql                      -- données de démonstration (DEV)
 ```
 
