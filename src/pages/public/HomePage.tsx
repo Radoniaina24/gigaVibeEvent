@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
@@ -101,6 +101,17 @@ export function HomePage() {
   const [spotIndex, setSpotIndex] = useState(0);
   const spot = spotlightList[Math.min(spotIndex, Math.max(0, spotlightList.length - 1))];
 
+  // Rotation automatique toutes les 30 s (redémarre après un clic manuel ;
+  // désactivée si l'utilisateur préfère réduire les animations).
+  useEffect(() => {
+    if (spotlightList.length <= 1) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = window.setInterval(() => {
+      setSpotIndex((i) => (i + 1) % spotlightList.length);
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [spotIndex, spotlightList.length]);
+
   const countByCategory = new Map<string, number>();
   for (const e of events) {
     if (e.category)
@@ -173,7 +184,7 @@ export function HomePage() {
                 <>
                   <div
                     aria-hidden
-                    className="absolute inset-0 translate-x-4 translate-y-4 rotate-6 rounded-3xl bg-brand-600/15"
+                    className="pointer-events-none absolute inset-0 translate-x-4 translate-y-4 rotate-6 rounded-3xl bg-brand-600/15"
                   />
                   <article
                     aria-label={`À l'affiche : ${spot.title}`}
