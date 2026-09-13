@@ -115,3 +115,18 @@ body {
 .drawer-in {
   animation: drawer-in 0.22s ease-out;
 }
+
+/* Entrée des toasts */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.toast-in {
+  animation: toast-in 0.2s ease-out;
+}

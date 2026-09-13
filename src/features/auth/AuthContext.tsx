@@ -24,7 +24,7 @@ interface AuthContextValue {
     first_name: string;
     last_name: string;
     phone?: string;
-  }) => Promise<void>;
+  }) => Promise<{ confirmationSent: boolean }>;
   signIn: (args: { email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp: AuthContextValue['signUp'] = useCallback(async (args) => {
     const supabase = getSupabase();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: args.email,
       password: args.password,
       options: {
@@ -102,6 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
     if (error) throw error;
+    // Pas de session = Supabase exige une confirmation par email.
+    return { confirmationSent: !data.session };
   }, []);
 
   const signIn: AuthContextValue['signIn'] = useCallback(async (args) => {

@@ -1,13 +1,36 @@
 import { Link } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useState } from 'react';
+import { ArrowUpRight, CalendarDays, Receipt, Ticket, Wallet } from 'lucide-react';
 import { useMyOrders, useMyTickets } from '../../features/orders/hooks';
 import { usePublishedEvents } from '../../hooks/useEvents';
 import { useAuth } from '../../features/auth/AuthContext';
 import { formatAr, formatDate } from '../../lib/utils';
-import { Card } from '../../components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { ErrorState, LoadingState } from '../../components/ui/States';
+import { ErrorState } from '../../components/ui/States';
 import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
+import { DashboardHomeSkeleton } from '../../components/dashboard/DashboardSkeletons';
+
+function greeting(): string {
+  return new Date().getHours() < 18 ? 'Bonjour' : 'Bonsoir';
+}
+
+function daysLeftLabel(iso: string): string {
+  const days = Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
+  if (days <= 0) return "Aujourd'hui";
+  if (days === 1) return 'Demain';
+  return `Dans ${days} j`;
+}
+
+function dayParts(iso: string) {
+  const d = new Date(iso);
+  return {
+    day: new Intl.DateTimeFormat('fr-FR', { day: '2-digit' }).format(d),
+    month: new Intl.DateTimeFormat('fr-FR', { month: 'short' })
+      .format(d)
+      .replace('.', ''),
+  };
+}
 
 export function UserDashboardPage() {
   const { profile } = useAuth();
@@ -21,22 +44,37 @@ export function UserDashboardPage() {
   const paidOrders = (orders.data ?? []).filter((o) => o.payment_status === 'paid');
   const totalSpent = paidOrders.reduce((s, o) => s + o.total, 0);
   const validTickets = (tickets.data ?? []).filter((t) => t.status === 'valid');
-  const recentOrders = (orders.data ?? []).slice(0, 3);
+  const recentOrders = (orders.data ?? []).slice(0, 5);
 
-  const now = useMemo(() => Date.now(), []);
+  const [now] = useState(() => Date.now());
   const upcomingTickets = validTickets
     .filter((t) => t.event && new Date(t.event.starts_at).getTime() >= now)
     .sort((a, b) => +new Date(a.event!.starts_at) - +new Date(b.event!.starts_at))
-    .slice(0, 3);
+    .slice(0, 5);
+
+  const firstName = profile?.first_name?.trim();
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">
-        Bonjour{profile?.first_name ? `, ${profile.first_name}` : ''} 👋
-      </h1>
+      {/* En-tête */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {greeting()}{firstName ? `, ${firstName}` : ''}
+          </h1>
+          <p className="text-sm text-zinc-500">
+            Voici l’état de vos billets et de vos commandes.
+          </p>
+        </div>
+        <Link to="/events">
+          <Button size="sm">
+            Voir les événements <ArrowUpRight className="size-4" aria-hidden />
+          </Button>
+        </Link>
+      </div>
 
       {isPending ? (
-        <LoadingState label="Chargement du tableau de bord…" />
+        <DashboardHomeSkeleton />
       ) : isError ? (
         <ErrorState
           description="Impossible de charger vos données."
@@ -47,94 +85,167 @@ export function UserDashboardPage() {
         />
       ) : (
         <>
+          {/* Statistiques */}
           <div className="grid gap-4 sm:grid-cols-3">
-            <Card className="p-5">
-              <p className="text-sm text-zinc-500">Billets valides</p>
-              <p className="text-2xl font-bold tabular-nums">{validTickets.length}</p>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Billets valides</CardTitle>
+                <Ticket className="size-4 text-zinc-500" aria-hidden />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold tabular-nums">{validTickets.length}</div>
+                <p className="text-xs text-zinc-500">Utilisables à l’entrée</p>
+              </CardContent>
             </Card>
-            <Card className="p-5">
-              <p className="text-sm text-zinc-500">Commandes</p>
-              <p className="text-2xl font-bold tabular-nums">{orders.data!.length}</p>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Commandes</CardTitle>
+                <Receipt className="size-4 text-zinc-500" aria-hidden />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold tabular-nums">{orders.data!.length}</div>
+                <p className="text-xs text-zinc-500">Passées au total</p>
+              </CardContent>
             </Card>
-            <Card className="p-5">
-              <p className="text-sm text-zinc-500">Total dépensé</p>
-              <p className="text-2xl font-bold tabular-nums">{formatAr(totalSpent)}</p>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total dépensé</CardTitle>
+                <Wallet className="size-4 text-zinc-500" aria-hidden />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold tabular-nums">{formatAr(totalSpent)}</div>
+                <p className="text-xs text-zinc-500">Commandes payées</p>
+              </CardContent>
             </Card>
           </div>
 
-          <section aria-label="Dernières commandes" className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold">Dernières commandes</h2>
-              <Link to="/dashboard/orders" className="text-sm font-medium hover:underline">
-                Tout voir
-              </Link>
-            </div>
-            {recentOrders.length === 0 ? (
-              <Card className="p-5 text-center">
-                <p className="text-sm text-zinc-500">Aucune commande pour le moment.</p>
-                <Link to="/events" className="mt-3 inline-block">
-                  <Button size="sm">Découvrir les événements</Button>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Billets à venir */}
+            <Card>
+              <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                <div>
+                  <CardTitle>Billets à venir</CardTitle>
+                  <CardDescription>Vos prochaines sorties.</CardDescription>
+                </div>
+                <Link
+                  to="/dashboard/tickets"
+                  className="inline-flex shrink-0 items-center gap-0.5 text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
+                >
+                  Tout voir <ArrowUpRight className="size-4" aria-hidden />
                 </Link>
-              </Card>
-            ) : (
-              recentOrders.map((o) => (
-                <Link key={o.id} to={`/dashboard/orders/${o.id}`}>
-                  <Card className="flex items-center justify-between p-4 transition hover:shadow-md">
-                    <div>
-                      <p className="font-mono text-sm font-semibold">{o.order_number}</p>
-                      <p className="text-xs text-zinc-500">
-                        {o.event?.title ?? '—'} · {formatDate(o.created_at)} · {formatAr(o.total)}
-                      </p>
-                    </div>
-                    <OrderStatusBadge status={o.payment_status} />
-                  </Card>
-                </Link>
-              ))
-            )}
-          </section>
+              </CardHeader>
+              <CardContent>
+                {upcomingTickets.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-zinc-300 px-4 py-8 text-center">
+                    <p className="text-sm text-zinc-500">
+                      {validTickets.length === 0
+                        ? 'Vos futurs événements apparaîtront ici après achat.'
+                        : 'Aucun événement à venir.'}
+                    </p>
+                  </div>
+                ) : (
+                  <ul className="-mx-2 space-y-1">
+                    {upcomingTickets.map((t) => {
+                      const parts = dayParts(t.event!.starts_at);
+                      return (
+                        <li key={t.id}>
+                          <Link
+                            to={t.event ? `/events/${t.event.slug}` : '/dashboard/tickets'}
+                            className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition hover:bg-zinc-50"
+                          >
+                            <span className="flex w-12 shrink-0 flex-col items-center rounded-md border border-zinc-200 py-1.5">
+                              <span className="text-sm font-bold leading-none tabular-nums">{parts.day}</span>
+                              <span className="mt-0.5 text-[10px] font-medium uppercase text-zinc-500">{parts.month}</span>
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium">{t.event!.title}</span>
+                              <span className="block truncate text-xs text-zinc-500">
+                                {t.event!.venue} · {t.ticket_type?.name ?? ''}
+                              </span>
+                            </span>
+                            <span className="shrink-0 rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700">
+                              {daysLeftLabel(t.event!.starts_at)}
+                            </span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
 
-          <section aria-label="Prochains événements" className="space-y-3">
-            <h2 className="font-bold">Mes prochains événements</h2>
-            {upcomingTickets.length === 0 ? (
-              <Card className="p-5">
-                <p className="text-sm text-zinc-500">
-                  {validTickets.length === 0
-                    ? 'Vos futurs événements apparaîtront ici après achat.'
-                    : 'Aucun événement à venir.'}
-                </p>
-              </Card>
-            ) : (
-              upcomingTickets.map((t) => (
-                <Link key={t.id} to={t.event ? `/events/${t.event.slug}` : '/dashboard/tickets'}>
-                  <Card className="flex items-center justify-between p-4 transition hover:shadow-md">
-                    <div>
-                      <p className="text-sm font-semibold">{t.event!.title}</p>
-                      <p className="text-xs text-zinc-500">
-                        {formatDate(t.event!.starts_at)} · {t.event!.venue},{' '}
-                        {t.event!.city} · {t.ticket_type?.name ?? ''}
-                      </p>
-                    </div>
-                    <span className="font-mono text-xs text-zinc-400">{t.ticket_number}</span>
-                  </Card>
+            {/* Dernières commandes */}
+            <Card>
+              <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                <div>
+                  <CardTitle>Dernières commandes</CardTitle>
+                  <CardDescription>Vos achats les plus récents.</CardDescription>
+                </div>
+                <Link
+                  to="/dashboard/orders"
+                  className="inline-flex shrink-0 items-center gap-0.5 text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
+                >
+                  Tout voir <ArrowUpRight className="size-4" aria-hidden />
                 </Link>
-              ))
-            )}
-          </section>
+              </CardHeader>
+              <CardContent>
+                {recentOrders.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-zinc-300 px-4 py-8 text-center">
+                    <p className="text-sm text-zinc-500">Aucune commande pour le moment.</p>
+                    <Link to="/events" className="mt-3 inline-block">
+                      <Button size="sm" variant="secondary">
+                        Découvrir les événements
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <ul className="-mx-2 space-y-1">
+                    {recentOrders.map((o) => (
+                      <li key={o.id}>
+                        <Link
+                          to={`/dashboard/orders/${o.id}`}
+                          className="flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 transition hover:bg-zinc-50"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-mono text-sm font-medium">{o.order_number}</span>
+                            <span className="block truncate text-xs text-zinc-500">
+                              {o.event?.title ?? '—'} · {formatDate(o.created_at)}
+                            </span>
+                          </span>
+                          <span className="flex shrink-0 flex-col items-end gap-1">
+                            <span className="text-sm font-semibold tabular-nums">{formatAr(o.total)}</span>
+                            <OrderStatusBadge status={o.payment_status} />
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
-          {events.data && events.data.length > 0 && orders.data!.length === 0 && (
-            <section aria-label="Suggestion">
-              <Card className="p-5 text-center">
-                <p className="text-sm font-semibold">À l'affiche en ce moment</p>
-                <p className="mt-1 text-sm text-zinc-500">
-                  {events.data[0].title} — {formatDate(events.data[0].starts_at)}
-                </p>
-                <Link to="/events" className="mt-3 inline-block">
+          {/* Suggestion si aucun achat */}
+          {orders.data!.length === 0 && events.data && events.data.length > 0 && (
+            <Card>
+              <CardContent className="flex flex-col items-start gap-1 pt-6 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="flex items-center gap-1.5 text-sm font-medium">
+                    <CalendarDays className="size-4 text-zinc-500" aria-hidden />
+                    À l’affiche : {events.data[0].title}
+                  </p>
+                  <p className="mt-0.5 text-sm text-zinc-500">
+                    {formatDate(events.data[0].starts_at)} — réservez vos places en Mobile Money.
+                  </p>
+                </div>
+                <Link to="/events" className="shrink-0">
                   <Button size="sm" variant="secondary">
                     Parcourir
                   </Button>
                 </Link>
-              </Card>
-            </section>
+              </CardContent>
+            </Card>
           )}
         </>
       )}

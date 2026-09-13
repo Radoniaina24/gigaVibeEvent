@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, QrCode, Smartphone, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, Mail, QrCode, Smartphone, Sparkles } from 'lucide-react';
 import { registerSchema, type RegisterInput } from '../../schemas/auth';
 import { useAuth } from '../../features/auth/AuthContext';
+import { useToast } from '../../components/ui/Toaster';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Logo } from '../../components/brand/Logo';
@@ -17,6 +18,7 @@ const BENEFITS = [
 
 export function RegisterPage() {
   const { signUp } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPasswords, setShowPasswords] = useState(false);
@@ -29,13 +31,24 @@ export function RegisterPage() {
   const onSubmit = async (values: RegisterInput) => {
     setServerError(null);
     try {
-      await signUp({
+      const { confirmationSent } = await signUp({
         email: values.email,
         password: values.password,
         first_name: values.first_name,
         last_name: values.last_name,
         phone: values.phone || undefined,
       });
+      if (confirmationSent) {
+        toast.success(
+          'Compte créé — vérifiez votre adresse email',
+          `Un lien de confirmation a été envoyé à ${values.email}. Cliquez dessus avant de vous connecter.`,
+        );
+      } else {
+        toast.success(
+          'Compte créé avec succès',
+          'Vous pouvez maintenant vous connecter.',
+        );
+      }
       navigate('/login', { replace: true });
     } catch (err) {
       setServerError(
@@ -95,6 +108,13 @@ export function RegisterPage() {
           <p className="mt-1 text-sm text-zinc-500">
             Achetez vos billets en quelques minutes.
           </p>
+          <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-blue-200 bg-blue-50 p-3">
+            <Mail className="mt-0.5 size-4 shrink-0 text-blue-600" aria-hidden />
+            <p className="text-xs leading-relaxed text-blue-900">
+              Après votre inscription, <strong>vérifiez votre adresse email</strong> :
+              cliquez sur le lien de confirmation avant de vous connecter.
+            </p>
+          </div>
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
             <div className="grid grid-cols-2 gap-3">
               <Input

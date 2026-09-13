@@ -5,9 +5,9 @@ import { Button } from '../../components/ui/Button';
 import {
   EmptyState,
   ErrorState,
-  LoadingState,
 } from '../../components/ui/States';
 import { TicketCard } from '../../components/tickets/TicketCard';
+import { TicketListSkeleton } from '../../components/dashboard/DashboardSkeletons';
 import { cn } from '../../lib/utils';
 
 const FILTERS = [
@@ -21,18 +21,36 @@ export function UserTicketsPage() {
   const { data, isPending, isError, refetch } = useMyTickets();
   const [filter, setFilter] = useState<string>('all');
 
-  if (isPending) return <LoadingState label="Chargement des billets…" />;
-  if (isError)
-    return (
-      <ErrorState
-        description="Impossible de charger vos billets."
-        onRetry={() => refetch()}
-      />
-    );
-  if (!data.length)
-    return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold">Mes billets</h1>
+  const countFor = (v: string) =>
+    !data ? 0 : v === 'all' ? data.length : data.filter((t) => t.status === v).length;
+
+  return (
+    <div className="space-y-6">
+      {/* En-tête */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Billets</h1>
+          <p className="text-sm text-zinc-500">
+            {isPending
+              ? 'Chargement…'
+              : `${data?.length ?? 0} billet${(data?.length ?? 0) > 1 ? 's' : ''} au total.`}
+          </p>
+        </div>
+        <Link to="/events">
+          <Button size="sm" variant="secondary">
+            Acheter des billets
+          </Button>
+        </Link>
+      </div>
+
+      {isPending ? (
+        <TicketListSkeleton />
+      ) : isError ? (
+        <ErrorState
+          description="Impossible de charger vos billets."
+          onRetry={() => refetch()}
+        />
+      ) : !data.length ? (
         <EmptyState
           title="Aucun billet."
           description="Vos billets QR Code apparaîtront ici après paiement confirmé."
@@ -42,44 +60,59 @@ export function UserTicketsPage() {
             </Link>
           }
         />
-      </div>
-    );
-
-  const filtered =
-    filter === 'all' ? data : data.filter((t) => t.status === filter);
-
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Mes billets</h1>
-      <div role="group" aria-label="Filtrer par statut" className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => setFilter(f.value)}
-            aria-pressed={filter === f.value}
-            className={cn(
-              'rounded-full px-4 py-1.5 text-sm font-medium transition',
-              filter === f.value
-                ? 'bg-zinc-900 text-white'
-                : 'border border-zinc-300 bg-white hover:bg-zinc-100',
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-      {filtered.length === 0 ? (
-        <EmptyState
-          title="Aucun billet dans cette catégorie."
-          description="Essayez un autre filtre."
-        />
       ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {filtered.map((t) => (
-            <TicketCard key={t.id} ticket={t} />
-          ))}
-        </div>
+        <>
+          {/* Onglets façon shadcn Tabs */}
+          <div
+            role="tablist"
+            aria-label="Filtrer par statut"
+            className="inline-flex h-9 max-w-full items-center justify-center gap-1 overflow-x-auto rounded-lg bg-zinc-100 p-1 text-zinc-500"
+          >
+            {FILTERS.map((f) => {
+              const active = filter === f.value;
+              return (
+                <button
+                  key={f.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setFilter(f.value)}
+                  className={cn(
+                    'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all',
+                    active
+                      ? 'bg-white text-zinc-900 shadow'
+                      : 'hover:text-zinc-900',
+                  )}
+                >
+                  {f.label}
+                  <span
+                    className={cn(
+                      'rounded-full px-1.5 text-xs tabular-nums',
+                      active ? 'bg-zinc-100 text-zinc-700' : 'text-zinc-400',
+                    )}
+                  >
+                    {countFor(f.value)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {data.filter((t) => filter === 'all' || t.status === filter).length === 0 ? (
+            <EmptyState
+              title="Aucun billet dans cette catégorie."
+              description="Essayez un autre filtre."
+            />
+          ) : (
+            <div className="grid gap-4 xl:grid-cols-2">
+              {data
+                .filter((t) => filter === 'all' || t.status === filter)
+                .map((t) => (
+                  <TicketCard key={t.id} ticket={t} />
+                ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

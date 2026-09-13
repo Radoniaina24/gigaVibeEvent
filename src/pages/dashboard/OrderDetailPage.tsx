@@ -8,7 +8,7 @@ import {
   useSimulatePayment,
 } from '../../features/orders/hooks';
 import { formatAr, formatDateTime } from '../../lib/utils';
-import { Card } from '../../components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import {
   EmptyState,
@@ -83,129 +83,154 @@ export function OrderDetailPage() {
     <div className="space-y-6">
       <Link
         to="/dashboard/orders"
-        className="inline-flex items-center gap-1 text-sm font-medium text-zinc-600 hover:underline"
+        className="inline-flex items-center gap-1 text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
       >
-        <ArrowLeft className="size-4" aria-hidden /> Mes commandes
+        <ArrowLeft className="size-4" aria-hidden /> Commandes
       </Link>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-mono text-xl font-bold">{order.order_number}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-mono text-xl font-bold tracking-tight">{order.order_number}</h1>
+          <p className="text-sm text-zinc-500">
+            Créée le {formatDateTime(order.created_at)}
+          </p>
+        </div>
         <OrderStatusBadge status={order.payment_status} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="p-5">
-          <h2 className="font-bold">Événement</h2>
-          {order.event ? (
-            <div className="mt-2 text-sm">
-              <Link
-                to={`/events/${order.event.slug}`}
-                className="font-semibold hover:underline"
-              >
-                {order.event.title}
-              </Link>
-              <p className="mt-1 text-zinc-500">
-                {formatDateTime(order.event.starts_at)}
-              </p>
-              <p className="text-zinc-500">
-                {order.event.venue}, {order.event.city}
-              </p>
-            </div>
-          ) : (
-            <p className="mt-2 text-sm text-zinc-500">—</p>
-          )}
-          <dl className="mt-3 space-y-1 border-t border-zinc-100 pt-3 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-zinc-500">Créée le</dt>
-              <dd>{formatDateTime(order.created_at)}</dd>
-            </div>
-            {order.paid_at && (
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Payée le</dt>
-                <dd>{formatDateTime(order.paid_at)}</dd>
-              </div>
-            )}
-            {order.ticket_count > 0 && (
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Billets</dt>
-                <dd>
-                  <Link to="/dashboard/tickets" className="font-medium hover:underline">
-                    Voir les {order.ticket_count} billets
+        <Card>
+          <CardHeader>
+            <CardTitle>Événement</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {order.event ? (
+              <div className="flex items-start gap-3">
+                {order.event.image_url ? (
+                  <img
+                    src={order.event.image_url}
+                    alt=""
+                    className="size-14 shrink-0 rounded-lg object-cover"
+                  />
+                ) : null}
+                <div className="min-w-0 text-sm">
+                  <Link
+                    to={`/events/${order.event.slug}`}
+                    className="font-semibold hover:underline"
+                  >
+                    {order.event.title}
                   </Link>
-                </dd>
+                  <p className="mt-1 text-zinc-500">
+                    {formatDateTime(order.event.starts_at)}
+                  </p>
+                  <p className="text-zinc-500">
+                    {order.event.venue}, {order.event.city}
+                  </p>
+                </div>
               </div>
+            ) : (
+              <p className="text-sm text-zinc-500">—</p>
             )}
-          </dl>
+            <dl className="mt-4 space-y-2 border-t border-zinc-100 pt-4 text-sm">
+              {order.paid_at && (
+                <div className="flex justify-between">
+                  <dt className="text-zinc-500">Payée le</dt>
+                  <dd>{formatDateTime(order.paid_at)}</dd>
+                </div>
+              )}
+              {order.ticket_count > 0 && (
+                <div className="flex justify-between">
+                  <dt className="text-zinc-500">Billets</dt>
+                  <dd>
+                    <Link to="/dashboard/tickets" className="font-medium hover:underline">
+                      Voir les {order.ticket_count} billets
+                    </Link>
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </CardContent>
         </Card>
 
-        <Card className="p-5">
-          <h2 className="font-bold">Paiement</h2>
-          {payment ? (
-            <dl className="mt-2 space-y-1 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Méthode</dt>
-                <dd className="font-medium">
-                  {PROVIDER_LABEL[payment.provider] ?? payment.provider}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Montant</dt>
-                <dd className="font-semibold tabular-nums">{formatAr(payment.amount)}</dd>
-              </div>
-              {payment.phone_number && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Paiement</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {payment ? (
+              <dl className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <dt className="text-zinc-500">Numéro</dt>
-                  <dd>{payment.phone_number}</dd>
+                  <dt className="text-zinc-500">Méthode</dt>
+                  <dd className="font-medium">
+                    {PROVIDER_LABEL[payment.provider] ?? payment.provider}
+                  </dd>
                 </div>
-              )}
-              {payment.provider_ref && (
                 <div className="flex justify-between">
-                  <dt className="text-zinc-500">Référence</dt>
-                  <dd className="font-mono text-xs">{payment.provider_ref}</dd>
+                  <dt className="text-zinc-500">Montant</dt>
+                  <dd className="font-semibold tabular-nums">{formatAr(payment.amount)}</dd>
                 </div>
-              )}
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Statut</dt>
-                <dd>
-                  <OrderStatusBadge status={payment.status} />
-                </dd>
-              </div>
-            </dl>
-          ) : (
-            <p className="mt-2 text-sm text-zinc-500">Aucun paiement enregistré.</p>
-          )}
+                {payment.phone_number && (
+                  <div className="flex justify-between">
+                    <dt className="text-zinc-500">Numéro</dt>
+                    <dd>{payment.phone_number}</dd>
+                  </div>
+                )}
+                {payment.provider_ref && (
+                  <div className="flex justify-between">
+                    <dt className="text-zinc-500">Référence</dt>
+                    <dd className="font-mono text-xs">{payment.provider_ref}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <dt className="text-zinc-500">Statut</dt>
+                  <dd>
+                    <OrderStatusBadge status={payment.status} />
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="text-sm text-zinc-500">Aucun paiement enregistré.</p>
+            )}
+          </CardContent>
         </Card>
       </div>
 
-      <Card className="p-5">
-        <h2 className="font-bold">Billets commandés</h2>
-        <ul className="mt-3 divide-y divide-zinc-100 text-sm">
-          {order.items.map((item) => (
-            <li key={item.id} className="py-2">
-              <div className="flex justify-between gap-2">
-                <span>
-                  {item.ticket_type?.name ?? 'Billet'} · {formatAr(item.unit_price)} ×{' '}
-                  {item.quantity}
-                </span>
-                <strong className="tabular-nums">{formatAr(item.total_price)}</strong>
-              </div>
-              {item.holder_names && item.holder_names.length > 0 && (
-                <p className="mt-0.5 text-xs text-zinc-500">
-                  Participants : {item.holder_names.join(', ')}
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 flex justify-between border-t border-zinc-100 pt-3 font-bold">
-          <span>TOTAL</span>
-          <span className="tabular-nums">{formatAr(order.total)}</span>
-        </p>
+      <Card>
+        <CardHeader>
+          <CardTitle>Billets commandés</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="divide-y divide-zinc-100 text-sm">
+            {order.items.map((item) => (
+              <li key={item.id} className="py-2.5 first:pt-0 last:pb-0">
+                <div className="flex justify-between gap-2">
+                  <span>
+                    {item.ticket_type?.name ?? 'Billet'} · {formatAr(item.unit_price)} ×{' '}
+                    {item.quantity}
+                  </span>
+                  <strong className="tabular-nums">{formatAr(item.total_price)}</strong>
+                </div>
+                {item.holder_names && item.holder_names.length > 0 && (
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    Participants : {item.holder_names.join(', ')}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-4 flex justify-between border-t border-zinc-100 pt-4 font-semibold">
+            <span>Total</span>
+            <span className="tabular-nums">{formatAr(order.total)}</span>
+          </p>
+        </CardContent>
       </Card>
 
       {canAct && (
-        <Card className="space-y-3 p-5">
-          <h2 className="font-bold">Actions</h2>
+        <Card>
+          <CardHeader>
+            <CardTitle>Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
           {env.enablePaymentSimulation && (
             <div className="rounded-xl border border-dashed border-amber-400 bg-amber-50 p-3">
               <p className="text-xs font-semibold text-amber-800">
@@ -243,6 +268,7 @@ export function OrderDetailPage() {
               {serverError}
             </p>
           )}
+          </CardContent>
         </Card>
       )}
     </div>
