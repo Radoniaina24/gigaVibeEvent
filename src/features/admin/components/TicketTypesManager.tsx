@@ -35,11 +35,36 @@ function toLocalInput(iso: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function TicketTypesManager({ eventId }: { eventId: string }) {
-  const { data: event, isPending } = useAdminEvent(eventId);
-  const createType = useCreateTicketType();
-  const updateType = useUpdateTicketType();
-  const deleteType = useDeleteTicketType();
+export function TicketTypesManager({
+  eventId,
+  fetchHook = useAdminEvent,
+  createHook = useCreateTicketType,
+  updateHook = useUpdateTicketType,
+  deleteHook = useDeleteTicketType,
+}: {
+  eventId: string;
+  /** Injection des hooks (admin par défaut, partenaire en espace organisateur). */
+  fetchHook?: (id: string | undefined) => {
+    data: { ticket_types: TicketType[] } | null | undefined;
+    isPending: boolean;
+  };
+  createHook?: () => {
+    mutateAsync: (v: { event_id: string; input: TicketTypeInput }) => Promise<unknown>;
+    isPending: boolean;
+  };
+  updateHook?: () => {
+    mutateAsync: (v: { id: string; input: TicketTypeInput }) => Promise<unknown>;
+    isPending: boolean;
+  };
+  deleteHook?: () => {
+    mutateAsync: (row: TicketType) => Promise<unknown>;
+    isPending: boolean;
+  };
+}) {
+  const { data: event, isPending } = fetchHook(eventId);
+  const createType = createHook();
+  const updateType = updateHook();
+  const deleteType = deleteHook();
 
   const [editing, setEditing] = useState<TicketType | 'new' | null>(null);
   const [toDelete, setToDelete] = useState<TicketType | null>(null);

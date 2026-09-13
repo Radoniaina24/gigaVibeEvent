@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react';
+import { Check, ReceiptText, X } from 'lucide-react';
 import { useAdminPayments } from '../../features/admin/hooks';
+import { useValidatePayment } from '../../features/orders/hooks';
+import { signReceiptUrl } from '../../services/storage';
 import { DataTable } from '../../components/admin/DataTable';
 import { Pagination } from '../../components/admin/Pagination';
+import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Fields';
 import {
@@ -25,9 +29,14 @@ const METHOD_LABEL: Record<string, string> = {
 
 export function AdminPaymentsPage() {
   const { data, isPending, isError, refetch } = useAdminPayments();
+  const validate = useValidatePayment();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
+  const [actingId, setActingId] = useState<string | null>(null);
+  const [signingId, setSigningId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -48,9 +57,56 @@ export function AdminPaymentsPage() {
   const safePage = Math.min(page, totalPages);
   const rows = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
+  const handleValidate = async (orderId: string, approved: boolean) => {
+    setActionError(null);
+    setActionSuccess(null);
+    setActingId(orderId);
+    try {
+      const res = await validate.mutateAsync({ order_id: orderId, approved });
+      setActionSuccess(
+        approved
+          ? `Paiement validé — ${res.tickets} billet${res.tickets > 1 ? 's' : ''} généré${res.tickets > 1 ? 's' : ''}.`
+          : 'Paiement refusé — stock libéré.',
+      );
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Validation impossible.');
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const openReceipt = async (paymentId: string, path: string) => {
+    setActionError(null);
+    setSigningId(paymentId);
+    try {
+      const url = path.startsWith('http') ? path : await signReceiptUrl(path);
+      window.open(url, '_blank', 'noopener');
+    } catch {
+      setActionError('Reçu illisible.');
+    } finally {
+      setSigningId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Paiements</h1>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Paiements</h1>
+        <p className="text-sm text-zinc-500">
+          Déclarations manuelles à vérifier : référence opérateur, montant et reçu.
+        </p>
+      </div>
+
+      {actionError && (
+        <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          {actionError}
+        </p>
+      )}
+      {actionSuccess && (
+        <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
+          {actionSuccess}
+        </p>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Input
@@ -97,7 +153,20 @@ export function AdminPaymentsPage() {
                 key: 'ref',
                 header: 'Référence',
                 render: (p) => (
-                  <span className="font-mono text-xs">{p.provider_ref ?? '—'}</span>
+                  <span>
+                    <span className="font-mono text-xs">{p.provider_ref ?? '—'}</span>
+                    {p.receipt_url && (
+                      <button
+                        type="button"
+                        title="Voir le reçu"
+                        disabled={signingId === p.id}
+                        onClick={() => openReceipt(p.id, p.receipt_url as string)}
+                        className="ml-1 rounded-md p-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50"
+                      >
+                        <ReceiptText className="size-4" aria-hidden />
+                      </button>
+                    )}
+                  </span>
                 ),
               },
               {
@@ -135,6 +204,34 @@ export function AdminPaymentsPage() {
                 render: (p) => (
                   <span className="whitespace-nowrap text-xs">{formatDateTime(p.created_at)}</span>
                 ),
+              },
+              {
+                key: 'actions',
+                header: 'Validation',
+                render: (p) =>
+                  p.status === 'pending' || p.status === 'processing' ? (
+                    <span className="flex gap-1">
+                      <Button
+                        size="sm"
+                        loading={actingId === p.order_id}
+                        onClick={() => handleValidate(p.order_id, true)}
+                        title="Valider : génère les billets"
+                      >
+                        <Check className="size-4" aria-hidden /> Valider
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={actingId === p.order_id}
+                        onClick={() => handleValidate(p.order_id, false)}
+                        title="Refuser : libère le stock"
+                      >
+                        <X className="size-4" aria-hidden />
+                      </Button>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-zinc-400">—</span>
+                  ),
               },
             ]}
           />

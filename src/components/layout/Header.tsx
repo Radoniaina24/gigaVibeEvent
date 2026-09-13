@@ -54,7 +54,7 @@ function initials(name: string, email: string | undefined): string {
 }
 
 export function Header() {
-  const { user, profile, isAdmin, signOut } = useAuth();
+  const { user, profile, isAdmin, isPartner, signOut } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
@@ -126,6 +126,7 @@ export function Header() {
             <NavItem to="/events" label="Événements" />
             <NavItem to="/contact" label="Contact" />
             {user && <NavItem to="/dashboard" label="Dashboard" />}
+            {isPartner && <NavItem to="/partner" label="Organisateur" />}
             {isAdmin && <NavItem to="/admin" label="Admin" />}
           </nav>
 
@@ -274,6 +275,7 @@ export function Header() {
                 { to: '/events', label: 'Événements' },
                 { to: '/contact', label: 'Contact' },
                 ...(user ? [{ to: '/dashboard', label: 'Dashboard' }] : []),
+                ...(isPartner ? [{ to: '/partner', label: 'Espace organisateur' }] : []),
                 ...(isAdmin ? [{ to: '/admin', label: 'Administration' }] : []),
                 ...(user
                   ? [

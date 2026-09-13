@@ -3,6 +3,8 @@ import {
   BarChart3,
   CalendarDays,
   ExternalLink,
+  Handshake,
+  Inbox,
   LayoutDashboard,
   Receipt,
   Settings,
@@ -41,6 +43,13 @@ const groups: AdminGroup[] = [
       { to: '/admin/orders', label: 'Commandes', icon: Receipt },
       { to: '/admin/payments', label: 'Paiements', icon: Wallet },
       { to: '/admin/tickets', label: 'Billets', icon: Ticket },
+    ],
+  },
+  {
+    title: 'Partenaires',
+    links: [
+      { to: '/admin/partners', label: 'Partenaires', icon: Handshake },
+      { to: '/admin/validations', label: 'Validations', icon: Inbox },
     ],
   },
   {

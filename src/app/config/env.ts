@@ -3,7 +3,7 @@ export const env = {
   supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY as
     | string
     | undefined,
-  appName: (import.meta.env.VITE_APP_NAME as string | undefined) ?? 'Ticket',
+  appName: (import.meta.env.VITE_APP_NAME as string | undefined) ?? 'Giga Vibe Event',
   appUrl:
     (import.meta.env.VITE_APP_URL as string | undefined) ??
     'http://localhost:5173',

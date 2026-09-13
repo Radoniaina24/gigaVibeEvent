@@ -2,7 +2,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { PublicLayout } from '../../components/layout/PublicLayout';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { AdminLayout } from '../../components/layout/AdminLayout';
-import { AdminRoute, ProtectedRoute } from '../../components/layout/Guards';
+import { AdminRoute, PartnerRoute, ProtectedRoute } from '../../components/layout/Guards';
 import { HomePage } from '../../pages/public/HomePage';
 import { EventsPage } from '../../pages/public/EventsPage';
 import { EventDetailPage } from '../../pages/public/EventDetailPage';
@@ -30,6 +30,13 @@ import { AdminPaymentsPage } from '../../pages/admin/AdminPaymentsPage';
 import { AdminTicketsPage } from '../../pages/admin/AdminTicketsPage';
 import { AdminStatisticsPage } from '../../pages/admin/AdminStatisticsPage';
 import { AdminSettingsPage } from '../../pages/admin/AdminSettingsPage';
+import { AdminPartnersPage } from '../../pages/admin/AdminPartnersPage';
+import { AdminValidationsPage } from '../../pages/admin/AdminValidationsPage';
+import { PartnerLayout } from '../../components/layout/PartnerLayout';
+import { PartnerDashboardPage } from '../../pages/partner/PartnerDashboardPage';
+import { PartnerEventsPage } from '../../pages/partner/PartnerEventsPage';
+import { PartnerEventFormPage } from '../../pages/partner/PartnerEventFormPage';
+import { PartnerPaymentsPage } from '../../pages/partner/PartnerPaymentsPage';
 
 const router = createBrowserRouter([
   {
@@ -66,6 +73,21 @@ const router = createBrowserRouter([
     ],
   },
   {
+    element: <PartnerRoute />,
+    children: [
+      {
+        element: <PartnerLayout />,
+        children: [
+          { path: '/partner', element: <PartnerDashboardPage /> },
+          { path: '/partner/events', element: <PartnerEventsPage /> },
+          { path: '/partner/events/new', element: <PartnerEventFormPage /> },
+          { path: '/partner/events/:id/edit', element: <PartnerEventFormPage /> },
+          { path: '/partner/payments', element: <PartnerPaymentsPage /> },
+        ],
+      },
+    ],
+  },
+  {
     element: <AdminRoute />,
     children: [
       {
@@ -82,6 +104,8 @@ const router = createBrowserRouter([
           { path: '/admin/tickets', element: <AdminTicketsPage /> },
           { path: '/admin/users', element: <AdminUsersPage /> },
           { path: '/admin/users/:id', element: <AdminUserDetailPage /> },
+          { path: '/admin/partners', element: <AdminPartnersPage /> },
+          { path: '/admin/validations', element: <AdminValidationsPage /> },
           { path: '/admin/statistics', element: <AdminStatisticsPage /> },
           { path: '/admin/settings', element: <AdminSettingsPage /> },
         ],

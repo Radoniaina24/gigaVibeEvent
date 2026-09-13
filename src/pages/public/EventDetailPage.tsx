@@ -12,7 +12,6 @@ import {
   Share2,
   ShieldCheck,
   Ticket,
-  User,
 } from 'lucide-react';
 import { useEventDetail } from '../../hooks/useEvents';
 import { usePageMeta } from '../../hooks/usePageMeta';
@@ -25,6 +24,7 @@ import {
   ErrorState,
 } from '../../components/ui/States';
 import { EventImage } from '../../components/events/EventImage';
+import { OrganizedBy } from '../../components/brand/CoBrand';
 import { EventDetailSkeleton } from '../../components/events/EventSkeletons';
 import { TicketTypeCard } from '../../components/events/TicketTypeCard';
 import { OrderSummary, type OrderLine } from '../../components/orders/OrderSummary';
@@ -217,12 +217,13 @@ export function EventDetailPage() {
                 </div>
               </div>
 
-              {event.organizer && (
-                <p className="mt-4 flex items-center gap-1.5 text-sm text-zinc-300">
-                  <User className="size-4 shrink-0 text-gold-400" aria-hidden />
-                  Organisé par <strong className="font-semibold text-white">{event.organizer}</strong>
-                </p>
-              )}
+              <div className="mt-4">
+                <OrganizedBy
+                  partner={event.partner}
+                  fallbackOrganizer={event.organizer}
+                  dark
+                />
+              </div>
               <p className="mt-2 flex items-center gap-1.5 text-sm text-zinc-300">
                 <MapPin className="size-4 shrink-0 text-gold-400" aria-hidden />
                 {event.venue} · {event.city} — {timeLabel}

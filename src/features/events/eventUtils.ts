@@ -24,8 +24,15 @@ export interface EventCategory {
   slug: string;
 }
 
+export interface EventPartner {
+  id: string;
+  name: string;
+  logo_url: string | null;
+}
+
 export interface EventWithStats extends Event {
   category: EventCategory | null;
+  partner: EventPartner | null; // co-branding §10 (NULL = événement GVE direct)
   ticket_types: EventListTicketType[];
   min_price: number | null;
   total_available: number;
@@ -48,6 +55,7 @@ interface RawTicketTypeRow {
 
 export interface RawEventRow {
   category: { id: string; name: string; slug: string } | null;
+  partner: { id: string; name: string; logo_url: string | null } | null;
   ticket_types: RawTicketTypeRow[] | null;
   [key: string]: unknown;
 }
@@ -85,6 +93,7 @@ export function mapEventRow(row: RawEventRow): EventWithStats {
   return {
     ...event,
     category: row.category,
+    partner: row.partner ?? null,
     ticket_types: ticketTypes,
     min_price: onSalePrices.length ? Math.min(...onSalePrices) : null,
     total_available: totalAvailable,

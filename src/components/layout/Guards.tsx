@@ -31,3 +31,19 @@ export function AdminRoute() {
   }
   return <Outlet />;
 }
+
+/** Exige le rôle partenaire (espace organisateur, étape 2 du CDC v2). */
+export function PartnerRoute() {
+  const { user, isPartner, isAdmin, isLoading, profile } = useAuth();
+  const location = useLocation();
+  if (isLoading) return <LoadingState label="Vérification des droits…" />;
+  if (!user) {
+    return (
+      <Navigate to={`/login?next=${encodeURIComponent(location.pathname)}`} replace />
+    );
+  }
+  if (!profile || (!isPartner && !isAdmin)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Outlet />;
+}

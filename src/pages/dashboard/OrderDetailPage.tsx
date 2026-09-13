@@ -8,6 +8,7 @@ import {
   useSimulatePayment,
 } from '../../features/orders/hooks';
 import { formatAr, formatDateTime } from '../../lib/utils';
+import { OrganizedBy } from '../../components/brand/CoBrand';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import {
@@ -126,6 +127,9 @@ export function OrderDetailPage() {
                   <p className="text-zinc-500">
                     {order.event.venue}, {order.event.city}
                   </p>
+                  <div className="mt-2 border-t border-zinc-100 pt-2">
+                    <OrganizedBy partner={order.event.partner ?? null} />
+                  </div>
                 </div>
               </div>
             ) : (

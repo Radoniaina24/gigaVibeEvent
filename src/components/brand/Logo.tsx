@@ -15,7 +15,7 @@ export function LogoMark({ size = 36 }: { size?: number }) {
       height={size}
       viewBox="0 0 48 48"
       role="img"
-      aria-label="Logo Ticket"
+      aria-label={`Logo ${env.appName}`}
     >
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">

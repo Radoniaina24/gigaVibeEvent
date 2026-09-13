@@ -191,8 +191,11 @@ export function AdminEventFormPage() {
           </Select>
           <Select label="Statut" error={errors.status?.message} {...register('status')}>
             <option value="draft">Brouillon</option>
+            <option value="pending_review">En validation</option>
+            <option value="changes_requested">Modifs demandées</option>
             <option value="published">Publié</option>
             <option value="sold_out">Complet</option>
+            <option value="suspended">Suspendu</option>
             <option value="cancelled">Annulé</option>
             <option value="completed">Terminé</option>
           </Select>

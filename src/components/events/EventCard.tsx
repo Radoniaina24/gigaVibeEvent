@@ -65,6 +65,21 @@ export function EventCard({ event }: { event: EventWithStats }) {
             {event.venue} · {event.city}
           </span>
         </p>
+        {event.partner && (
+          <p className="flex items-center gap-1.5 text-xs text-zinc-500">
+            {event.partner.logo_url ? (
+              <img
+                src={event.partner.logo_url}
+                alt=""
+                aria-hidden
+                className="size-4 shrink-0 rounded-full border border-zinc-200 bg-white object-cover"
+              />
+            ) : null}
+            <span className="line-clamp-1">
+              Par <strong className="font-semibold text-zinc-700">{event.partner.name}</strong>
+            </span>
+          </p>
+        )}
         <div className="flex items-center justify-between border-t border-zinc-100 pt-3">
           <p className="text-sm">
             {event.min_price !== null ? (

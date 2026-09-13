@@ -1,19 +1,22 @@
 import { useCallback, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { z } from 'zod';
 import { env } from '../../app/config/env';
 import { useAuth } from '../../features/auth/AuthContext';
 import {
   useCancelOrder,
   useCreateOrder,
+  useDeclarePayment,
   type CreateOrderResult,
 } from '../../features/orders/hooks';
 import { useSimulatePayment } from '../../features/orders/hooks';
+import { PAYMENT_METHODS } from '../../features/payments/providers';
 import {
   checkoutLineSchema,
   type CheckoutLine,
   type CheckoutPaymentInput,
+  type ManualPaymentInput,
 } from '../../schemas/orders';
 import { formatAr } from '../../lib/utils';
 import { Button } from '../../components/ui/Button';
@@ -22,6 +25,7 @@ import { Badge } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/States';
 import { AttendeeForm } from '../../features/orders/components/AttendeeForm';
 import { PaymentMethodForm } from '../../features/orders/components/PaymentMethodForm';
+import { ManualPaymentForm } from '../../features/orders/components/ManualPaymentForm';
 
 const checkoutStateSchema = z.object({
   eventId: z.string().uuid(),
@@ -55,12 +59,15 @@ export function CheckoutPage() {
   const [attendeesValid, setAttendeesValid] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [order, setOrder] = useState<CreateOrderResult | null>(null);
+  const [orderMethod, setOrderMethod] = useState<string>('mvola');
   const [paidTickets, setPaidTickets] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
+  const [declared, setDeclared] = useState(false);
 
   const createOrder = useCreateOrder();
   const simulate = useSimulatePayment();
   const cancelOrder = useCancelOrder();
+  const declarePayment = useDeclarePayment();
 
   const onValidityChange = useCallback((valid: boolean) => {
     setAttendeesValid(valid);
@@ -121,11 +128,32 @@ export function CheckoutPage() {
         })),
       });
       setOrder(result);
+      setOrderMethod(values.payment_method);
+      setDeclared(false);
+      setFailed(false);
+      setPaidTickets(null);
       setStep(3);
     } catch (err) {
       setServerError(
         err instanceof Error ? err.message : 'Création de la commande impossible.',
       );
+    }
+  };
+
+  const submitDeclaration = async (values: ManualPaymentInput & { amount: number }) => {
+    if (!order) return;
+    setServerError(null);
+    try {
+      await declarePayment.mutateAsync({
+        order_id: order.order_id,
+        phone: values.phone,
+        amount: values.amount,
+        reference: values.reference,
+        receipt_url: values.receipt_url || undefined,
+      });
+      setDeclared(true);
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : 'Déclaration impossible.');
     }
   };
 
@@ -287,11 +315,51 @@ export function CheckoutPage() {
                 <p className="mt-1">
                   <Badge tone="warning">En attente de paiement</Badge>
                 </p>
-                <p className="mt-2 text-sm text-zinc-500">
-                  Total : <strong className="tabular-nums">{formatAr(order.total)}</strong>.
-                  Composez le code reçu sur votre téléphone pour valider.
-                </p>
-                {env.enablePaymentSimulation ? (
+                {declared ? (
+                  <>
+                    <Clock className="mx-auto mt-4 size-12 text-amber-500" aria-hidden />
+                    <h3 className="mt-3 text-lg font-bold">Déclaration envoyée !</h3>
+                    <p className="mx-auto mt-1 max-w-md text-sm text-zinc-500">
+                      Votre transfert est <strong>en attente de validation</strong>.
+                      Vos billets seront générés dès vérification du paiement.
+                    </p>
+                    <div className="mt-4 flex justify-center gap-2">
+                      <Link to={`/dashboard/orders/${order.order_id}`}>
+                        <Button>Suivre ma commande</Button>
+                      </Link>
+                      <Link to="/events">
+                        <Button variant="secondary">Voir les événements</Button>
+                      </Link>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mt-4 text-left">
+                      <ManualPaymentForm
+                        orderId={order.order_id}
+                        providerLabel={
+                          PAYMENT_METHODS.find((m) => m.id === orderMethod)?.label ?? orderMethod
+                        }
+                        total={order.total}
+                        defaultPhone={profile?.phone ?? ''}
+                        isSubmitting={declarePayment.isPending}
+                        serverError={serverError}
+                        onSubmit={submitDeclaration}
+                      />
+                    </div>
+                    <div className="mt-3 flex justify-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        loading={cancelOrder.isPending}
+                        onClick={cancelAll}
+                      >
+                        Annuler la commande
+                      </Button>
+                    </div>
+                  </>
+                )}
+                {env.enablePaymentSimulation && !declared && (
                   <div className="mt-4 rounded-xl border border-dashed border-amber-400 bg-amber-50 p-4">
                     <p className="text-xs font-semibold text-amber-800">
                       DEV UNIQUEMENT — simulation de l'opérateur (remplacée par le webhook Phase 5)
@@ -312,21 +380,7 @@ export function CheckoutPage() {
                       >
                         Simuler l'échec
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        loading={cancelOrder.isPending}
-                        onClick={cancelAll}
-                      >
-                        Annuler
-                      </Button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="mt-4">
-                    <Link to={`/dashboard/orders/${order.order_id}`}>
-                      <Button variant="secondary">Suivre ma commande</Button>
-                    </Link>
                   </div>
                 )}
               </>

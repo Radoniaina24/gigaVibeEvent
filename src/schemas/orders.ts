@@ -36,3 +36,18 @@ export const checkoutLineSchema = z.object({
   quantity: z.number().int().min(1).max(10),
 });
 export type CheckoutLine = z.infer<typeof checkoutLineSchema>;
+
+/** Déclaration manuelle du transfert Mobile Money (§16 CDC v2). */
+export const manualPaymentSchema = z.object({
+  phone: z
+    .string()
+    .min(1, 'Numéro requis')
+    .regex(/^\+?[0-9\s-]{8,20}$/, 'Numéro invalide'),
+  reference: z
+    .string()
+    .trim()
+    .min(4, 'Référence requise (min. 4 caractères)')
+    .max(60),
+  receipt_url: z.string().url().optional().or(z.literal('')),
+});
+export type ManualPaymentInput = z.infer<typeof manualPaymentSchema>;

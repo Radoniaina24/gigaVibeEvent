@@ -1,13 +1,21 @@
-# Ticket — Plateforme de billetterie événementielle (Madagascar)
+# Giga Vibe Event — Plateforme de billetterie événementielle (Madagascar)
 
 Vite + React + TypeScript + Tailwind CSS v4 + Supabase + TanStack Query + Zod + React Router + Lucide.
 
-## État : Phase 4 ✅
+## État : Phase 4 ✅ + CDC v2 — Étape 5 ✅ (co-branding)
 
 - [x] Phase 1 : Architecture projet + Supabase + Database + Auth + Layout + Routing
 - [x] Phase 2 : Home, Events, Event details, Categories
 - [x] Phase 3 : Orders, Tickets, User dashboard (simulation DEV, webhook en Phase 5)
 - [x] Phase 4 : Admin (dashboard KPI, événements + billets, catégories, utilisateurs, commandes, paiements, billets, statistiques)
+- [x] CDC v2 — Étape 1 : rôles (client/partenaire/contrôleur/admin), table `partners`, workflow validation événement, `platform_settings` (commissions, validation paiements), numérotation `GVE-000001`, RLS isolation partenaires, rebrand Giga Vibe Event
+- [x] CDC v2 — Étape 2 : espace organisateur (`/partner` : dashboard, mes événements, création + affiche, catégories/prix, soumission pour validation ; bucket `partner-assets` isolé)
+- [x] CDC v2 — Étape 3 : onglet partenaires (CRUD + statuts + liaison/création de comptes via Edge Function `create-partner-user`) + validations (approuver/refuser/modifs/suspendre)
+- [x] CDC v2 — Étape 4 : paiement manuel (référence + reçu, `0007`) + validation GVE/partenaire selon réglage (billets GVE-… générés)
+- [x] CDC v2 — Étape 5 : co-branding (logo partenaire + identité GVE auto : `OrganizedBy` sur vente/confirmation, upload logo dashboard, RLS `0008`)
+- [ ] CDC v2 — Étape 6 : billet PDF + QR sécurisé + numérotation GVE
+- [ ] CDC v2 — Étape 7 : interface contrôleur (scan + validation entrée)
+- [ ] CDC v2 — Étape 8 : commissions, statistiques par partenaire, journal
 - [ ] Phase 5 : Paiement Mobile Money (MVola / Orange / Airtel)
 - [ ] Phase 6 : QR Code, vérification, stats, audit
 - [ ] Phase 7 : Revue sécurité / RLS / UX / responsive / perf
@@ -19,6 +27,10 @@ supabase/migrations/0001_init.sql      -- schéma + RLS + storage
 supabase/migrations/0002_checkout.sql  -- RPC checkout + simulation DEV
 supabase/migrations/0003_audit.sql     -- INSERT audit_logs par les admins
 supabase/migrations/0004_admin.sql     -- promeut ton email en admin (DEV)
+supabase/migrations/0005_platform_v2.sql  -- CDC v2 étape 1 : rôles, partners, workflow, settings, RLS
+supabase/migrations/0006_partner_assets.sql -- CDC v2 étape 2 : bucket `partner-assets` isolé
+supabase/migrations/0007_manual_payment.sql  -- CDC v2 étape 4 : paiement manuel + validation GVE/partenaire
+supabase/migrations/0008_partner_logo_self_update.sql -- CDC v2 étape 5 : le partenaire MAJ son logo (trigger : seul logo_url)
 supabase/seed.sql                      -- données de démonstration (DEV)
 ```
 

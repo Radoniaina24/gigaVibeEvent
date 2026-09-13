@@ -9,7 +9,7 @@ import {
 } from '../features/events/eventUtils';
 
 const EVENT_WITH_RELATIONS =
-  '*, category:categories(id,name,slug), ticket_types(id,name,description,price,quantity,sold,status,sales_start,sales_end)';
+  '*, category:categories(id,name,slug), partner:partners(id,name,logo_url), ticket_types(id,name,description,price,quantity,sold,status,sales_start,sales_end)';
 
 /**
  * Phase 2 : tous les événements publiés avec relations.

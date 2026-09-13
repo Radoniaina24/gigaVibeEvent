@@ -20,7 +20,7 @@ export interface OrderDetail extends Order {
   event: Pick<
     Event,
     'title' | 'slug' | 'starts_at' | 'venue' | 'city' | 'image_url'
-  > | null;
+  > & { partner: { id: string; name: string; logo_url: string | null } | null } | null;
   items: (OrderItem & {
     ticket_type: Pick<TicketType, 'name' | 'price'> | null;
   })[];
@@ -69,7 +69,7 @@ export function useOrderDetail(orderId: string | undefined) {
       const { data, error } = await supabase
         .from('orders')
         .select(
-          '*, event:events(title,slug,starts_at,venue,city,image_url), items:order_items(*, ticket_type:ticket_types(name,price)), payments:payments(*)',
+          '*, event:events(title,slug,starts_at,venue,city,image_url,partner:partners(id,name,logo_url)), items:order_items(*, ticket_type:ticket_types(name,price)), payments:payments(*)',
         )
         .eq('id', orderId)
         .maybeSingle();
@@ -188,6 +188,77 @@ export function useCancelOrder() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
       await queryClient.invalidateQueries({ queryKey: queryKeys.events.all });
+    },
+  });
+}
+
+export interface DeclarePaymentInput {
+  order_id: string;
+  phone: string;
+  amount: number;
+  reference: string;
+  receipt_url?: string;
+}
+
+/**
+ * Déclaration manuelle du transfert par l'acheteur (§16 CDC v2) :
+ * pending → processing (en attente de validation).
+ */
+export function useDeclarePayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: DeclarePaymentInput): Promise<{ status: string }> => {
+      const supabase = getSupabase();
+      const { data, error } = await supabase.rpc('declare_manual_payment', {
+        p_order_id: input.order_id,
+        p_phone: input.phone,
+        p_amount: input.amount,
+        p_reference: input.reference,
+        p_receipt_url: input.receipt_url || null,
+      });
+      if (error) throw new Error(error.message);
+      return data as { status: string };
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+    },
+  });
+}
+
+export interface ValidatePaymentResult {
+  status: string;
+  tickets: number;
+}
+
+/**
+ * Validation manuelle GVE/partenaire (§17 CDC v2).
+ * L'autorisation est vérifiée côté base (réglage payment_validation).
+ * Approuvé → billets générés (GVE-000001…) ; refusé → stock libéré.
+ */
+export function useValidatePayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      order_id,
+      approved,
+    }: {
+      order_id: string;
+      approved: boolean;
+    }): Promise<ValidatePaymentResult> => {
+      const supabase = getSupabase();
+      const { data, error } = await supabase.rpc('validate_manual_payment', {
+        p_order_id: order_id,
+        p_approved: approved,
+      });
+      if (error) throw new Error(error.message);
+      return data as ValidatePaymentResult;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tickets.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.events.all });
+      await queryClient.invalidateQueries({ queryKey: ['admin'] });
+      await queryClient.invalidateQueries({ queryKey: ['partner'] });
     },
   });
 }

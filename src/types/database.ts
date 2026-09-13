@@ -1,14 +1,18 @@
 /**
- * Types miroir du schéma PostgreSQL Supabase (Phase 1).
- * Source de vérité : supabase/migrations/0001_init.sql
+ * Types miroir du schéma PostgreSQL Supabase (Phase 1 + plateforme v2 Giga Vibe).
+ * Source de vérité : supabase/migrations/0001_init.sql → 0005_platform_v2.sql
  * (Générer avec `supabase gen types` quand le projet Supabase est lié.)
  */
 
-export type UserRole = 'user' | 'admin';
+export type UserRole = 'user' | 'partner' | 'controller' | 'admin';
+export type PartnerStatus = 'active' | 'pending' | 'suspended' | 'disabled';
 export type EventStatus =
   | 'draft'
+  | 'pending_review'
+  | 'changes_requested'
   | 'published'
   | 'sold_out'
+  | 'suspended'
   | 'cancelled'
   | 'completed';
 export type TicketTypeStatus = 'active' | 'inactive' | 'sold_out';
@@ -41,8 +45,30 @@ export interface Profile {
   last_name: string | null;
   phone: string | null;
   role: UserRole;
+  partner_id: string | null; // migration 0005 (rôle partner)
   is_active: boolean;
   created_at: string;
+  updated_at: string;
+}
+
+export interface Partner {
+  id: string;
+  name: string; // raison sociale
+  manager_name: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  logo_url: string | null;
+  contract_info: string | null;
+  status: PartnerStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlatformSetting {
+  key: string;
+  value: unknown;
   updated_at: string;
 }
 
@@ -72,6 +98,7 @@ export interface Event {
   organizer: string | null;
   status: EventStatus;
   is_featured: boolean;
+  partner_id: string | null; // migration 0005 (NULL = événement GVE direct)
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -130,6 +157,9 @@ export interface Payment {
   provider_ref: string | null;
   provider_payload: Record<string, unknown> | null;
   phone_number: string | null;
+  receipt_url: string | null; // migration 0007 (capture du transfert)
+  validated_by: string | null;
+  validated_at: string | null;
   paid_at: string | null;
   created_at: string;
   updated_at: string;
@@ -173,6 +203,8 @@ export interface Database {
       payments: { Row: Payment; Insert: Partial<Payment>; Update: Partial<Payment>; Relationships: [] };
       tickets: { Row: Ticket; Insert: Partial<Ticket>; Update: Partial<Ticket>; Relationships: [] };
       audit_logs: { Row: AuditLog; Insert: Partial<AuditLog>; Update: Partial<AuditLog>; Relationships: [] };
+      partners: { Row: Partner; Insert: Partial<Partner>; Update: Partial<Partner>; Relationships: [] };
+      platform_settings: { Row: PlatformSetting; Insert: Partial<PlatformSetting>; Update: Partial<PlatformSetting>; Relationships: [] };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

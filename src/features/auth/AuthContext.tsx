@@ -9,15 +9,17 @@ import {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabase } from '../../lib/supabase';
-import type { Profile } from '../../types/database';
+import type { Profile, UserRole } from '../../types/database';
 
 interface AuthContextValue {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
-  role: 'user' | 'admin' | null;
+  role: UserRole | null;
   isLoading: boolean;
   isAdmin: boolean;
+  isPartner: boolean;
+  isController: boolean;
   signUp: (args: {
     email: string;
     password: string;
@@ -133,6 +135,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: profile?.role ?? null,
       isLoading,
       isAdmin: profile?.role === 'admin' && profile.is_active,
+      isPartner: profile?.role === 'partner' && profile.is_active,
+      isController: profile?.role === 'controller' && profile.is_active,
       signUp,
       signIn,
       signOut,

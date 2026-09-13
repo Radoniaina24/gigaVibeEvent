@@ -2,8 +2,11 @@ import { z } from 'zod';
 
 export const eventStatusSchema = z.enum([
   'draft',
+  'pending_review',
+  'changes_requested',
   'published',
   'sold_out',
+  'suspended',
   'cancelled',
   'completed',
 ]);
@@ -62,10 +65,22 @@ export const categorySchema = z.object({
 export type CategoryInput = z.infer<typeof categorySchema>;
 
 export const adminUserUpdateSchema = z.object({
-  role: z.enum(['user', 'admin']),
+  role: z.enum(['user', 'partner', 'controller', 'admin']),
   is_active: z.boolean(),
 });
 export type AdminUserUpdateInput = z.infer<typeof adminUserUpdateSchema>;
+
+export const partnerSchema = z.object({
+  name: z.string().min(2, 'Nom trop court').max(160),
+  manager_name: z.string().max(160).optional().or(z.literal('')),
+  phone: z.string().max(30).optional().or(z.literal('')),
+  email: z.string().email('Email invalide').max(160).optional().or(z.literal('')),
+  address: z.string().max(300).optional().or(z.literal('')),
+  logo_url: z.string().url('URL invalide').optional().or(z.literal('')),
+  contract_info: z.string().max(2000).optional().or(z.literal('')),
+  status: z.enum(['active', 'pending', 'suspended', 'disabled']),
+});
+export type PartnerInput = z.infer<typeof partnerSchema>;
 
 export const ticketTypeSchema = z.object({
   name: z.string().min(2).max(80),

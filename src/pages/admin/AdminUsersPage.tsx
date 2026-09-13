@@ -18,6 +18,7 @@ import {
   ErrorState,
   LoadingState,
 } from '../../components/ui/States';
+import type { UserRole } from '../../types/database';
 import { formatDate } from '../../lib/utils';
 
 const PAGE_SIZE = 15;
@@ -31,7 +32,7 @@ export function AdminUsersPage() {
   const [page, setPage] = useState(1);
   const [pendingChange, setPendingChange] = useState<{
     user: AdminUserRow;
-    role?: 'user' | 'admin';
+    role?: UserRole;
     is_active?: boolean;
   } | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -147,13 +148,15 @@ export function AdminUsersPage() {
                     onChange={(e) =>
                       setPendingChange({
                         user: u,
-                        role: e.target.value as 'user' | 'admin',
+                        role: e.target.value as UserRole,
                       })
                     }
                     className="rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm"
                   >
-                    <option value="user">user</option>
-                    <option value="admin">admin</option>
+                    <option value="user">Client</option>
+                    <option value="partner">Partenaire</option>
+                    <option value="controller">Contrôleur</option>
+                    <option value="admin">Admin</option>
                   </select>
                 ),
               },

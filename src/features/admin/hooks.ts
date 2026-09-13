@@ -5,6 +5,7 @@ import type {
   Category,
   Event,
   Order,
+  Partner,
   Payment,
   Profile,
   Ticket,
@@ -14,6 +15,7 @@ import type {
   AdminUserUpdateInput,
   CategoryInput,
   EventInput,
+  PartnerInput,
   TicketTypeInput,
 } from '../../schemas';
 import { logAudit } from './audit';
@@ -86,7 +88,7 @@ export function useAdminEvent(id: string | undefined) {
   });
 }
 
-function toEventRow(input: EventInput) {
+export function toEventRow(input: EventInput) {
   return {
     title: input.title,
     slug: input.slug,
@@ -710,6 +712,271 @@ export function useAdminStats(days: number) {
       }));
 
       return { dailyRevenue, ticketsByEvent, paymentsByMethod };
+    },
+  });
+}
+
+// ---------- Partenaires (CDC v2 §7) ----------
+
+export interface AdminPartnerRow extends Partner {
+  events_count: number;
+  members: Pick<Profile, 'id' | 'email' | 'first_name' | 'last_name' | 'role'>[];
+}
+
+export function useAdminPartners() {
+  return useQuery({
+    queryKey: ['admin', 'partners'],
+    staleTime: 30_000,
+    queryFn: async (): Promise<AdminPartnerRow[]> => {
+      const supabase = getSupabase();
+      const [
+        { data: partners, error: pErr },
+        { data: events, error: eErr },
+        { data: profiles, error: prErr },
+      ] = await Promise.all([
+        supabase.from('partners').select('*').order('created_at', { ascending: false }),
+        supabase.from('events').select('id,partner_id'),
+        supabase.from('profiles').select('id,email,first_name,last_name,role,partner_id'),
+      ]);
+      if (pErr) throw pErr;
+      if (eErr) throw eErr;
+      if (prErr) throw prErr;
+      const evCounts = new Map<string, number>();
+      for (const e of (events ?? []) as { id: string; partner_id: string | null }[]) {
+        if (e.partner_id) evCounts.set(e.partner_id, (evCounts.get(e.partner_id) ?? 0) + 1);
+      }
+      const byPartner = new Map<string, AdminPartnerRow['members']>();
+      for (const p of (profiles ?? []) as (AdminPartnerRow['members'][number] & {
+        partner_id: string | null;
+      })[]) {
+        if (!p.partner_id) continue;
+        const list = byPartner.get(p.partner_id) ?? [];
+        list.push({ id: p.id, email: p.email, first_name: p.first_name, last_name: p.last_name, role: p.role });
+        byPartner.set(p.partner_id, list);
+      }
+      return ((partners ?? []) as Partner[]).map((pt) => ({
+        ...pt,
+        events_count: evCounts.get(pt.id) ?? 0,
+        members: byPartner.get(pt.id) ?? [],
+      }));
+    },
+  });
+}
+
+function toPartnerRow(input: PartnerInput) {
+  const opt = (v: string | undefined) => (v && v.trim() !== '' ? v : null);
+  return {
+    name: input.name.trim(),
+    manager_name: opt(input.manager_name),
+    phone: opt(input.phone),
+    email: opt(input.email),
+    address: opt(input.address),
+    logo_url: opt(input.logo_url),
+    contract_info: opt(input.contract_info),
+    status: input.status,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export function useCreatePartner() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: PartnerInput): Promise<Partner> => {
+      const supabase = getSupabase();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from('partners')
+        .insert({ ...toPartnerRow(input), created_by: user?.id ?? null })
+        .select()
+        .single();
+      if (error) throw error;
+      await logAudit('partner.created', 'partners', (data as Partner).id, {
+        name: input.name,
+      });
+      return data as Partner;
+    },
+    onSuccess: () => invalidateAdmin(qc),
+  });
+}
+
+export function useUpdatePartner() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: PartnerInput;
+    }): Promise<Partner> => {
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from('partners')
+        .update(toPartnerRow(input))
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      await logAudit('partner.updated', 'partners', id, { name: input.name });
+      return data as Partner;
+    },
+    onSuccess: () => invalidateAdmin(qc),
+  });
+}
+
+export function useDeletePartner() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (row: AdminPartnerRow): Promise<void> => {
+      if (row.events_count > 0) {
+        throw new Error('Impossible : ce partenaire possède déjà des événements.');
+      }
+      const supabase = getSupabase();
+      const { error } = await supabase.from('partners').delete().eq('id', row.id);
+      if (error) throw error;
+      await logAudit('partner.deleted', 'partners', row.id, { name: row.name });
+    },
+    onSuccess: () => invalidateAdmin(qc),
+  });
+}
+
+/**
+ * Lie un compte existant (email) au partenaire : rôle partner + partner_id.
+ * La création du compte se fait via /register ou l'Edge Function
+ * create-partner-user (service_role requis).
+ */
+export function useLinkPartnerAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      partnerId,
+      email,
+    }: {
+      partnerId: string;
+      email: string;
+    }): Promise<void> => {
+      const supabase = getSupabase();
+      const { data: found, error: findError } = await supabase
+        .from('profiles')
+        .select('id,email')
+        .ilike('email', email.trim())
+        .limit(1)
+        .maybeSingle();
+      if (findError) throw findError;
+      if (!found) {
+        throw new Error('Aucun compte avec cet email. Créez d’abord son accès.');
+      }
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          role: 'partner',
+          partner_id: partnerId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', (found as { id: string }).id);
+      if (error) throw error;
+      await logAudit('partner.account_linked', 'partners', partnerId, { email });
+    },
+    onSuccess: () => invalidateAdmin(qc),
+  });
+}
+
+// ---------- Modération des événements (CDC v2 §13, §26) ----------
+
+export interface PendingEventRow extends Event {
+  partner: Pick<Partner, 'id' | 'name'> | null;
+  tickets_sold: number;
+}
+
+const REVIEW_SOURCE = ['pending_review', 'changes_requested', 'suspended', 'published'] as const;
+
+/** File de modération : en attente, modifs demandées, suspendus + publiés récents. */
+export function useModerationQueue() {
+  return useQuery({
+    queryKey: ['admin', 'moderation'],
+    staleTime: 15_000,
+    queryFn: async (): Promise<PendingEventRow[]> => {
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from('events')
+        .select('*, partner:partners(id,name), ticket_types(quantity,sold)')
+        .in('status', [...REVIEW_SOURCE])
+        .order('updated_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return ((data ?? []) as (Event & {
+        partner: PendingEventRow['partner'];
+        ticket_types: { quantity: number; sold: number }[];
+      })[]).map((e) => {
+        const { ticket_types: types, ...rest } = e;
+        return {
+          ...rest,
+          tickets_sold: types.reduce((s, t) => s + t.sold, 0),
+        };
+      });
+    },
+  });
+}
+
+export type ModerationDecision =
+  | 'approve'
+  | 'refuse'
+  | 'request_changes'
+  | 'suspend'
+  | 'reactivate';
+
+const DECISION_STATUS: Record<ModerationDecision, Event['status']> = {
+  approve: 'published',
+  refuse: 'cancelled',
+  request_changes: 'changes_requested',
+  suspend: 'suspended',
+  reactivate: 'published',
+};
+
+/** Approuver / refuser / demander des modifs / suspendre / réactiver (§13, §26). */
+export function useModerateEvent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      decision,
+      note,
+    }: {
+      id: string;
+      decision: ModerationDecision;
+      note?: string;
+    }): Promise<void> => {
+      const supabase = getSupabase();
+      const { error } = await supabase
+        .from('events')
+        .update({ status: DECISION_STATUS[decision], updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+      await logAudit(`event.${decision}`, 'events', id, note ? { note } : undefined);
+    },
+    onSuccess: () => invalidateAdmin(qc),
+  });
+}
+
+// ---------- Réglages plateforme (§17, §23) ----------
+
+/** Mise à jour d'un réglage (admin uniquement, RLS). */
+export function useUpdatePlatformSetting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ key, value }: { key: string; value: string }): Promise<void> => {
+      const supabase = getSupabase();
+      const { error } = await supabase
+        .from('platform_settings')
+        .update({ value, updated_at: new Date().toISOString() })
+        .eq('key', key);
+      if (error) throw error;
+      await logAudit('setting.updated', 'platform_settings', key, { value });
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['platform', 'settings'] });
     },
   });
 }
