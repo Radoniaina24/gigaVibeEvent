@@ -17,29 +17,70 @@ function Bars({ widths }: { widths: string[] }) {
 export function EventDetailSkeleton() {
   return (
     <div role="status" aria-label="Chargement de l'événement" className="space-y-8">
-      {/* Hero immersif */}
+      {/* Hero affiche */}
       <div className="bleed bg-night-950">
-        <div aria-hidden className="mx-auto max-w-7xl space-y-4 px-4 py-8 md:px-2 md:py-12">
+        <div aria-hidden className="mx-auto max-w-7xl px-4 pb-16 pt-5 md:px-2 md:pb-20">
           <div className="flex items-center justify-between">
             <div className="h-9 w-44 rounded-full bg-white/10" />
             <div className="h-9 w-28 rounded-full bg-white/10" />
           </div>
-          <div className="flex gap-2 pt-4">
-            <div className="h-6 w-20 rounded-full bg-white/10" />
-            <div className="h-6 w-24 rounded-full bg-white/10" />
-          </div>
-          <div className="h-10 w-3/4 rounded-md bg-white/15" />
-          <div className="flex flex-wrap gap-2">
-            <div className="h-8 w-40 rounded-full bg-white/10" />
-            <div className="h-8 w-32 rounded-full bg-white/10" />
-            <div className="h-8 w-48 rounded-full bg-white/10" />
-          </div>
-          <div className="flex flex-wrap items-end justify-between gap-4 pt-2">
-            <div className="space-y-2">
-              <div className="h-8 w-36 rounded-md bg-white/15" />
-              <div className="h-4 w-28 rounded bg-white/10" />
+          <div className="mt-8 grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
+            <div>
+              <div className="flex items-start gap-4">
+                <div className="h-20 w-16 shrink-0 rounded-2xl bg-white/10 md:h-24 md:w-20" />
+                <div className="flex-1 space-y-2 pt-1">
+                  <div className="flex gap-2">
+                    <div className="h-6 w-20 rounded-full bg-white/10" />
+                    <div className="h-6 w-24 rounded-full bg-white/10" />
+                  </div>
+                  <div className="h-10 w-full rounded-md bg-white/15" />
+                  <div className="h-10 w-2/3 rounded-md bg-white/10" />
+                </div>
+              </div>
+              <div className="mt-6 flex gap-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-[68px] w-[68px] rounded-2xl bg-white/10" />
+                ))}
+              </div>
             </div>
-            <div className="h-12 w-52 rounded-xl bg-white/10" />
+            <div className="mx-auto w-full max-w-sm">
+              <div className="overflow-hidden rounded-3xl bg-night-900 ring-1 ring-white/15">
+                <div className="h-60 w-full bg-white/10 md:h-72" />
+                <div className="space-y-2.5 p-5">
+                  <div className="h-3 w-28 rounded bg-white/10" />
+                  <div className="h-5 w-4/5 rounded bg-white/15" />
+                  <div className="h-4 w-3/5 rounded bg-white/10" />
+                </div>
+                <div className="border-t-2 border-dashed border-white/20 px-5 py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="size-11 rounded-xl bg-white/10" />
+                    <div className="h-4 w-28 rounded bg-white/10" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Carte billetterie en chevauchement */}
+      <div aria-hidden className="relative z-10 -mt-10 md:-mt-12">
+        <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-xl md:p-6">
+          <div className="flex items-center justify-between">
+            <div className="skeleton h-5 w-24" />
+            <div className="skeleton h-5 w-20" />
+          </div>
+          <div className="skeleton mt-2 h-2.5 w-full rounded-full" />
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <div className="skeleton size-9 shrink-0 rounded-xl" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="skeleton h-3 w-16" />
+                  <div className="skeleton h-4 w-4/5" />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -84,12 +125,14 @@ export function EventDetailSkeleton() {
           </div>
 
           {/* Garanties */}
-          <div aria-hidden className="grid gap-3 sm:grid-cols-3">
+          <div aria-hidden className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white px-5 py-4 sm:flex-row sm:items-center">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="rounded-2xl border border-zinc-200 bg-white p-4">
-                <div className="skeleton size-10 rounded-xl" />
-                <div className="skeleton mt-3 h-4 w-3/4" />
-                <div className="skeleton mt-1.5 h-3 w-full" />
+              <div key={i} className="flex flex-1 items-center gap-3">
+                <div className="skeleton size-10 shrink-0 rounded-xl" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="skeleton h-4 w-3/4" />
+                  <div className="skeleton h-3 w-full" />
+                </div>
               </div>
             ))}
           </div>
