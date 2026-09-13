@@ -17,8 +17,8 @@ import { Button } from '../../components/ui/Button';
 import {
   EmptyState,
   ErrorState,
-  LoadingState,
 } from '../../components/ui/States';
+import { EventDetailSkeleton } from '../../components/events/EventSkeletons';
 import { EventImage } from '../../components/events/EventImage';
 import { TicketTypeCard } from '../../components/events/TicketTypeCard';
 import { OrderSummary, type OrderLine } from '../../components/orders/OrderSummary';
@@ -50,7 +50,7 @@ export function EventDetailPage() {
       .map((t) => ({ ticketType: t, quantity: selection[t.id] ?? 0 }));
   }, [event, selection]);
 
-  if (isPending) return <LoadingState label="Chargement de l'événement…" />;
+  if (isPending) return <EventDetailSkeleton />;
   if (isError)
     return (
       <ErrorState

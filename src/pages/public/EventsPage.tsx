@@ -25,6 +25,7 @@ import {
 } from '../../schemas/events';
 import { EventActiveChips, EventFilters } from '../../components/events/EventFilters';
 import { EventGrid } from '../../components/events/EventGrid';
+import { FiltersSkeleton } from '../../components/events/EventSkeletons';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../lib/utils';
 
@@ -328,15 +329,19 @@ export function EventsPage() {
         {/* ----- Sidebar gauche (desktop) ----- */}
         <aside aria-label="Filtres" className="hidden lg:block">
           <div className="sticky top-[104px] max-h-[calc(100vh-120px)] overflow-y-auto rounded-2xl pb-1">
-            <EventFilters
-              filters={filters}
-              categories={categoriesQuery.data ?? []}
-              counts={counts}
-              resultCount={filtered.length}
-              idPrefix="f-side"
-              onChange={handleChange}
-              onReset={handleReset}
-            />
+            {categoriesQuery.isPending ? (
+              <FiltersSkeleton />
+            ) : (
+              <EventFilters
+                filters={filters}
+                categories={categoriesQuery.data ?? []}
+                counts={counts}
+                resultCount={filtered.length}
+                idPrefix="f-side"
+                onChange={handleChange}
+                onReset={handleReset}
+              />
+            )}
           </div>
         </aside>
 

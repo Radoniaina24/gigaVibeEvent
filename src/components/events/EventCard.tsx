@@ -93,11 +93,27 @@ export function EventCardSkeleton() {
       aria-hidden
       className="overflow-hidden rounded-xl border border-zinc-200 bg-white"
     >
-      <div className="skeleton aspect-[16/9] w-full rounded-none" />
+      <div className="relative">
+        <div className="skeleton aspect-[16/9] w-full rounded-none" />
+        <div className="absolute left-3 top-3 flex gap-2">
+          <div className="skeleton h-6 w-20 rounded-full" />
+          <div className="skeleton h-6 w-24 rounded-full" />
+        </div>
+      </div>
       <div className="space-y-2 p-4">
         <div className="skeleton h-5 w-3/4" />
-        <div className="skeleton h-4 w-1/2" />
-        <div className="skeleton h-4 w-2/3" />
+        <div className="flex items-center gap-1.5">
+          <div className="skeleton size-4 shrink-0 rounded" />
+          <div className="skeleton h-4 w-1/2" />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="skeleton size-4 shrink-0 rounded" />
+          <div className="skeleton h-4 w-2/3" />
+        </div>
+        <div className="flex items-center justify-between border-t border-zinc-100 pt-3">
+          <div className="skeleton h-5 w-24" />
+          <div className="skeleton h-4 w-16" />
+        </div>
       </div>
     </div>
   );

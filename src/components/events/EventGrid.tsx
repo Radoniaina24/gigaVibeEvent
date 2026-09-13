@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { EventWithStats } from '../../features/events/eventUtils';
 import { EventCard, EventCardSkeleton } from './EventCard';
-import { EmptyState, ErrorState, LoadingState } from '../ui/States';
+import { EmptyState, ErrorState } from '../ui/States';
 
 interface Props {
   title?: ReactNode;
@@ -39,7 +39,6 @@ export function EventGrid({
             <EventCardSkeleton key={i} />
           ))}
         </div>
-        <LoadingState label="Chargement des événements…" />
       </section>
     );
   }

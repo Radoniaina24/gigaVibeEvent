@@ -14,6 +14,7 @@ import {
 import { useCategories, usePublishedEvents } from '../../hooks/useEvents';
 import { usePageMeta } from '../../hooks/usePageMeta';
 import { EventCard } from '../../components/events/EventCard';
+import { HeroTicketSkeleton } from '../../components/events/EventSkeletons';
 import { EventGrid } from '../../components/events/EventGrid';
 import { EventSearchBar } from '../../components/events/EventSearchBar';
 import { Button } from '../../components/ui/Button';
@@ -146,7 +147,7 @@ export function HomePage() {
               <div className="mt-7 max-w-xl">
                 <EventSearchBar />
               </div>
-              <dl className="mt-7 flex gap-8">
+              <dl className="mt-7 flex gap-8" aria-busy={eventsQuery.isPending}>
                 {[
                   { value: String(events.length), label: 'événements' },
                   { value: String(totalAvailable), label: 'places' },
@@ -154,7 +155,11 @@ export function HomePage() {
                 ].map((s) => (
                   <div key={s.label}>
                     <dd className="font-display text-2xl font-bold tabular-nums md:text-3xl">
-                      {s.value}
+                      {eventsQuery.isPending ? (
+                        <span aria-hidden className="skeleton inline-block h-8 w-12" />
+                      ) : (
+                        s.value
+                      )}
                     </dd>
                     <dt className="mt-0.5 text-xs uppercase tracking-widest text-zinc-500">
                       {s.label}
@@ -180,7 +185,9 @@ export function HomePage() {
 
             {/* Souche ticket interactive */}
             <div className="relative mx-auto w-full max-w-sm">
-              {spot ? (
+              {eventsQuery.isPending ? (
+                <HeroTicketSkeleton />
+              ) : spot ? (
                 <>
                   <div
                     aria-hidden
@@ -270,11 +277,9 @@ export function HomePage() {
                   )}
                 </>
               ) : (
-                !eventsQuery.isPending && (
                   <p className="rounded-2xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500">
                     Les événements à l'affiche apparaîtront ici.
                   </p>
-                )
               )}
             </div>
           </div>
