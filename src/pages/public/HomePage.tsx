@@ -45,7 +45,7 @@ const PAYMENT_METHODS = ['MVola', 'Orange Money', 'Airtel Money'];
 
 /** Conteneur aéré commun (pleine largeur + marges latérales). */
 function Container({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto max-w-7xl px-4 md:px-8">{children}</div>;
+  return <div className="mx-auto max-w-7xl px-2 md:px-2">{children}</div>;
 }
 
 function SectionHeader({
@@ -295,7 +295,7 @@ export function HomePage() {
               ))}
             </div>
           ) : (categoriesQuery.data ?? []).length === 0 ? null : (
-            <ul className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:-mx-8 md:flex-wrap md:px-8">
+            <ul className="no-scrollbar -mx-2 flex gap-2 overflow-x-auto px-2 pb-1 md:-mx-2 md:flex-wrap md:px-2">
               {(categoriesQuery.data ?? []).map((c) => (
                 <li key={c.id} className="shrink-0">
                   <Link
@@ -346,7 +346,7 @@ export function HomePage() {
               linkTo="/events?soonFullOnly=1"
               linkLabel="Tous les presque complets"
             />
-            <div className="no-scrollbar -mx-4 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 md:-mx-8 md:px-8">
+            <div className="no-scrollbar -mx-2 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-2 pb-2 md:-mx-2 md:px-2">
               {lastChance.map((e) => (
                 <div key={e.id} className="w-72 shrink-0 snap-start md:w-80">
                   <EventCard event={e} />
