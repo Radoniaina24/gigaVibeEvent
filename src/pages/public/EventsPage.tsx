@@ -295,7 +295,7 @@ export function EventsPage() {
 
   return (
     <div className="bleed">
-    <div className="mx-auto w-full max-w-7xl space-y-5 px-2 md:px-2">
+    <div className="mx-auto w-full max-w-7xl space-y-5 px-4 md:px-2">
       {/* ===== En-tête ===== */}
       <div className="max-w-2xl">
         <p className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-brand-700 shadow-sm">

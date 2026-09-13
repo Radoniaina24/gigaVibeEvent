@@ -61,9 +61,11 @@ body {
   @apply animate-pulse rounded-md bg-zinc-200;
 }
 
-/* Halo lumineux du hero (rouge + or sur fond nuit) */
+/* Halo lumineux du hero (rouge + or sur fond nuit).
+   `background-image` (et non `background`) pour ne pas écraser
+   la couleur de fond posée par les classes Tailwind `bg-night-*`. */
 .hero-glow {
-  background:
+  background-image:
     radial-gradient(42rem 22rem at 12% -8%, rgb(220 38 38 / 0.45), transparent 60%),
     radial-gradient(36rem 20rem at 88% 12%, rgb(245 158 11 / 0.22), transparent 60%),
     radial-gradient(30rem 26rem at 50% 115%, rgb(220 38 38 / 0.28), transparent 65%);

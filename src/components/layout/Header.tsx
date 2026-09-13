@@ -124,6 +124,7 @@ export function Header() {
           <nav aria-label="Navigation principale" className="hidden items-center gap-1 lg:flex">
             <NavItem to="/" label="Accueil" end />
             <NavItem to="/events" label="Événements" />
+            <NavItem to="/contact" label="Contact" />
             {user && <NavItem to="/dashboard" label="Dashboard" />}
             {isAdmin && <NavItem to="/admin" label="Admin" />}
           </nav>
@@ -271,6 +272,7 @@ export function Header() {
               {[
                 { to: '/', label: 'Accueil' },
                 { to: '/events', label: 'Événements' },
+                { to: '/contact', label: 'Contact' },
                 ...(user ? [{ to: '/dashboard', label: 'Dashboard' }] : []),
                 ...(isAdmin ? [{ to: '/admin', label: 'Administration' }] : []),
                 ...(user
@@ -343,6 +345,11 @@ export function Footer() {
             <li>
               <Link className="transition hover:text-brand-700 hover:underline" to="/events">
                 Événements
+              </Link>
+            </li>
+            <li>
+              <Link className="transition hover:text-brand-700 hover:underline" to="/contact">
+                Contact
               </Link>
             </li>
             <li>

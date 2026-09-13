@@ -17,6 +17,7 @@ import { OrderDetailPage } from '../../pages/dashboard/OrderDetailPage';
 import { UserTicketsPage } from '../../pages/dashboard/UserTicketsPage';
 import { ProfilePage } from '../../pages/dashboard/ProfilePage';
 import { CheckoutPage } from '../../pages/public/CheckoutPage';
+import { ContactPage } from '../../pages/public/ContactPage';
 import { AdminDashboardPage } from '../../pages/admin/AdminDashboardPage';
 import { AdminEventsPage } from '../../pages/admin/AdminEventsPage';
 import { AdminEventFormPage } from '../../pages/admin/AdminEventFormPage';
@@ -37,6 +38,7 @@ const router = createBrowserRouter([
       { path: '/', element: <HomePage /> },
       { path: '/events', element: <EventsPage /> },
       { path: '/events/:slug', element: <EventDetailPage /> },
+      { path: '/contact', element: <ContactPage /> },
       { path: '/login', element: <LoginPage /> },
       { path: '/register', element: <RegisterPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
