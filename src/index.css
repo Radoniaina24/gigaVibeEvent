@@ -33,6 +33,21 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Évite tout scroll horizontal parasite (sections pleine largeur). 
+   `clip` ne casse pas le header sticky, contrairement à `hidden`. */
+html,
+body {
+  overflow-x: clip;
+}
+
+/* Section pleine largeur (100vw) à l'intérieur d'un conteneur centré contraint.
+   À combiner avec un inner `.mx-auto .max-w-7xl .px-4 .md:px-8`. */
+.bleed {
+  width: 100vw;
+  max-width: 100vw;
+  margin-inline: calc(50% - 50vw);
+}
+
 body {
   @apply bg-zinc-50 font-sans text-zinc-900 antialiased;
 }
@@ -84,4 +99,17 @@ body {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Entrée du drawer mobile */
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.drawer-in {
+  animation: drawer-in 0.22s ease-out;
 }
