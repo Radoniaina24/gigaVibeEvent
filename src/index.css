@@ -61,6 +61,26 @@ body {
   @apply animate-pulse rounded-md bg-zinc-200;
 }
 
+/* Reflet shimmer pour les squelettes sur fond sombre (hero événement) */
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.skeleton-shimmer {
+  background-image: linear-gradient(
+    110deg,
+    rgb(255 255 255 / 0.07) 40%,
+    rgb(255 255 255 / 0.18) 50%,
+    rgb(255 255 255 / 0.07) 60%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
 /* Halo lumineux du hero (rouge + or sur fond nuit).
    `background-image` (et non `background`) pour ne pas écraser
    la couleur de fond posée par les classes Tailwind `bg-night-*`. */
@@ -145,7 +165,8 @@ body {
   .overlay-in,
   .modal-in,
   .toast-in,
-  .drawer-in {
+  .drawer-in,
+  .skeleton-shimmer {
     animation: none;
   }
 }
