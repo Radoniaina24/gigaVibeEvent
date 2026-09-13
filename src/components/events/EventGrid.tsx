@@ -33,7 +33,7 @@ export function EventGrid({
         <div
           role="status"
           aria-label="Chargement des événements"
-          className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
         >
           {Array.from({ length: skeletonCount }).map((_, i) => (
             <EventCardSkeleton key={i} />
@@ -72,7 +72,7 @@ export function EventGrid({
   return (
     <section>
       {title}
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {events.map((e) => (
           <EventCard key={e.id} event={e} />
         ))}
