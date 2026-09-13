@@ -15,9 +15,22 @@ import { slugify } from '../../lib/utils';
 import { uploadEventImage } from '../../services/storage';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { DateTimePickerField } from '../../components/ui/DateTimePicker';
 import { Card } from '../../components/ui/Card';
-import { Checkbox, Select, Textarea } from '../../components/ui/Fields';
+import { Checkbox, Textarea } from '../../components/ui/Fields';
+import { SelectField } from '../../components/ui/Select';
 import { ErrorState, LoadingState } from '../../components/ui/States';
+
+const EVENT_STATUS_OPTIONS = [
+  { value: 'draft', label: 'Brouillon' },
+  { value: 'pending_review', label: 'En validation' },
+  { value: 'changes_requested', label: 'Modifs demandées' },
+  { value: 'published', label: 'Publié' },
+  { value: 'sold_out', label: 'Complet' },
+  { value: 'suspended', label: 'Suspendu' },
+  { value: 'cancelled', label: 'Annulé' },
+  { value: 'completed', label: 'Terminé' },
+] as const;
 
 function toLocalInput(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -181,35 +194,50 @@ export function AdminEventFormPage() {
         </Card>
 
         <Card className="grid gap-4 p-5 sm:grid-cols-2">
-          <Select label="Catégorie" error={errors.category_id?.message} {...register('category_id')}>
-            <option value="">— Aucune —</option>
-            {(categories.data ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-          <Select label="Statut" error={errors.status?.message} {...register('status')}>
-            <option value="draft">Brouillon</option>
-            <option value="pending_review">En validation</option>
-            <option value="changes_requested">Modifs demandées</option>
-            <option value="published">Publié</option>
-            <option value="sold_out">Complet</option>
-            <option value="suspended">Suspendu</option>
-            <option value="cancelled">Annulé</option>
-            <option value="completed">Terminé</option>
-          </Select>
-          <Input
-            label="Début"
-            type="datetime-local"
-            error={errors.starts_at?.message}
-            {...register('starts_at')}
+          <SelectField
+            label="Catégorie"
+            value={watch('category_id') ?? ''}
+            onChange={(v) =>
+              setValue('category_id', v === '' ? null : v, {
+                shouldValidate: true,
+                shouldDirty: true,
+              })
+            }
+            options={[
+              { value: '', label: '— Aucune —' },
+              ...(categories.data ?? []).map((c) => ({ value: c.id, label: c.name })),
+            ]}
+            error={errors.category_id?.message}
+            placeholder="Choisir une catégorie…"
+            disabled={categories.isPending}
           />
-          <Input
+          <SelectField
+            label="Statut"
+            value={watch('status') ?? 'draft'}
+            onChange={(v) =>
+              setValue('status', v as EventInput['status'], {
+                shouldValidate: true,
+                shouldDirty: true,
+              })
+            }
+            options={EVENT_STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
+            error={errors.status?.message}
+          />
+          <DateTimePickerField
+            label="Début"
+            value={watch('starts_at') ?? ''}
+            allowClear
+            onChange={(v) => setValue('starts_at', v, { shouldValidate: true, shouldDirty: true })}
+            error={errors.starts_at?.message}
+          />
+          <DateTimePickerField
             label="Fin (optionnel)"
-            type="datetime-local"
+            hint="Doit être après le début."
+            value={watch('ends_at') ?? ''}
+            min={watch('starts_at') ?? undefined}
+            allowClear
+            onChange={(v) => setValue('ends_at', v, { shouldValidate: true, shouldDirty: true })}
             error={errors.ends_at?.message}
-            {...register('ends_at')}
           />
           <Input label="Lieu" error={errors.venue?.message} {...register('venue')} />
           <Input label="Ville" error={errors.city?.message} {...register('city')} />

@@ -125,6 +125,7 @@ export function MiniSelect({
         aria-expanded={open}
         aria-label={ariaLabel}
         aria-controls={open ? `${autoId}-listbox` : undefined}
+        data-miniselect="trigger"
         disabled={disabled}
         onClick={() => (open ? closeMenu(true) : openMenu())}
         onKeyDown={(e) => {
@@ -154,6 +155,7 @@ export function MiniSelect({
             role="listbox"
             id={`${autoId}-listbox`}
             aria-label={ariaLabel}
+            data-miniselect="menu"
             style={{
               position: 'fixed',
               top: pos.top,
