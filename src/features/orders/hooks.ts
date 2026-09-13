@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getSupabase } from '../../lib/supabase';
+import {
+  isMissingRelationshipError,
+  markPartnerEmbedSupported,
+  shouldTryPartnerEmbed,
+} from '../../lib/partnerEmbed';
 import { useAuth } from '../auth/AuthContext';
 import { queryKeys } from '../../app/config/query';
 import type {
@@ -66,34 +71,52 @@ export function useOrderDetail(orderId: string | undefined) {
     queryFn: async (): Promise<OrderDetail | null> => {
       if (!orderId) return null;
       const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('orders')
-        .select(
-          '*, event:events(title,slug,starts_at,venue,city,image_url,partner:partners!events_partner_id_fkey(id,name,logo_url)), items:order_items(*, ticket_type:ticket_types(name,price)), payments:payments(*)',
-        )
-        .eq('id', orderId)
-        .maybeSingle();
-      if (!error) {
-        if (!data) return null;
-        const detail = data as OrderDetail;
+      const withPartner =
+        '*, event:events(title,slug,starts_at,venue,city,image_url,partner:partners!events_partner_id_fkey(id,name,logo_url)), items:order_items(*, ticket_type:ticket_types(name,price)), payments:payments(*)';
+      const withoutPartner =
+        '*, event:events(title,slug,starts_at,venue,city,image_url), items:order_items(*, ticket_type:ticket_types(name,price)), payments:payments(*)';
+      const withTicketCount = async (row: unknown): Promise<OrderDetail> => {
+        const detail = row as OrderDetail;
         const { count } = await supabase
           .from('tickets')
           .select('id', { count: 'exact', head: true })
           .eq('order_id', orderId);
         detail.ticket_count = count ?? 0;
         return detail;
+      };
+      // Si on sait déjà que la DB n'a pas events.partner_id → direct sans embed.
+      if (!shouldTryPartnerEmbed()) {
+        const { data, error } = await supabase
+          .from('orders')
+          .select(withoutPartner)
+          .eq('id', orderId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) return null;
+        return withTicketCount({
+          ...(data as object),
+          event: { ...((data as { event: object }).event ?? {}), partner: null },
+        });
+      }
+      const { data, error } = await supabase
+        .from('orders')
+        .select(withPartner)
+        .eq('id', orderId)
+        .maybeSingle();
+      if (!error) {
+        markPartnerEmbedSupported(true);
+        if (!data) return null;
+        return withTicketCount(data);
       }
       // Fallback DB sans migration 0005 (pas de events.partner_id).
-      const msg = `${error.message ?? ''} ${(error as { details?: string }).details ?? ''}`.toLowerCase();
-      if ((error as { code?: string }).code === 'PGRST200' || msg.includes('could not find a relationship')) {
+      if (isMissingRelationshipError(error)) {
+        markPartnerEmbedSupported(false);
         console.warn(
           '[orders] `events.partner_id` introuvable — appliquez supabase/migrations/0005_platform_v2.sql. Fallback sans partenaire.',
         );
         const retry = await supabase
           .from('orders')
-          .select(
-            '*, event:events(title,slug,starts_at,venue,city,image_url), items:order_items(*, ticket_type:ticket_types(name,price)), payments:payments(*)',
-          )
+          .select(withoutPartner)
           .eq('id', orderId)
           .maybeSingle();
         if (retry.error) throw retry.error;

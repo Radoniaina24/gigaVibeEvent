@@ -1,5 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { getSupabase } from '../lib/supabase';
+import {
+  isMissingRelationshipError,
+  markPartnerEmbedSupported,
+  shouldTryPartnerEmbed,
+} from '../lib/partnerEmbed';
 import { queryKeys } from '../app/config/query';
 import type { Category } from '../types/database';
 import {
@@ -16,53 +21,105 @@ const EVENT_WITH_RELATIONS_NO_PARTNER =
   '*, category:categories(id,name,slug), ticket_types(id,name,description,price,quantity,sold,status,sales_start,sales_end)';
 
 /**
- * Détecte l'erreur PostgREST PGRST200 "Could not find a relationship".
- * Cas typique : migration 0005 (events.partner_id) non appliquée en local
- * alors que le front demande déjà `partner:partners(...)` → 400.
- */
-function isMissingRelationshipError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const e = error as { code?: string; message?: string; details?: string; hint?: string };
-  if (e.code === 'PGRST200') return true;
-  const haystack = `${e.message ?? ''} ${e.details ?? ''} ${e.hint ?? ''}`.toLowerCase();
-  return haystack.includes('could not find a relationship');
-}
-
-/**
  * Phase 2 : tous les événements publiés avec relations.
  * RLS : SELECT limité aux `published` côté serveur ; le filtrage
  * (recherche, catégorie, prix, tri, pagination) est appliqué côté client
  * via `applyEventFilters` (volume seed < 100, cache TanStack 60s).
  */
+async function fetchPublishedEvents(): Promise<EventWithStats[]> {
+  const supabase = getSupabase();
+  // Si on sait déjà que la DB n'a pas events.partner_id → requête directe
+  // sans embed (évite un 400 à chaque refresh).
+  if (!shouldTryPartnerEmbed()) {
+    const { data, error } = await supabase
+      .from('events')
+      .select(EVENT_WITH_RELATIONS_NO_PARTNER)
+      .eq('status', 'published')
+      .order('starts_at', { ascending: true })
+      .limit(200);
+    if (error) throw error;
+    return ((data ?? []) as RawEventRow[]).map(mapEventRow);
+  }
+  const { data, error } = await supabase
+    .from('events')
+    .select(EVENT_WITH_RELATIONS)
+    .eq('status', 'published')
+    .order('starts_at', { ascending: true })
+    .limit(200);
+  if (!error) {
+    markPartnerEmbedSupported(true);
+    return ((data ?? []) as RawEventRow[]).map(mapEventRow);
+  }
+  // Fallback : DB sans colonne events.partner_id (migration 0005 non appliquée).
+  if (isMissingRelationshipError(error)) {
+    markPartnerEmbedSupported(false);
+    console.warn(
+      '[events] `events.partner_id` introuvable — appliquez supabase/migrations/0005_platform_v2.sql. Fallback sans partenaire.',
+    );
+    const retry = await supabase
+      .from('events')
+      .select(EVENT_WITH_RELATIONS_NO_PARTNER)
+      .eq('status', 'published')
+      .order('starts_at', { ascending: true })
+      .limit(200);
+    if (retry.error) throw retry.error;
+    return ((retry.data ?? []) as RawEventRow[]).map(mapEventRow);
+  }
+  throw error;
+}
+
+async function fetchEventDetail(slug: string): Promise<EventWithStats | null> {
+  const supabase = getSupabase();
+  const mapDetail = (row: RawEventRow): EventWithStats => {
+    const mapped = mapEventRow(row);
+    mapped.ticket_types.sort((a, b) => a.price - b.price);
+    return mapped;
+  };
+  if (!shouldTryPartnerEmbed()) {
+    const { data, error } = await supabase
+      .from('events')
+      .select(EVENT_WITH_RELATIONS_NO_PARTNER)
+      .eq('slug', slug)
+      .eq('status', 'published')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return mapDetail(data as RawEventRow);
+  }
+  const { data, error } = await supabase
+    .from('events')
+    .select(EVENT_WITH_RELATIONS)
+    .eq('slug', slug)
+    .eq('status', 'published')
+    .maybeSingle();
+  if (!error) {
+    markPartnerEmbedSupported(true);
+    if (!data) return null;
+    return mapDetail(data as RawEventRow);
+  }
+  if (isMissingRelationshipError(error)) {
+    markPartnerEmbedSupported(false);
+    console.warn(
+      '[events] `events.partner_id` introuvable — appliquez supabase/migrations/0005_platform_v2.sql. Fallback sans partenaire.',
+    );
+    const retry = await supabase
+      .from('events')
+      .select(EVENT_WITH_RELATIONS_NO_PARTNER)
+      .eq('slug', slug)
+      .eq('status', 'published')
+      .maybeSingle();
+    if (retry.error) throw retry.error;
+    if (!retry.data) return null;
+    return mapDetail(retry.data as RawEventRow);
+  }
+  throw error;
+}
+
 export function usePublishedEvents() {
   return useQuery({
     queryKey: queryKeys.events.list({ scope: 'published' }),
     staleTime: 60_000,
-    queryFn: async (): Promise<EventWithStats[]> => {
-      const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('events')
-        .select(EVENT_WITH_RELATIONS)
-        .eq('status', 'published')
-        .order('starts_at', { ascending: true })
-        .limit(200);
-      if (!error) return ((data ?? []) as RawEventRow[]).map(mapEventRow);
-      // Fallback : DB sans colonne events.partner_id (migration 0005 non appliquée).
-      if (isMissingRelationshipError(error)) {
-        console.warn(
-          '[events] `events.partner_id` introuvable — appliquez supabase/migrations/0005_platform_v2.sql. Fallback sans partenaire.',
-        );
-        const retry = await supabase
-          .from('events')
-          .select(EVENT_WITH_RELATIONS_NO_PARTNER)
-          .eq('status', 'published')
-          .order('starts_at', { ascending: true })
-          .limit(200);
-        if (retry.error) throw retry.error;
-        return ((retry.data ?? []) as RawEventRow[]).map(mapEventRow);
-      }
-      throw error;
-    },
+    queryFn: fetchPublishedEvents,
   });
 }
 
@@ -90,36 +147,7 @@ export function useEventDetail(slug: string | undefined) {
     staleTime: 30_000,
     queryFn: async (): Promise<EventWithStats | null> => {
       if (!slug) return null;
-      const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('events')
-        .select(EVENT_WITH_RELATIONS)
-        .eq('slug', slug)
-        .eq('status', 'published')
-        .maybeSingle();
-      if (!error) {
-        if (!data) return null;
-        const mapped = mapEventRow(data as RawEventRow);
-        mapped.ticket_types.sort((a, b) => a.price - b.price);
-        return mapped;
-      }
-      if (isMissingRelationshipError(error)) {
-        console.warn(
-          '[events] `events.partner_id` introuvable — appliquez supabase/migrations/0005_platform_v2.sql. Fallback sans partenaire.',
-        );
-        const retry = await supabase
-          .from('events')
-          .select(EVENT_WITH_RELATIONS_NO_PARTNER)
-          .eq('slug', slug)
-          .eq('status', 'published')
-          .maybeSingle();
-        if (retry.error) throw retry.error;
-        if (!retry.data) return null;
-        const mapped = mapEventRow(retry.data as RawEventRow);
-        mapped.ticket_types.sort((a, b) => a.price - b.price);
-        return mapped;
-      }
-      throw error;
+      return fetchEventDetail(slug);
     },
   });
 }
