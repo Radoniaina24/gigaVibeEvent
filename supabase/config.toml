@@ -1,0 +1,50 @@
+# Supabase CLI — Giga Vibe Event
+# Auth = Supabase. Emails = 100 % Resend via Edge Functions ci-dessous.
+# IMPORTANT Dashboard Supabase > Authentication :
+#   - Désactiver "Confirm email" (nous gérons la confirmation via Resend).
+#   - Désactiver les emails SMTP / templates (aucun envoi Supabase).
+#   - Site URL = APP_URL (ex. https://giga-vibe-event.vercel.app)
+
+[functions.auth-register]
+enabled = true
+verify_jwt = false
+
+[functions.auth-verify-email]
+enabled = true
+verify_jwt = false
+
+[functions.auth-resend-confirmation]
+enabled = true
+verify_jwt = false
+
+[functions.auth-forgot-password]
+enabled = true
+verify_jwt = false
+
+[functions.auth-reset-password]
+enabled = true
+verify_jwt = false
+
+[functions.invitation-accept]
+enabled = true
+verify_jwt = false
+
+[functions.admin-invite-user]
+enabled = true
+verify_jwt = true
+
+[functions.ticket-email]
+enabled = true
+verify_jwt = true
+
+[functions.create-partner-user]
+enabled = true
+verify_jwt = true
+
+[functions.create-payment-intent]
+enabled = true
+verify_jwt = true
+
+[functions.payment-webhook]
+enabled = true
+verify_jwt = false

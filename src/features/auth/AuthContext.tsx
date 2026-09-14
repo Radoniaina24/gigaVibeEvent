@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabase } from '../../lib/supabase';
+import { apiRegister } from '../../lib/edgeFunctions';
 import type { Profile, UserRole } from '../../types/database';
 
 interface AuthContextValue {
@@ -20,6 +21,8 @@ interface AuthContextValue {
   isAdmin: boolean;
   isPartner: boolean;
   isController: boolean;
+  /** true si l'email a été confirmé (auth.users.email_confirmed_at). */
+  emailVerified: boolean;
   signUp: (args: {
     email: string;
     password: string;
@@ -33,6 +36,22 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * Email vérifié = flag Resend (app_metadata.email_verified, positionné par
+ * le backend), avec fallback sur email_confirmed_at pour les comptes créés
+ * avant l'intégration Resend. Les nouveaux comptes sont créés avec
+ * email_confirm:true (zéro email Supabase) + flag à false.
+ */
+export function isEmailVerified(u: User | null): boolean {
+  if (!u) return false;
+  const flag = (u.app_metadata as Record<string, unknown> | undefined)
+    ?.email_verified;
+  if (typeof flag === 'boolean') return flag;
+  return Boolean(
+    (u as User & { email_confirmed_at?: string | null }).email_confirmed_at,
+  );
+}
 
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const supabase = getSupabase();
@@ -90,28 +109,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  /**
+   * Inscription via le backend (Edge Function auth-register) :
+   * création Auth SANS email Supabase + token hashé + envoi Resend.
+   * Ne jamais appeler supabase.auth.signUp ici (déclencherait l'email Supabase).
+   */
   const signUp: AuthContextValue['signUp'] = useCallback(async (args) => {
-    const supabase = getSupabase();
-    const { data, error } = await supabase.auth.signUp({
+    const res = await apiRegister({
       email: args.email,
       password: args.password,
-      options: {
-        data: {
-          first_name: args.first_name,
-          last_name: args.last_name,
-          phone: args.phone ?? null,
-        },
-      },
+      first_name: args.first_name,
+      last_name: args.last_name,
+      phone: args.phone,
     });
-    if (error) throw error;
-    // Pas de session = Supabase exige une confirmation par email.
-    return { confirmationSent: !data.session };
+    if (!res.email_sent) {
+      // Compte créé mais email non parti : le resend reste possible.
+      console.warn('[auth] inscription sans email initial, resend requis.');
+    }
+    return { confirmationSent: true };
   }, []);
 
   const signIn: AuthContextValue['signIn'] = useCallback(async (args) => {
     const supabase = getSupabase();
-    const { error } = await supabase.auth.signInWithPassword(args);
-    if (error) throw error;
+    const { data, error } = await supabase.auth.signInWithPassword(args);
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+        throw new Error(
+          'Veuillez confirmer votre adresse email avant de vous connecter. Vérifiez votre boîte de réception.',
+        );
+      }
+      throw error;
+    }
+    // Bloque la connexion tant que l'email n'est pas vérifié via Resend.
+    if (data.user && !isEmailVerified(data.user)) {
+      await supabase.auth.signOut();
+      throw new Error(
+        'Veuillez confirmer votre adresse email avant de vous connecter. Vérifiez votre boîte de réception.',
+      );
+    }
   }, []);
 
   const signOut = useCallback(async () => {
@@ -137,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: profile?.role === 'admin' && profile.is_active,
       isPartner: profile?.role === 'partner' && profile.is_active,
       isController: profile?.role === 'controller' && profile.is_active,
+      emailVerified: isEmailVerified(user),
       signUp,
       signIn,
       signOut,

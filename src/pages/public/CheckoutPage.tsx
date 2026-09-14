@@ -11,6 +11,7 @@ import {
   type CreateOrderResult,
 } from '../../features/orders/hooks';
 import { useSimulatePayment } from '../../features/orders/hooks';
+import { useSendTicketEmail } from '../../features/auth/hooks';
 import { PAYMENT_METHODS } from '../../features/payments/providers';
 import {
   checkoutLineSchema,
@@ -68,6 +69,8 @@ export function CheckoutPage() {
   const simulate = useSimulatePayment();
   const cancelOrder = useCancelOrder();
   const declarePayment = useDeclarePayment();
+  const ticketEmail = useSendTicketEmail();
+  const [ticketEmailState, setTicketEmailState] = useState<'idle' | 'sent' | 'failed'>('idle');
 
   const onValidityChange = useCallback((valid: boolean) => {
     setAttendeesValid(valid);
@@ -168,6 +171,13 @@ export function CheckoutPage() {
       if (res.status === 'paid') {
         setPaidTickets(res.tickets);
         setFailed(false);
+        // Email billet Resend (non bloquant : la commande reste payée si l'email échoue).
+        try {
+          await ticketEmail.mutateAsync(order.order_id);
+          setTicketEmailState('sent');
+        } catch {
+          setTicketEmailState('failed');
+        }
       } else {
         setFailed(true);
       }
@@ -283,6 +293,17 @@ export function CheckoutPage() {
                   Commande <span className="font-mono font-semibold">{order.order_number}</span> ·{' '}
                   {paidTickets} billet{paidTickets > 1 ? 's' : ''} généré{paidTickets > 1 ? 's' : ''}.
                 </p>
+                {ticketEmailState === 'sent' && (
+                  <p className="mt-1 text-sm text-green-700">
+                    Billet envoyé par email (Resend).
+                  </p>
+                )}
+                {ticketEmailState === 'failed' && (
+                  <p className="mt-1 text-sm text-amber-700">
+                    Paiement confirmé, mais l'email n'a pas pu être envoyé — retrouvez
+                    vos billets ci-dessous.
+                  </p>
+                )}
                 <div className="mt-4 flex justify-center gap-2">
                   <Link to="/dashboard/tickets">
                     <Button>Voir mes billets</Button>

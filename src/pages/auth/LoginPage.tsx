@@ -33,9 +33,8 @@ export function LoginPage() {
       await signIn(values);
       navigate(params.get('next') ?? '/dashboard', { replace: true });
     } catch (err) {
-      setServerError(
-        err instanceof Error ? err.message : 'Connexion impossible.',
-      );
+      const message = err instanceof Error ? err.message : 'Connexion impossible.';
+      setServerError(message);
     }
   };
 
@@ -120,9 +119,16 @@ export function LoginPage() {
             </button>
           </div>
           {serverError && (
-            <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-              {serverError}
-            </p>
+            <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+              <p>{serverError}</p>
+              {serverError.toLowerCase().includes('confirmer') && (
+                <p className="mt-1">
+                  <Link className="font-semibold underline" to="/verify-email">
+                    Vérifier mon email / renvoyer le lien
+                  </Link>
+                </p>
+              )}
+            </div>
           )}
           <Button type="submit" loading={isSubmitting} size="lg" className="w-full">
             Se connecter

@@ -7,6 +7,8 @@ import {
   useOrderDetail,
   useSimulatePayment,
 } from '../../features/orders/hooks';
+import { useSendTicketEmail } from '../../features/auth/hooks';
+import { useToast } from '../../components/ui/Toaster';
 import { formatAr, formatDateTime } from '../../lib/utils';
 import { OrganizedBy } from '../../components/brand/CoBrand';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
@@ -32,7 +34,21 @@ export function OrderDetailPage() {
   const { data: order, isPending, isError, refetch } = useOrderDetail(id);
   const simulate = useSimulatePayment();
   const cancelOrder = useCancelOrder();
+  const ticketEmail = useSendTicketEmail();
+  const { toast } = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
+
+  const handleTicketEmail = async () => {
+    try {
+      await ticketEmail.mutateAsync(order!.id);
+      toast.success('Email envoyé', 'Votre billet a été envoyé par email (Resend).');
+    } catch (err) {
+      toast.error(
+        'Envoi impossible',
+        err instanceof Error ? err.message : 'Réessayez dans un instant.',
+      );
+    }
+  };
 
   if (isPending) return <LoadingState label="Chargement de la commande…" />;
   if (isError)
@@ -228,6 +244,28 @@ export function OrderDetailPage() {
           </p>
         </CardContent>
       </Card>
+
+      {order.payment_status === 'paid' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Billet électronique</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-zinc-500">
+              Recevez votre billet et le récapitulatif par email (envoyé via Resend).
+            </p>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="mt-3"
+              loading={ticketEmail.isPending}
+              onClick={handleTicketEmail}
+            >
+              Recevoir mon billet par email
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {canAct && (
         <Card>

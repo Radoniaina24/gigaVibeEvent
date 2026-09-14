@@ -8,6 +8,11 @@
 //   - En cas de succès : génère les tickets (ticket_number, qr_payload).
 //   - En cas d'échec : libère le stock via rpc `release_stock`.
 //   - Idempotent via provider_ref unique.
+//   - En cas de succès : envoyer le billet via Resend (NE JAMAIS utiliser
+//     d'email Supabase). Réutiliser le template de `ticket-email` :
+//     import { ticketPurchaseEmail } from '../_shared/templates.ts';
+//     import { sendEmailViaResend } from '../_shared/resend.ts';
+//     puis sendEmailViaResend({ kind: 'ticket', ... }) + log dans email_logs.
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 

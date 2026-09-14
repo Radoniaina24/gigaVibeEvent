@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Mail, QrCode, Smartphone, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { CheckCircle2, Eye, EyeOff, Mail, QrCode, Smartphone, Sparkles } from 'lucide-react';
 import { registerSchema, type RegisterInput } from '../../schemas/auth';
 import { useAuth } from '../../features/auth/AuthContext';
+import { useResendConfirmation } from '../../features/auth/hooks';
 import { useToast } from '../../components/ui/Toaster';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -16,40 +17,45 @@ const BENEFITS = [
   { icon: Smartphone, text: 'Paiement MVola, Orange, Airtel' },
 ];
 
+const RESEND_COOLDOWN_S = 60;
+
 export function RegisterPage() {
   const { signUp } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
+  const resend = useResendConfirmation();
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPasswords, setShowPasswords] = useState(false);
+  const [createdEmail, setCreatedEmail] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<RegisterInput>({ resolver: zodResolver(registerSchema) });
 
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
   const onSubmit = async (values: RegisterInput) => {
     setServerError(null);
     try {
-      const { confirmationSent } = await signUp({
+      // Backend + Resend (aucun email Supabase).
+      await signUp({
         email: values.email,
         password: values.password,
         first_name: values.first_name,
         last_name: values.last_name,
         phone: values.phone || undefined,
       });
-      if (confirmationSent) {
-        toast.success(
-          'Compte créé — vérifiez votre adresse email',
-          `Un lien de confirmation a été envoyé à ${values.email}. Cliquez dessus avant de vous connecter.`,
-        );
-      } else {
-        toast.success(
-          'Compte créé avec succès',
-          'Vous pouvez maintenant vous connecter.',
-        );
-      }
-      navigate('/login', { replace: true });
+      setCreatedEmail(values.email);
+      setCooldown(RESEND_COOLDOWN_S);
+      toast.success(
+        'Compte créé — vérifiez votre adresse email',
+        `Un lien de confirmation a été envoyé à ${values.email}. Cliquez dessus avant de vous connecter.`,
+      );
     } catch (err) {
       setServerError(
         err instanceof Error ? err.message : 'Inscription impossible.',
@@ -57,7 +63,57 @@ export function RegisterPage() {
     }
   };
 
+  const onResend = async () => {
+    if (!createdEmail || cooldown > 0) return;
+    try {
+      await resend.mutateAsync(createdEmail);
+      setCooldown(RESEND_COOLDOWN_S);
+      toast.success('Email renvoyé', `Vérifiez votre boîte : ${createdEmail}.`);
+    } catch (err) {
+      toast.error(
+        'Envoi impossible',
+        err instanceof Error ? err.message : 'Réessayez dans un instant.',
+      );
+    }
+  };
+
   const passwordType = showPasswords ? 'text' : 'password';
+
+  if (createdEmail) {
+    return (
+      <div className="mx-auto max-w-md py-6">
+        <div className="rounded-3xl border border-zinc-200 bg-white p-8 text-center shadow-xl">
+          <CheckCircle2 className="mx-auto size-12 text-green-600" aria-hidden />
+          <h1 className="mt-4 font-display text-2xl font-bold tracking-tight">
+            Compte créé !
+          </h1>
+          <p className="mt-2 text-sm text-zinc-600">
+            Nous avons envoyé un email de confirmation à :
+          </p>
+          <p className="mt-1 text-sm font-bold">{createdEmail}</p>
+          <p className="mt-2 text-sm text-zinc-500">
+            Veuillez consulter votre boîte de réception et cliquer sur le lien de
+            confirmation (valable 60 minutes).
+          </p>
+          <Button
+            variant="secondary"
+            className="mt-5 w-full"
+            loading={resend.isPending}
+            disabled={cooldown > 0}
+            onClick={onResend}
+          >
+            {cooldown > 0 ? `Renvoyer l'email dans ${cooldown}s` : "Renvoyer l'email"}
+          </Button>
+          <p className="mt-4 text-sm text-zinc-500">
+            Déjà confirmé ?{' '}
+            <Link className="font-bold text-zinc-900 hover:underline" to="/login">
+              Se connecter
+            </Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center py-6">

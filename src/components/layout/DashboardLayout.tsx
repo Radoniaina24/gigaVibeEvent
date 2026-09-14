@@ -19,7 +19,7 @@ function initials(name: string, email: string | undefined): string {
 }
 
 export function DashboardLayout() {
-  const { user, profile } = useAuth();
+  const { user, profile, emailVerified } = useAuth();
   const displayName =
     [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') ||
     user?.email ||
@@ -80,6 +80,18 @@ export function DashboardLayout() {
           </Link>
         </aside>
         <main className="min-w-0">
+          {user && !emailVerified && (
+            <p
+              role="alert"
+              className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+            >
+              Votre adresse email n'est pas encore vérifiée. Certaines
+              fonctionnalités (dont la commande) sont bloquées.{' '}
+              <Link to="/verify-email" className="font-bold underline">
+                Vérifier mon email
+              </Link>
+            </p>
+          )}
           <Outlet />
         </main>
       </div>

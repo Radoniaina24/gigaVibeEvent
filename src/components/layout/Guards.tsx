@@ -15,6 +15,26 @@ export function ProtectedRoute() {
   return <Outlet />;
 }
 
+/**
+ * Exige un email vérifié (flag Resend app_metadata.email_verified).
+ * Sans vérification -> /verify-email.
+ * Utilisé pour les fonctionnalités sensibles (ex. /checkout).
+ */
+export function RequireVerifiedEmail() {
+  const { user, emailVerified, isLoading } = useAuth();
+  const location = useLocation();
+  if (isLoading) return <LoadingState label="Vérification de la session…" />;
+  if (!user) {
+    return (
+      <Navigate to={`/login?next=${encodeURIComponent(location.pathname)}`} replace />
+    );
+  }
+  if (!emailVerified) {
+    return <Navigate to="/verify-email" replace />;
+  }
+  return <Outlet />;
+}
+
 /** Exige le rôle admin (vérifié via profiles.role, pas seulement le frontend). */
 export function AdminRoute() {
   const { user, isAdmin, isLoading, profile } = useAuth();

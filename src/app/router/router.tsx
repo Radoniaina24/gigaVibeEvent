@@ -2,7 +2,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { PublicLayout } from '../../components/layout/PublicLayout';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { AdminLayout } from '../../components/layout/AdminLayout';
-import { AdminRoute, PartnerRoute, ProtectedRoute } from '../../components/layout/Guards';
+import { AdminRoute, PartnerRoute, ProtectedRoute, RequireVerifiedEmail } from '../../components/layout/Guards';
 import { HomePage } from '../../pages/public/HomePage';
 import { EventsPage } from '../../pages/public/EventsPage';
 import { EventDetailPage } from '../../pages/public/EventDetailPage';
@@ -11,6 +11,8 @@ import { LoginPage } from '../../pages/auth/LoginPage';
 import { RegisterPage } from '../../pages/auth/RegisterPage';
 import { ForgotPasswordPage } from '../../pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '../../pages/auth/ResetPasswordPage';
+import { VerifyEmailPage } from '../../pages/auth/VerifyEmailPage';
+import { InvitationAcceptPage } from '../../pages/auth/InvitationAcceptPage';
 import { UserDashboardPage } from '../../pages/dashboard/UserDashboardPage';
 import { UserOrdersPage } from '../../pages/dashboard/UserOrdersPage';
 import { OrderDetailPage } from '../../pages/dashboard/OrderDetailPage';
@@ -50,6 +52,8 @@ const router = createBrowserRouter([
       { path: '/register', element: <RegisterPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
       { path: '/reset-password', element: <ResetPasswordPage /> },
+      { path: '/verify-email', element: <VerifyEmailPage /> },
+      { path: '/invitation/accept', element: <InvitationAcceptPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
@@ -57,8 +61,13 @@ const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        element: <PublicLayout />,
-        children: [{ path: '/checkout', element: <CheckoutPage /> }],
+        element: <RequireVerifiedEmail />,
+        children: [
+          {
+            element: <PublicLayout />,
+            children: [{ path: '/checkout', element: <CheckoutPage /> }],
+          },
+        ],
       },
       {
         element: <DashboardLayout />,
