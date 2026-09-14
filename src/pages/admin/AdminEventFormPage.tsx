@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,10 +7,11 @@ import {
   CalendarDays,
   FileText,
   Image as ImageIcon,
+  ImagePlus,
   MapPin,
   Sparkles,
   Tags,
-  Upload,
+  Trash2,
 } from 'lucide-react';
 import {
   useAdminEvent,
@@ -21,7 +22,8 @@ import { TicketTypesManager } from '../../features/admin/components/TicketTypesM
 import { useCategories } from '../../hooks/useEvents';
 import { eventSchema, type EventInput } from '../../schemas';
 import { formatDate, slugify } from '../../lib/utils';
-import { uploadEventImage } from '../../services/storage';
+import { deleteEventImageIfUnused, uploadEventImage } from '../../services/storage';
+import { useImageDraft } from '../../hooks/useImageDraft';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/Toaster';
@@ -100,6 +102,7 @@ export function AdminEventFormPage() {
 
   const [serverError, setServerError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -137,7 +140,17 @@ export function AdminEventFormPage() {
 
   // Aperçu live
   const title = watch('title') ?? '';
-  const imageUrl = watch('image_url') ?? '';
+  const formImageUrl = watch('image_url') ?? '';
+
+  /** Brouillon d'image : aperçu local uniquement, upload différé à l'enregistrement. */
+  const imageDraft = useImageDraft(existing?.image_url);
+  const { hasPending: hasPendingImage, clear: clearImageDraft } = imageDraft;
+  const displayImageUrl = imageDraft.previewUrl ?? formImageUrl;
+
+  // Une URL saisie/collée manuellement prend le pas sur le fichier sélectionné.
+  useEffect(() => {
+    if (hasPendingImage && formImageUrl) clearImageDraft();
+  }, [formImageUrl, hasPendingImage, clearImageDraft]);
   const categoryId = watch('category_id') ?? null;
   const startsAt = watch('starts_at') ?? '';
   const venue = watch('venue') ?? '';
@@ -146,33 +159,71 @@ export function AdminEventFormPage() {
   const isFeatured = watch('is_featured') ?? false;
   const categoryName = (categories.data ?? []).find((c) => c.id === categoryId)?.name ?? null;
 
-  const handleFile = async (file: File | undefined) => {
+  /** Sélection locale uniquement : aucun upload tant qu'on n'enregistre pas. */
+  const handleSelectFile = (file: File | undefined) => {
     if (!file) return;
     setServerError(null);
-    setUploading(true);
-    try {
-      const url = await uploadEventImage(file);
-      setValue('image_url', url, { shouldValidate: true });
-      toast.success('Image téléversée', 'Pensez à enregistrer l’événement.');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Upload impossible.';
-      setServerError(message);
-      toast.error('Upload impossible', message);
-    } finally {
-      setUploading(false);
+    const invalid = imageDraft.select(file);
+    if (invalid) {
+      setServerError(invalid);
+      toast.error('Image invalide', invalid);
+      return;
     }
+    // Le fichier sélectionné remplace l'URL du champ (téléversé à l'enregistrement).
+    if (formImageUrl) setValue('image_url', '', { shouldValidate: true, shouldDirty: true });
+  };
+
+  /** Retire l'image du formulaire (suppression réelle dans le stockage à l'enregistrement). */
+  const handleRemoveImage = () => {
+    imageDraft.clear();
+    setValue('image_url', '', { shouldValidate: true, shouldDirty: true });
   };
 
   const onSubmit = async (values: EventInput) => {
     setServerError(null);
+    // L'image choisie n'est téléversée qu'ici : quitter sans enregistrer
+    // ne conserve aucun fichier. L'ancienne est supprimée du stockage
+    // si remplacée ou retirée (et si plus aucun événement ne l'utilise).
+    setUploading(true);
+    let imageUrl = values.image_url ?? '';
+    let cleanupFailed = false;
+    try {
+      const resolved = await imageDraft.resolveOnSave({
+        formUrl: imageUrl,
+        upload: uploadEventImage,
+        destroy: (url) => deleteEventImageIfUnused(url, id),
+      });
+      imageUrl = resolved.url;
+      cleanupFailed = resolved.cleanupFailed;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Upload impossible.';
+      setServerError(message);
+      toast.error('Image impossible à enregistrer', message);
+      setUploading(false);
+      return;
+    }
+    setUploading(false);
+    values.image_url = imageUrl;
     try {
       if (isNew) {
         const created = await createEvent.mutateAsync(values);
-        toast.created('Événement', `« ${values.title} » est en brouillon.`);
-        navigate(`/admin/events/${created.id}/edit`, { replace: true });
+        toast.created('Événement', `« ${values.title} » est en brouillon.`, {
+          action: {
+            label: 'Gérer les billets',
+            onClick: () => navigate(`/admin/events/${created.id}/edit`),
+          },
+        });
+        navigate('/admin/events', { replace: true });
       } else if (id) {
         await updateEvent.mutateAsync({ id, input: values });
         toast.updated('Événement', 'Modifications enregistrées.');
+        navigate('/admin/events', { replace: true });
+      }
+      if (cleanupFailed) {
+        toast.warning(
+          'Événement enregistré',
+          'L’ancienne image n’a pas pu être supprimée du stockage.',
+        );
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Enregistrement impossible.';
@@ -185,7 +236,7 @@ export function AdminEventFormPage() {
   if (!isNew && (isError || !existing))
     return <ErrorState description="Événement introuvable." onRetry={() => refetch()} />;
 
-  const saving = isSubmitting || createEvent.isPending || updateEvent.isPending;
+  const saving = isSubmitting || uploading || createEvent.isPending || updateEvent.isPending;
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -281,38 +332,84 @@ export function AdminEventFormPage() {
               title="Visuel"
               description="Affiche de l’événement (mise en avant sur le site)."
             />
-            {imageUrl ? (
-              <div className="relative overflow-hidden rounded-2xl border border-zinc-200">
+            {displayImageUrl ? (
+              <div className="group relative overflow-hidden rounded-2xl border border-zinc-200">
                 <img
-                  src={imageUrl}
+                  src={displayImageUrl}
                   alt="Aperçu de l’événement"
                   className="aspect-[21/9] w-full object-cover"
                 />
-                <span className="absolute left-3 top-3 rounded-full bg-night-950/70 px-2.5 py-1 text-xs font-bold text-white backdrop-blur">
-                  Aperçu
-                </span>
+                {hasPendingImage ? (
+                  <span className="absolute left-3 top-3 rounded-full bg-amber-500/90 px-2.5 py-1 text-xs font-bold text-white backdrop-blur">
+                    Non enregistrée
+                  </span>
+                ) : (
+                  <span className="absolute left-3 top-3 rounded-full bg-night-950/70 px-2.5 py-1 text-xs font-bold text-white backdrop-blur">
+                    Aperçu
+                  </span>
+                )}
+                <div className="absolute right-3 top-3 flex gap-2 transition-opacity md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100">
+                  <button
+                    type="button"
+                    title="Remplacer l’image"
+                    aria-label="Remplacer l’image"
+                    disabled={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="grid size-9 place-items-center rounded-full bg-night-950/70 text-white shadow-lg ring-1 ring-white/20 backdrop-blur transition hover:scale-105 hover:bg-night-950/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-50"
+                  >
+                    <ImagePlus className="size-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    title="Retirer l’image"
+                    aria-label="Retirer l’image"
+                    disabled={uploading}
+                    onClick={handleRemoveImage}
+                    className="grid size-9 place-items-center rounded-full bg-red-500/90 text-white shadow-lg ring-1 ring-white/20 backdrop-blur transition hover:scale-105 hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-50"
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </button>
+                </div>
               </div>
             ) : (
-              <div className="grid place-items-center gap-2 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center">
+              <div className="grid place-items-center gap-3 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center">
                 <ImageIcon aria-hidden className="size-8 text-zinc-300" />
-                <p className="text-sm font-medium text-zinc-500">Aucune image pour le moment.</p>
-                <p className="text-xs text-zinc-400">L’aperçu apparaîtra ici après l’upload.</p>
+                <div>
+                  <p className="text-sm font-medium text-zinc-500">Aucune image pour le moment.</p>
+                  <p className="text-xs text-zinc-400">L’aperçu apparaîtra ici après la sélection.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50"
+                >
+                  <ImagePlus className="size-4" aria-hidden /> Choisir une image
+                </button>
               </div>
             )}
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-zinc-100">
-                <Upload className="size-4" aria-hidden />
-                {uploading ? 'Envoi…' : 'Choisir une image'}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="sr-only"
-                  disabled={uploading}
-                  onChange={(e) => handleFile(e.target.files?.[0])}
-                />
-              </label>
-              <span className="text-xs text-zinc-500">JPEG, PNG ou WebP — max 5 Mo.</span>
-            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              tabIndex={-1}
+              disabled={uploading}
+              onChange={(e) => {
+                handleSelectFile(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
+            {imageDraft.committed && !displayImageUrl && (
+              <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                L’image sera supprimée du stockage à l’enregistrement.
+              </p>
+            )}
+            <p className="text-xs text-zinc-500">JPEG, PNG ou WebP — max 5 Mo.</p>
+            <p className="text-xs text-zinc-500">
+              La sélection n’est téléversée qu’à l’enregistrement — quitter sans
+              enregistrer ne conserve rien.
+            </p>
             <Input
               label="URL de l’image (ou upload ci-dessus)"
               placeholder="https://…"
@@ -439,9 +536,6 @@ export function AdminEventFormPage() {
               {serverError}
             </p>
           )}
-          <Button type="submit" loading={saving} size="lg" className="w-full sm:w-auto">
-            {isNew ? 'Créer puis gérer les billets' : 'Enregistrer'}
-          </Button>
         </form>
 
         {/* Rail latéral sticky */}
@@ -453,7 +547,7 @@ export function AdminEventFormPage() {
             <div>
               <EventImage
                 seed={title || 'apercu'}
-                imageUrl={imageUrl || null}
+                imageUrl={displayImageUrl || null}
                 title={title || 'Aperçu'}
                 className="aspect-[16/9] w-full"
               />
@@ -495,7 +589,7 @@ export function AdminEventFormPage() {
             ))}
           </nav>
 
-          <Button type="submit" form="event-form" loading={saving} className="hidden w-full lg:inline-flex">
+          <Button type="submit" form="event-form" loading={saving} size="lg" className="w-full">
             {isNew ? 'Créer l’événement' : 'Enregistrer'}
           </Button>
         </aside>

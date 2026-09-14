@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Send, Upload } from 'lucide-react';
+import { ArrowLeft, ImagePlus, Send, Trash2 } from 'lucide-react';
 import {
   useCreatePartnerEvent,
   useCreatePartnerTicketType,
@@ -17,7 +17,8 @@ import { TicketTypesManager } from '../../features/admin/components/TicketTypesM
 import { useCategories } from '../../hooks/useEvents';
 import { eventSchema, type EventInput } from '../../schemas';
 import { slugify } from '../../lib/utils';
-import { uploadPartnerAsset } from '../../services/storage';
+import { uploadPartnerAsset, deletePartnerAssetIfUnused } from '../../services/storage';
+import { useImageDraft } from '../../hooks/useImageDraft';
 import { EventStatusBadge } from '../../components/admin/StatusBadges';
 import { PartnerStatusBanner } from '../../components/layout/PartnerLayout';
 import { Button } from '../../components/ui/Button';
@@ -51,6 +52,7 @@ export function PartnerEventFormPage() {
 
   const [serverError, setServerError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -88,38 +90,94 @@ export function PartnerEventFormPage() {
     }
   }, [existing, partner.data, isNew, reset, setValue]);
 
-  const imageUrl = watch('image_url');
+  const formImageUrl = watch('image_url') ?? '';
   const partnerId = partner.data?.id;
   const readOnly = Boolean(!isNew && existing && !EDITABLE.includes(existing.status));
   const submittable = Boolean(!isNew && existing && SUBMITTABLE.includes(existing.status));
 
-  const handleFile = async (file: File | undefined) => {
-    if (!file || !partnerId) return;
+  /** Brouillon d'affiche : aperçu local uniquement, upload différé à l'enregistrement. */
+  const imageDraft = useImageDraft(existing?.image_url);
+  const { hasPending: hasPendingImage, clear: clearImageDraft } = imageDraft;
+  const displayImageUrl = imageDraft.previewUrl ?? formImageUrl;
+
+  // Une URL saisie/collée manuellement prend le pas sur le fichier sélectionné.
+  useEffect(() => {
+    if (hasPendingImage && formImageUrl) clearImageDraft();
+  }, [formImageUrl, hasPendingImage, clearImageDraft]);
+
+  /** Sélection locale uniquement : aucun upload tant qu'on n'enregistre pas. */
+  const handleSelectFile = (file: File | undefined) => {
+    if (!file || readOnly) return;
     setServerError(null);
-    setUploading(true);
-    try {
-      const url = await uploadPartnerAsset(file, partnerId, 'events/cover');
-      setValue('image_url', url, { shouldValidate: true });
-      toast.success('Affiche téléversée', 'Pensez à enregistrer l’événement.');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Upload impossible.';
-      setServerError(message);
-      toast.error('Upload impossible', message);
-    } finally {
-      setUploading(false);
+    const invalid = imageDraft.select(file);
+    if (invalid) {
+      setServerError(invalid);
+      toast.error('Image invalide', invalid);
+      return;
     }
+    if (formImageUrl) setValue('image_url', '', { shouldValidate: true, shouldDirty: true });
+  };
+
+  /** Retire l'affiche du formulaire (suppression réelle dans le stockage à l'enregistrement). */
+  const handleRemoveImage = () => {
+    if (readOnly) return;
+    imageDraft.clear();
+    setValue('image_url', '', { shouldValidate: true, shouldDirty: true });
   };
 
   const onSubmit = async (values: EventInput) => {
     setServerError(null);
+    // L'affiche choisie n'est téléversée qu'ici : quitter sans enregistrer
+    // ne conserve aucun fichier. L'ancienne est supprimée du stockage
+    // si remplacée ou retirée (et si plus aucun événement ne l'utilise).
+    if (!partnerId) {
+      const message = 'Espace organisateur introuvable.';
+      setServerError(message);
+      toast.error('Enregistrement impossible', message);
+      return;
+    }
+    setUploading(true);
+    let imageUrl = values.image_url ?? '';
+    let cleanupFailed = false;
+    try {
+      const resolved = await imageDraft.resolveOnSave({
+        formUrl: imageUrl,
+        // Convention 0006 : {partner_id}/events/{event_id}/cover-….jpg
+        // (création : pas encore d'id → dossier `events/` du partenaire).
+        upload: (f) => uploadPartnerAsset(f, partnerId, id ? `events/${id}/cover` : 'events/cover'),
+        destroy: (url) => deletePartnerAssetIfUnused(url, id),
+      });
+      imageUrl = resolved.url;
+      cleanupFailed = resolved.cleanupFailed;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Upload impossible.';
+      setServerError(message);
+      toast.error('Image impossible à enregistrer', message);
+      setUploading(false);
+      return;
+    }
+    setUploading(false);
+    values.image_url = imageUrl;
     try {
       if (isNew) {
         const created = await createEvent.mutateAsync(values);
-        toast.created('Événement', `« ${values.title} » est en brouillon. Ajoutez vos billets.`);
-        navigate(`/partner/events/${created.id}/edit`, { replace: true });
+        toast.created('Événement', `« ${values.title} » est en brouillon. Ajoutez vos billets.`, {
+          action: {
+            label: 'Gérer les billets',
+            onClick: () => navigate(`/partner/events/${created.id}/edit`),
+          },
+        });
+        navigate('/partner/events', { replace: true });
       } else if (id) {
         await updateEvent.mutateAsync({ id, input: values });
         toast.updated('Événement', 'Modifications enregistrées.');
+        navigate('/partner/events', { replace: true });
+      }
+      if (cleanupFailed) {
+        toast.warning(
+          'Événement enregistré',
+          'L’ancienne affiche n’a pas pu être supprimée du stockage.',
+        );
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Enregistrement impossible.';
@@ -206,31 +264,78 @@ export function PartnerEventFormPage() {
 
           <Card className="space-y-4 p-5">
             <h2 className="font-bold">Affiche de l’événement</h2>
-            {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt="Aperçu de l'événement"
-                className="aspect-[21/9] w-full rounded-xl object-cover"
-              />
-            ) : (
-              <p className="text-sm text-zinc-500">Aucune affiche pour le moment.</p>
-            )}
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-100">
-                <Upload className="size-4" aria-hidden />
-                {uploading ? 'Envoi…' : 'Choisir une affiche'}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="sr-only"
-                  disabled={uploading || readOnly}
-                  onChange={(e) => handleFile(e.target.files?.[0])}
+            {displayImageUrl ? (
+              <div className="group relative overflow-hidden rounded-xl">
+                <img
+                  src={displayImageUrl}
+                  alt="Aperçu de l'événement"
+                  className="aspect-[21/9] w-full object-cover"
                 />
-              </label>
-              <span className="text-xs text-zinc-500">JPEG, PNG ou WebP — max 5 Mo.</span>
-            </div>
+                {hasPendingImage && (
+                  <span className="absolute left-3 top-3 rounded-full bg-amber-500/90 px-2.5 py-1 text-xs font-bold text-white">
+                    Non enregistrée
+                  </span>
+                )}
+                <div className="absolute right-3 top-3 flex gap-2 transition-opacity md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100">
+                  <button
+                    type="button"
+                    title="Remplacer l’affiche"
+                    aria-label="Remplacer l’affiche"
+                    disabled={uploading || readOnly}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="grid size-9 place-items-center rounded-full bg-night-950/70 text-white shadow-lg ring-1 ring-white/20 backdrop-blur transition hover:scale-105 hover:bg-night-950/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-50"
+                  >
+                    <ImagePlus className="size-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    title="Retirer l’affiche"
+                    aria-label="Retirer l’affiche"
+                    disabled={uploading || readOnly}
+                    onClick={handleRemoveImage}
+                    className="grid size-9 place-items-center rounded-full bg-red-500/90 text-white shadow-lg ring-1 ring-white/20 backdrop-blur transition hover:scale-105 hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-50"
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid place-items-center gap-3 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-8 text-center">
+                <p className="text-sm text-zinc-500">Aucune affiche pour le moment.</p>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading || readOnly}
+                  className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50"
+                >
+                  <ImagePlus className="size-4" aria-hidden /> Choisir une affiche
+                </button>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              tabIndex={-1}
+              disabled={uploading || readOnly}
+              onChange={(e) => {
+                handleSelectFile(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
+            {imageDraft.committed && !displayImageUrl && (
+              <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                L’affiche sera supprimée du stockage à l’enregistrement.
+              </p>
+            )}
+            <p className="text-xs text-zinc-500">JPEG, PNG ou WebP — max 5 Mo.</p>
+            <p className="text-xs text-zinc-500">
+              La sélection n’est téléversée qu’à l’enregistrement — quitter sans
+              enregistrer ne conserve rien.
+            </p>
             <Input
-              label="URL de l’affiche (ou upload ci-dessus)"
+              label="URL de l’affiche (ou sélection ci-dessus)"
               error={errors.image_url?.message}
               {...register('image_url')}
             />
@@ -277,10 +382,10 @@ export function PartnerEventFormPage() {
           {!readOnly && (
             <Button
               type="submit"
-              loading={isSubmitting || createEvent.isPending || updateEvent.isPending}
+              loading={isSubmitting || uploading || createEvent.isPending || updateEvent.isPending}
               size="lg"
             >
-              {isNew ? 'Créer puis gérer les billets' : 'Enregistrer'}
+              {isNew ? 'Créer l’événement' : 'Enregistrer'}
             </Button>
           )}
           {submittable && (

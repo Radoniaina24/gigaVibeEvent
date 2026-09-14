@@ -12,6 +12,7 @@ import { EventsTableSkeleton } from '../../components/admin/AdminSkeletons';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
+import { deleteEventImageIfUnused } from '../../services/storage';
 import {
   EmptyState,
   ErrorState,
@@ -31,8 +32,17 @@ export function AdminEventsPage() {
     setActionError(null);
     try {
       await deleteEvent.mutateAsync(toDelete);
-      toast.deleted('Événement', `« ${toDelete.title} » a été supprimé.`);
+      const doomedImage = toDelete.image_url;
       setToDelete(null);
+      toast.deleted('Événement', `« ${toDelete.title} » a été supprimé.`);
+      // Nettoie le fichier du stockage (conservé si un autre événement l'utilise).
+      if (doomedImage) {
+        try {
+          await deleteEventImageIfUnused(doomedImage);
+        } catch {
+          toast.warning('Événement supprimé', 'L’image n’a pas pu être supprimée du stockage.');
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Suppression impossible.';
       setActionError(message);

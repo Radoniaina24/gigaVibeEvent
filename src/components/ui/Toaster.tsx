@@ -70,9 +70,9 @@ interface ToastApi {
   error: (title: string, description?: string, opts?: Partial<PushArgs>) => number;
   loading: (title: string, description?: string) => number;
   /** Raccourcis CRUD — messages FR + icônes dédiées. */
-  created: (entity?: string, description?: string) => number;
-  updated: (entity?: string, description?: string) => number;
-  deleted: (entity?: string, description?: string) => number;
+  created: (entity?: string, description?: string, opts?: Partial<PushArgs>) => number;
+  updated: (entity?: string, description?: string, opts?: Partial<PushArgs>) => number;
+  deleted: (entity?: string, description?: string, opts?: Partial<PushArgs>) => number;
   promise: <T>(promise: Promise<T>, messages: PromiseMessages<T>) => Promise<T>;
   update: (id: number, patch: Partial<Omit<ToastItem, 'id'>>) => void;
   dismiss: (id?: number) => void;
@@ -197,22 +197,25 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     fn.warning = (title, description, opts) => push({ ...opts, title, description, variant: 'warning' });
     fn.error = (title, description, opts) => push({ ...opts, title, description, variant: 'error' });
     fn.loading = (title, description) => push({ title, description, variant: 'loading' });
-    fn.created = (entity = 'Élément', description) =>
+    fn.created = (entity = 'Élément', description, opts) =>
       push({
+        ...opts,
         title: `${entity} créé`,
         description: description ?? `${entity} a été créé avec succès.`,
         variant: 'success',
         kind: 'created',
       });
-    fn.updated = (entity = 'Élément', description) =>
+    fn.updated = (entity = 'Élément', description, opts) =>
       push({
+        ...opts,
         title: `${entity} mis à jour`,
         description: description ?? 'Modifications enregistrées avec succès.',
         variant: 'success',
         kind: 'updated',
       });
-    fn.deleted = (entity = 'Élément', description) =>
+    fn.deleted = (entity = 'Élément', description, opts) =>
       push({
+        ...opts,
         title: `${entity} supprimé`,
         description: description ?? 'Suppression effectuée avec succès.',
         variant: 'success',
