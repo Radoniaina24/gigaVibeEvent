@@ -20,6 +20,7 @@ import { Input } from '../../components/ui/Input';
 import { Select, Textarea } from '../../components/ui/Fields';
 import { DataTable } from '../../components/admin/DataTable';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { useToast } from '../../components/ui/Toaster';
 import {
   EmptyState,
   ErrorState,
@@ -39,6 +40,7 @@ const EMPTY: PartnerInput = {
 
 export function AdminPartnersPage() {
   const { data, isPending, isError, refetch } = useAdminPartners();
+  const { toast } = useToast();
   const createPartner = useCreatePartner();
   const updatePartner = useUpdatePartner();
   const deletePartner = useDeletePartner();
@@ -47,7 +49,6 @@ export function AdminPartnersPage() {
   const [editing, setEditing] = useState<Partner | 'new' | null>(null);
   const [toDelete, setToDelete] = useState<AdminPartnerRow | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [serverSuccess, setServerSuccess] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [linkEmail, setLinkEmail] = useState('');
   const [accessEmail, setAccessEmail] = useState('');
@@ -95,8 +96,11 @@ export function AdminPartnersPage() {
     try {
       const url = await uploadEventImage(file);
       setValue('logo_url', url, { shouldValidate: true });
+      toast.success('Logo téléversé', 'Pensez à enregistrer le partenaire.');
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Upload impossible.');
+      const message = err instanceof Error ? err.message : 'Upload impossible.';
+      setServerError(message);
+      toast.error('Upload impossible', message);
     } finally {
       setUploading(false);
     }
@@ -104,17 +108,19 @@ export function AdminPartnersPage() {
 
   const onSubmit = async (values: PartnerInput) => {
     setServerError(null);
-    setServerSuccess(null);
     try {
       if (editing === 'new') {
         await createPartner.mutateAsync(values);
+        toast.created('Partenaire', `« ${values.name} » a été ajouté.`);
       } else if (editing) {
         await updatePartner.mutateAsync({ id: editing.id, input: values });
+        toast.updated('Partenaire', `« ${values.name} » a été mis à jour.`);
       }
       setEditing(null);
-      setServerSuccess('Partenaire enregistré.');
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Enregistrement impossible.');
+      const message = err instanceof Error ? err.message : 'Enregistrement impossible.';
+      setServerError(message);
+      toast.error('Enregistrement impossible', message);
     }
   };
 
@@ -123,22 +129,26 @@ export function AdminPartnersPage() {
     setServerError(null);
     try {
       await deletePartner.mutateAsync(toDelete);
+      toast.deleted('Partenaire', `« ${toDelete.name} » a été supprimé.`);
       setToDelete(null);
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Suppression impossible.');
+      const message = err instanceof Error ? err.message : 'Suppression impossible.';
+      setServerError(message);
+      toast.error('Suppression impossible', message);
     }
   };
 
   const handleLink = async () => {
     if (!editing || editing === 'new' || !linkEmail.trim()) return;
     setServerError(null);
-    setServerSuccess(null);
     try {
       await linkAccount.mutateAsync({ partnerId: editing.id, email: linkEmail });
+      toast.success('Compte rattaché', `${linkEmail.trim()} peut désormais gérer ce partenaire.`);
       setLinkEmail('');
-      setServerSuccess(`Compte ${linkEmail.trim()} rattaché au partenaire.`);
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Liaison impossible.');
+      const message = err instanceof Error ? err.message : 'Liaison impossible.';
+      setServerError(message);
+      toast.error('Liaison impossible', message);
     }
   };
 
@@ -146,9 +156,10 @@ export function AdminPartnersPage() {
   const handleCreateAccess = async () => {
     if (!editing || editing === 'new') return;
     setServerError(null);
-    setServerSuccess(null);
     if (!accessEmail.trim() || accessPassword.length < 8) {
-      setServerError('Email requis et mot de passe de 8 caractères minimum.');
+      const message = 'Email requis et mot de passe de 8 caractères minimum.';
+      setServerError(message);
+      toast.warning('Vérifiez le formulaire', message);
       return;
     }
     setCreatingAccess(true);
@@ -161,15 +172,15 @@ export function AdminPartnersPage() {
       if ((res as { error?: string })?.error) throw new Error((res as { error: string }).error);
       setAccessEmail('');
       setAccessPassword('');
-      setServerSuccess('Accès créé et rattaché. Le partenaire peut se connecter.');
+      toast.success('Accès créé', 'Le partenaire peut désormais se connecter.');
       refetch();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Création impossible.';
-      setServerError(
-        /not found|404|Failed to fetch/i.test(msg)
-          ? "Edge Function « create-partner-user » non déployée. Voir supabase/functions/create-partner-user/README."
-          : msg,
-      );
+      const friendly = /not found|404|Failed to fetch/i.test(msg)
+        ? "Edge Function « create-partner-user » non déployée. Voir supabase/functions/create-partner-user/README."
+        : msg;
+      setServerError(friendly);
+      toast.error('Création impossible', friendly);
     } finally {
       setCreatingAccess(false);
     }
@@ -194,11 +205,6 @@ export function AdminPartnersPage() {
       {serverError && (
         <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
           {serverError}
-        </p>
-      )}
-      {serverSuccess && (
-        <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
-          {serverSuccess}
         </p>
       )}
 

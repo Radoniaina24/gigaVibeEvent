@@ -7,6 +7,7 @@ import { DataTable } from '../../components/admin/DataTable';
 import { Pagination } from '../../components/admin/Pagination';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { useToast } from '../../components/ui/Toaster';
 import { Select } from '../../components/ui/Fields';
 import {
   EmptyState,
@@ -29,6 +30,7 @@ const METHOD_LABEL: Record<string, string> = {
 
 export function AdminPaymentsPage() {
   const { data, isPending, isError, refetch } = useAdminPayments();
+  const { toast } = useToast();
   const validate = useValidatePayment();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
@@ -36,7 +38,6 @@ export function AdminPaymentsPage() {
   const [actingId, setActingId] = useState<string | null>(null);
   const [signingId, setSigningId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -59,17 +60,21 @@ export function AdminPaymentsPage() {
 
   const handleValidate = async (orderId: string, approved: boolean) => {
     setActionError(null);
-    setActionSuccess(null);
     setActingId(orderId);
     try {
       const res = await validate.mutateAsync({ order_id: orderId, approved });
-      setActionSuccess(
-        approved
-          ? `Paiement validé — ${res.tickets} billet${res.tickets > 1 ? 's' : ''} généré${res.tickets > 1 ? 's' : ''}.`
-          : 'Paiement refusé — stock libéré.',
-      );
+      if (approved) {
+        toast.success(
+          'Paiement validé',
+          `${res.tickets} billet${res.tickets > 1 ? 's' : ''} généré${res.tickets > 1 ? 's' : ''}.`,
+        );
+      } else {
+        toast.info('Paiement refusé', 'Stock libéré pour les autres clients.');
+      }
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Validation impossible.');
+      const message = err instanceof Error ? err.message : 'Validation impossible.';
+      setActionError(message);
+      toast.error('Validation impossible', message);
     } finally {
       setActingId(null);
     }
@@ -83,6 +88,7 @@ export function AdminPaymentsPage() {
       window.open(url, '_blank', 'noopener');
     } catch {
       setActionError('Reçu illisible.');
+      toast.error('Reçu illisible', 'Impossible d’ouvrir le justificatif.');
     } finally {
       setSigningId(null);
     }
@@ -100,11 +106,6 @@ export function AdminPaymentsPage() {
       {actionError && (
         <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
           {actionError}
-        </p>
-      )}
-      {actionSuccess && (
-        <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
-          {actionSuccess}
         </p>
       )}
 

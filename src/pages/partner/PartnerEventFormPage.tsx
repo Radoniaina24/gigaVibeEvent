@@ -22,6 +22,7 @@ import { EventStatusBadge } from '../../components/admin/StatusBadges';
 import { PartnerStatusBanner } from '../../components/layout/PartnerLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { useToast } from '../../components/ui/Toaster';
 import { Card } from '../../components/ui/Card';
 import { Select, Textarea } from '../../components/ui/Fields';
 import { ErrorState, LoadingState } from '../../components/ui/States';
@@ -46,8 +47,8 @@ export function PartnerEventFormPage() {
   const createEvent = useCreatePartnerEvent();
   const updateEvent = useUpdatePartnerEvent();
   const submitReview = useSubmitEventForReview();
+  const { toast } = useToast();
 
-  const [saved, setSaved] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -99,26 +100,31 @@ export function PartnerEventFormPage() {
     try {
       const url = await uploadPartnerAsset(file, partnerId, 'events/cover');
       setValue('image_url', url, { shouldValidate: true });
+      toast.success('Affiche téléversée', 'Pensez à enregistrer l’événement.');
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Upload impossible.');
+      const message = err instanceof Error ? err.message : 'Upload impossible.';
+      setServerError(message);
+      toast.error('Upload impossible', message);
     } finally {
       setUploading(false);
     }
   };
 
   const onSubmit = async (values: EventInput) => {
-    setSaved(false);
     setServerError(null);
     try {
       if (isNew) {
         const created = await createEvent.mutateAsync(values);
+        toast.created('Événement', `« ${values.title} » est en brouillon. Ajoutez vos billets.`);
         navigate(`/partner/events/${created.id}/edit`, { replace: true });
       } else if (id) {
         await updateEvent.mutateAsync({ id, input: values });
-        setSaved(true);
+        toast.updated('Événement', 'Modifications enregistrées.');
       }
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Enregistrement impossible.');
+      const message = err instanceof Error ? err.message : 'Enregistrement impossible.';
+      setServerError(message);
+      toast.error('Enregistrement impossible', message);
     }
   };
 
@@ -127,9 +133,12 @@ export function PartnerEventFormPage() {
     setServerError(null);
     try {
       await submitReview.mutateAsync(id);
+      toast.success('Soumis pour validation', 'Giga Vibe Event va examiner votre événement.');
       refetch();
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Soumission impossible.');
+      const message = err instanceof Error ? err.message : 'Soumission impossible.';
+      setServerError(message);
+      toast.error('Soumission impossible', message);
     }
   };
 
@@ -262,11 +271,6 @@ export function PartnerEventFormPage() {
         {serverError && (
           <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
             {serverError}
-          </p>
-        )}
-        {saved && (
-          <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
-            Événement enregistré.
           </p>
         )}
         <div className="flex flex-wrap gap-2">

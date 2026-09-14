@@ -12,6 +12,7 @@ import type { Category } from '../../types/database';
 import { Button } from '../../components/ui/Button';
 import { CategoriesTable } from '../../features/admin/components/CategoriesTable';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { useToast } from '../../components/ui/Toaster';
 import {
   EmptyState,
   ErrorState,
@@ -20,6 +21,7 @@ import {
 
 export function AdminCategoriesPage() {
   const { data, isPending, isError, refetch } = useAdminCategories();
+  const { toast } = useToast();
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
   const deleteCategory = useDeleteCategory();
@@ -53,12 +55,16 @@ export function AdminCategoriesPage() {
     try {
       if (editing) {
         await updateCategory.mutateAsync({ id: editing.id, input: values });
+        toast.updated('Catégorie', `« ${values.name} » a été mise à jour.`);
       } else {
         await createCategory.mutateAsync(values);
+        toast.created('Catégorie', `« ${values.name} » est en ligne.`);
       }
       setModalOpen(false);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Enregistrement impossible.');
+      const message = err instanceof Error ? err.message : 'Enregistrement impossible.';
+      setFormError(message);
+      toast.error('Enregistrement impossible', message);
     }
   };
 
@@ -67,13 +73,15 @@ export function AdminCategoriesPage() {
     setDeleteError(null);
     try {
       await deleteCategory.mutateAsync(toDelete);
+      toast.deleted('Catégorie', `« ${toDelete.name} » a été supprimée.`);
       setToDelete(null);
     } catch (err) {
-      setDeleteError(
+      const message =
         err instanceof Error
           ? err.message
-          : 'Suppression impossible (catégorie utilisée ?).',
-      );
+          : 'Suppression impossible (catégorie utilisée ?).';
+      setDeleteError(message);
+      toast.error('Suppression impossible', message);
     }
   };
 

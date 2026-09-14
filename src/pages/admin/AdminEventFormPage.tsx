@@ -5,7 +5,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   ArrowLeft,
   CalendarDays,
-  Check,
   FileText,
   Image as ImageIcon,
   MapPin,
@@ -25,6 +24,7 @@ import { formatDate, slugify } from '../../lib/utils';
 import { uploadEventImage } from '../../services/storage';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { useToast } from '../../components/ui/Toaster';
 import { Card } from '../../components/ui/Card';
 import { EventStatusBadge } from '../../components/admin/StatusBadges';
 import { Checkbox, Textarea } from '../../components/ui/Fields';
@@ -96,8 +96,8 @@ export function AdminEventFormPage() {
   const categories = useCategories();
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
+  const { toast } = useToast();
 
-  const [saved, setSaved] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -153,26 +153,31 @@ export function AdminEventFormPage() {
     try {
       const url = await uploadEventImage(file);
       setValue('image_url', url, { shouldValidate: true });
+      toast.success('Image téléversée', 'Pensez à enregistrer l’événement.');
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Upload impossible.');
+      const message = err instanceof Error ? err.message : 'Upload impossible.';
+      setServerError(message);
+      toast.error('Upload impossible', message);
     } finally {
       setUploading(false);
     }
   };
 
   const onSubmit = async (values: EventInput) => {
-    setSaved(false);
     setServerError(null);
     try {
       if (isNew) {
         const created = await createEvent.mutateAsync(values);
+        toast.created('Événement', `« ${values.title} » est en brouillon.`);
         navigate(`/admin/events/${created.id}/edit`, { replace: true });
       } else if (id) {
         await updateEvent.mutateAsync({ id, input: values });
-        setSaved(true);
+        toast.updated('Événement', 'Modifications enregistrées.');
       }
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Enregistrement impossible.');
+      const message = err instanceof Error ? err.message : 'Enregistrement impossible.';
+      setServerError(message);
+      toast.error('Enregistrement impossible', message);
     }
   };
 
@@ -432,11 +437,6 @@ export function AdminEventFormPage() {
           {serverError && (
             <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
               {serverError}
-            </p>
-          )}
-          {saved && (
-            <p role="status" className="flex items-center gap-2 rounded-xl bg-green-50 p-3 text-sm text-green-700">
-              <Check className="size-4" aria-hidden /> Événement enregistré.
             </p>
           )}
           <Button type="submit" loading={saving} size="lg" className="w-full sm:w-auto">

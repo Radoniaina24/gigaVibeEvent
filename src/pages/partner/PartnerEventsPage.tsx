@@ -11,6 +11,7 @@ import { PartnerStatusBanner } from '../../components/layout/PartnerLayout';
 import { EventStatusBadge } from '../../components/admin/StatusBadges';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { useToast } from '../../components/ui/Toaster';
 import { EmptyState, ErrorState } from '../../components/ui/States';
 import { PartnerRowsSkeleton } from './PartnerSkeletons';
 import { formatDate } from '../../lib/utils';
@@ -26,6 +27,7 @@ function stockOf(e: PartnerEventRow): { sold: number; total: number } {
 
 export function PartnerEventsPage() {
   const partner = useMyPartner();
+  const { toast } = useToast();
   const { data, isPending, isError, refetch } = usePartnerEvents();
   const submit = useSubmitEventForReview();
   const [search, setSearch] = useState('');
@@ -44,8 +46,11 @@ export function PartnerEventsPage() {
     setSubmittingId(id);
     try {
       await submit.mutateAsync(id);
+      toast.success('Soumis pour validation', 'Giga Vibe Event va examiner votre événement.');
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Soumission impossible.');
+      const message = err instanceof Error ? err.message : 'Soumission impossible.';
+      setActionError(message);
+      toast.error('Soumission impossible', message);
     } finally {
       setSubmittingId(null);
     }

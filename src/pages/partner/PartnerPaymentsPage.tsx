@@ -7,6 +7,7 @@ import { signReceiptUrl } from '../../services/storage';
 import { DataTable } from '../../components/admin/DataTable';
 import { Pagination } from '../../components/admin/Pagination';
 import { Button } from '../../components/ui/Button';
+import { useToast } from '../../components/ui/Toaster';
 import { EmptyState, ErrorState } from '../../components/ui/States';
 import { PartnerRowsSkeleton } from './PartnerSkeletons';
 import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
@@ -17,12 +18,12 @@ const PAGE_SIZE = 15;
 /** Paiements des clients à vérifier (mode partenaire §17, sinon lecture seule). */
 export function PartnerPaymentsPage() {
   const { data, isPending, isError, refetch } = usePartnerPayments();
+  const { toast } = useToast();
   const settings = usePlatformSettings();
   const validate = useValidatePayment();
   const [page, setPage] = useState(1);
   const [actingId, setActingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const canValidate = settings.data?.paymentValidation === 'partner';
 
@@ -38,17 +39,21 @@ export function PartnerPaymentsPage() {
 
   const handleValidate = async (orderId: string, approved: boolean) => {
     setActionError(null);
-    setActionSuccess(null);
     setActingId(orderId);
     try {
       const res = await validate.mutateAsync({ order_id: orderId, approved });
-      setActionSuccess(
-        approved
-          ? `Paiement validé — ${res.tickets} billet${res.tickets > 1 ? 's' : ''} généré${res.tickets > 1 ? 's' : ''}.`
-          : 'Paiement refusé — stock libéré.',
-      );
+      if (approved) {
+        toast.success(
+          'Paiement validé',
+          `${res.tickets} billet${res.tickets > 1 ? 's' : ''} généré${res.tickets > 1 ? 's' : ''}.`,
+        );
+      } else {
+        toast.info('Paiement refusé', 'Stock libéré pour les autres clients.');
+      }
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Validation impossible.');
+      const message = err instanceof Error ? err.message : 'Validation impossible.';
+      setActionError(message);
+      toast.error('Validation impossible', message);
     } finally {
       setActingId(null);
     }
@@ -80,11 +85,6 @@ export function PartnerPaymentsPage() {
       {actionError && (
         <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
           {actionError}
-        </p>
-      )}
-      {actionSuccess && (
-        <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
-          {actionSuccess}
         </p>
       )}
 

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowUpRight,
@@ -25,6 +24,7 @@ import { OrganizedBy } from '../../components/brand/CoBrand';
 import { StatsCard } from '../../components/admin/StatsCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { useToast } from '../../components/ui/Toaster';
 import { ErrorState } from '../../components/ui/States';
 import { PartnerHomeSkeleton } from './PartnerSkeletons';
 import { formatAr } from '../../lib/utils';
@@ -33,31 +33,26 @@ import { formatAr } from '../../lib/utils';
 function PartnerLogoCard({ partner }: { partner: Partner }) {
   const updateLogo = useUpdatePartnerLogo();
   const removeLogo = useRemovePartnerLogo();
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const busy = updateLogo.isPending || removeLogo.isPending;
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
-    setError(null);
-    setSuccess(null);
     try {
       await updateLogo.mutateAsync(file);
-      setSuccess('Logo mis à jour. Il apparaît sur vos événements et confirmations.');
+      toast.updated('Logo', 'Il apparaît sur vos événements et confirmations.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload impossible.');
+      toast.error('Upload impossible', err instanceof Error ? err.message : 'Upload impossible.');
     }
   };
 
   const handleRemove = async () => {
-    setError(null);
-    setSuccess(null);
     try {
       await removeLogo.mutateAsync();
-      setSuccess('Logo retiré.');
+      toast.deleted('Logo', 'Retour aux initiales sur vos pages de vente.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Suppression impossible.');
+      toast.error('Suppression impossible', err instanceof Error ? err.message : 'Suppression impossible.');
     }
   };
 
@@ -125,16 +120,6 @@ function PartnerLogoCard({ partner }: { partner: Partner }) {
           </div>
         </div>
         <p className="mt-2 text-xs text-zinc-500">JPEG, PNG ou WebP · max 5 Mo.</p>
-        {error && (
-          <p role="alert" className="mt-2 text-sm text-red-600">
-            {error}
-          </p>
-        )}
-        {success && (
-          <p role="status" className="mt-2 text-sm text-green-700">
-            {success}
-          </p>
-        )}
       </CardContent>
     </Card>
   );

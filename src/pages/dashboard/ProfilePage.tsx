@@ -12,6 +12,7 @@ import { useProfile, useUpdateProfile } from '../../features/auth/useProfile';
 import { getSupabase } from '../../lib/supabase';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { useToast } from '../../components/ui/Toaster';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { LoadingState, ErrorState } from '../../components/ui/States';
 
@@ -24,9 +25,9 @@ function initials(first: string, last: string, email: string | undefined): strin
 
 export function ProfilePage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const { data, isPending, isError, refetch } = useProfile();
   const update = useUpdateProfile();
-  const [saved, setSaved] = useState(false);
 
   const {
     register,
@@ -55,9 +56,12 @@ export function ProfilePage() {
     );
 
   const onSubmit = async (values: ProfileInput) => {
-    setSaved(false);
-    await update.mutateAsync(values);
-    setSaved(true);
+    try {
+      await update.mutateAsync(values);
+      toast.updated('Profil', 'Vos informations ont été enregistrées.');
+    } catch {
+      toast.error('Mise à jour impossible', 'Réessayez dans un instant.');
+    }
   };
 
   return (
@@ -121,11 +125,6 @@ export function ProfilePage() {
                 Mise à jour impossible.
               </p>
             )}
-            {saved && (
-              <p role="status" className="text-sm text-green-700">
-                Profil enregistré.
-              </p>
-            )}
             <Button
               type="submit"
               loading={isSubmitting || update.isPending}
@@ -142,7 +141,7 @@ export function ProfilePage() {
 }
 
 function PasswordCard() {
-  const [done, setDone] = useState(false);
+  const { toast } = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
   const {
     register,
@@ -154,7 +153,6 @@ function PasswordCard() {
   });
 
   const onSubmit = async (values: ResetPasswordInput) => {
-    setDone(false);
     setServerError(null);
     try {
       const supabase = getSupabase();
@@ -163,11 +161,11 @@ function PasswordCard() {
       });
       if (error) throw error;
       reset();
-      setDone(true);
+      toast.success('Mot de passe mis à jour', 'Utilisez-le lors de votre prochaine connexion.');
     } catch (err) {
-      setServerError(
-        err instanceof Error ? err.message : 'Changement impossible.',
-      );
+      const message = err instanceof Error ? err.message : 'Changement impossible.';
+      setServerError(message);
+      toast.error('Changement impossible', message);
     }
   };
 
@@ -198,11 +196,6 @@ function PasswordCard() {
           {serverError && (
             <p role="alert" className="text-sm text-red-600">
               {serverError}
-            </p>
-          )}
-          {done && (
-            <p role="status" className="text-sm text-green-700">
-              Mot de passe mis à jour.
             </p>
           )}
           <Button type="submit" loading={isSubmitting} className="w-full sm:w-auto">

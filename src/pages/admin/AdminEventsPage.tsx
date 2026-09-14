@@ -11,6 +11,7 @@ import { EventsTable } from '../../features/admin/components/EventsTable';
 import { EventsTableSkeleton } from '../../components/admin/AdminSkeletons';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { useToast } from '../../components/ui/Toaster';
 import {
   EmptyState,
   ErrorState,
@@ -18,6 +19,7 @@ import {
 
 export function AdminEventsPage() {
   const { data, isPending, isError, refetch } = useAdminEvents();
+  const { toast } = useToast();
   const deleteEvent = useDeleteEvent();
   const duplicateEvent = useDuplicateEvent();
 
@@ -29,11 +31,12 @@ export function AdminEventsPage() {
     setActionError(null);
     try {
       await deleteEvent.mutateAsync(toDelete);
+      toast.deleted('Événement', `« ${toDelete.title} » a été supprimé.`);
       setToDelete(null);
     } catch (err) {
-      setActionError(
-        err instanceof Error ? err.message : 'Suppression impossible.',
-      );
+      const message = err instanceof Error ? err.message : 'Suppression impossible.';
+      setActionError(message);
+      toast.error('Suppression impossible', message);
     }
   };
 
@@ -41,8 +44,11 @@ export function AdminEventsPage() {
     setActionError(null);
     try {
       await duplicateEvent.mutateAsync(id);
+      toast.created('Brouillon', 'Événement dupliqué en brouillon.');
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Duplication impossible.');
+      const message = err instanceof Error ? err.message : 'Duplication impossible.';
+      setActionError(message);
+      toast.error('Duplication impossible', message);
     }
   };
 
