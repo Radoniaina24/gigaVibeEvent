@@ -1,7 +1,17 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { BadgeCheck, Check, Copy, ImagePlus, Send } from 'lucide-react';
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Camera,
+  Check,
+  Copy,
+  Images,
+  ImagePlus,
+  Send,
+  Smartphone,
+} from 'lucide-react';
 import {
   manualPaymentSchema,
   type ManualPaymentInput,
@@ -27,10 +37,10 @@ interface Props {
 }
 
 const STEPS = [
-  'Effectuez le transfert vers le numéro marchand.',
-  'Vérifiez que le montant correspond à votre commande.',
-  'Conservez la référence de transaction.',
-  'Envoyez la référence + la capture ci-dessous.',
+  'Sur VOTRE téléphone, envoyez le montant exact au numéro marchand (application opérateur ou code USSD).',
+  'Notez la référence de transaction affichée par l’opérateur.',
+  'Faites une capture d’écran du message de confirmation.',
+  'Revenez ici et envoyez la référence + la capture.',
 ];
 
 /**
@@ -134,8 +144,12 @@ export function PaymentInstructions({
 }
 
 /**
- * Déclaration du transfert Mobile Money (référence + capture obligatoires).
- * 100 % manuel : aucune API opérateur, validation humaine côté backoffice.
+ * Paiement 100 % manuel en 2 temps :
+ *   1. « Je paie » — l'utilisateur transfère DEPUIS SON TÉLÉPHONE
+ *      (hors du site, via son opérateur), avec le numéro copiable.
+ *   2. « Je déclare » — de retour sur le site (souvent le même téléphone),
+ *      il envoie la référence + la capture d'écran du SMS/reçu opérateur.
+ * Aucune API opérateur : validation humaine côté backoffice.
  */
 export function ManualPaymentForm({
   orderId,
@@ -147,6 +161,8 @@ export function ManualPaymentForm({
   serverError,
   onSubmit,
 }: Props) {
+  // Phase : l'utilisateur a-t-il déjà effectué le transfert sur son téléphone ?
+  const [transferDone, setTransferDone] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -177,26 +193,70 @@ export function ManualPaymentForm({
     }
   };
 
+  // ---------- Temps 1 : payer depuis son téléphone ----------
+  if (!transferDone) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-start gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+          <Smartphone className="mt-0.5 size-5 shrink-0 text-blue-700" aria-hidden />
+          <p className="text-sm leading-relaxed text-blue-900">
+            <strong>Payez d'abord depuis VOTRE téléphone</strong>, en dehors de ce
+            site : ouvrez l'application {providerLabel} (ou le code USSD de votre
+            opérateur) et transférez le montant exact ci-dessous.
+          </p>
+        </div>
+
+        <PaymentInstructions methodId={methodId} providerLabel={providerLabel} total={total} />
+
+        <Button size="lg" className="w-full" onClick={() => setTransferDone(true)}>
+          J'ai effectué le transfert — déclarer mon paiement
+        </Button>
+        <p className="text-center text-xs text-zinc-500">
+          Cliquez uniquement après avoir reçu la confirmation de l'opérateur sur
+          votre téléphone.
+        </p>
+      </div>
+    );
+  }
+
+  // ---------- Temps 2 : déclarer (référence + capture) ----------
   return (
     <form
       onSubmit={handleSubmit((v) => onSubmit({ ...v, amount: total }))}
       className="space-y-4"
       noValidate
     >
-      <PaymentInstructions methodId={methodId} providerLabel={providerLabel} total={total} />
+      <div className="flex items-center justify-between gap-2 rounded-2xl bg-zinc-950 px-4 py-3 text-white">
+        <p className="text-sm">
+          <span className="text-zinc-400">À payer :</span>{' '}
+          <strong className="tabular-nums">{formatAr(total)}</strong>
+          <span className="text-zinc-400"> · {providerLabel}</span>
+        </p>
+        <button
+          type="button"
+          onClick={() => setTransferDone(false)}
+          className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-amber-300 hover:underline"
+        >
+          <ArrowLeft className="size-3.5" aria-hidden /> Revoir le numéro
+        </button>
+      </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-5">
         <p className="flex items-center gap-2 text-sm font-bold">
           <Send className="size-4" aria-hidden />
-          Votre transfert
+          Déclarez votre transfert
+        </p>
+        <p className="mt-1 text-xs text-zinc-500">
+          Recopiez les informations affichées sur VOTRE téléphone après le transfert.
         </p>
 
         <div className="mt-4 space-y-4">
           <Input
-            label="Votre numéro (émetteur du transfert) *"
+            label="Votre numéro (celui qui a envoyé l'argent) *"
             type="tel"
             autoComplete="tel"
             placeholder="+261 …"
+            className="text-base sm:text-sm"
             error={errors.phone?.message}
             {...register('phone')}
           />
@@ -206,37 +266,75 @@ export function ManualPaymentForm({
             autoComplete="off"
             className="font-mono uppercase"
             error={errors.reference?.message}
+            hint="Retrouvez-la dans le SMS de confirmation de l'opérateur."
             {...register('reference')}
           />
 
           <div className="space-y-2">
             <p className="text-sm font-medium text-zinc-700">
-              Capture du reçu <span className="text-red-600">*</span>
+              Capture d'écran du SMS/reçu <span className="text-red-600">*</span>
             </p>
-            <label
+            <div
               className={cn(
-                'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-6 text-center transition',
+                'rounded-2xl border-2 border-dashed px-4 py-6 text-center transition',
                 previewUrl
                   ? 'border-green-300 bg-green-50/50'
-                  : 'border-zinc-300 bg-zinc-50 hover:border-zinc-500 hover:bg-zinc-100/60',
+                  : 'border-zinc-300 bg-zinc-50',
               )}
             >
-              <ImagePlus className="size-8 text-zinc-400" aria-hidden />
-              <span className="text-sm font-semibold text-zinc-700">
+              <ImagePlus className="mx-auto size-8 text-zinc-400" aria-hidden />
+              <p className="mt-1 text-sm font-semibold text-zinc-700">
                 {uploading
                   ? 'Envoi en cours…'
                   : previewUrl
                     ? 'Remplacer la capture'
-                    : 'Ajouter la capture (JPG, PNG, WebP — max 5 Mo)'}
-              </span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="sr-only"
-                disabled={uploading || isSubmitting}
-                onChange={(e) => handleFile(e.target.files?.[0])}
-              />
-            </label>
+                    : 'Ajouter la capture du SMS / reçu'}
+              </p>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                JPG, PNG ou WebP — max 5 Mo
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <label
+                  className={cn(
+                    'cursor-pointer rounded-xl bg-zinc-950 px-3 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800',
+                    (uploading || isSubmitting) && 'pointer-events-none opacity-50',
+                  )}
+                >
+                  <Camera className="mx-auto size-5" aria-hidden />
+                  <span className="mt-1 block text-xs">Prendre une photo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="sr-only"
+                    disabled={uploading || isSubmitting}
+                    onChange={(e) => {
+                      handleFile(e.target.files?.[0]);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+                <label
+                  className={cn(
+                    'cursor-pointer rounded-xl border border-zinc-300 bg-white px-3 py-3 text-sm font-semibold transition hover:bg-zinc-100',
+                    (uploading || isSubmitting) && 'pointer-events-none opacity-50',
+                  )}
+                >
+                  <Images className="mx-auto size-5 text-zinc-600" aria-hidden />
+                  <span className="mt-1 block text-xs text-zinc-700">Galerie</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    disabled={uploading || isSubmitting}
+                    onChange={(e) => {
+                      handleFile(e.target.files?.[0]);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
             {previewUrl && (
               <figure className="overflow-hidden rounded-2xl border border-green-200">
                 <img
@@ -266,11 +364,11 @@ export function ManualPaymentForm({
       )}
 
       <Button type="submit" loading={isSubmitting || uploading} className="w-full" size="lg">
-        J'ai payé — envoyer pour validation
+        Envoyer pour validation
       </Button>
       <p className="text-center text-xs text-zinc-500">
-        Preuve obligatoire : sans référence ni capture lisible, la validation est
-        impossible. Billets générés après vérification par notre équipe.
+        Sans référence ni capture lisible, la validation est impossible. Vos billets
+        seront générés après vérification par notre équipe.
       </p>
     </form>
   );

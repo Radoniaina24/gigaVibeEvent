@@ -1,7 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Clock, XCircle } from 'lucide-react';
-import { z } from 'zod';
 import { env } from '../../app/config/env';
 import { useAuth } from '../../features/auth/AuthContext';
 import {
@@ -14,11 +13,16 @@ import { useSimulatePayment } from '../../features/orders/hooks';
 import { useSendTicketEmail } from '../../features/auth/hooks';
 import { PAYMENT_METHODS } from '../../features/payments/providers';
 import {
-  checkoutLineSchema,
-  type CheckoutLine,
+  checkoutStateSchema,
   type CheckoutPaymentInput,
+  type CheckoutState,
   type ManualPaymentInput,
 } from '../../schemas/orders';
+import {
+  clearCheckoutDraft,
+  loadCheckoutDraft,
+  saveCheckoutDraft,
+} from '../../features/orders/checkoutDraft';
 import { formatAr } from '../../lib/utils';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -28,21 +32,7 @@ import { AttendeeForm } from '../../features/orders/components/AttendeeForm';
 import { PaymentMethodForm } from '../../features/orders/components/PaymentMethodForm';
 import { ManualPaymentForm } from '../../features/orders/components/ManualPaymentForm';
 
-const checkoutStateSchema = z.object({
-  eventId: z.string().uuid(),
-  eventSlug: z.string(),
-  eventTitle: z.string(),
-  items: z.array(checkoutLineSchema).min(1).max(10),
-});
-
-interface ValidState {
-  eventId: string;
-  eventSlug: string;
-  eventTitle: string;
-  items: CheckoutLine[];
-}
-
-function parseState(value: unknown): ValidState | null {
+function parseState(value: unknown): CheckoutState | null {
   const r = checkoutStateSchema.safeParse(value);
   return r.success ? r.data : null;
 }
@@ -52,7 +42,17 @@ const STEPS = ['Récapitulatif', 'Participants', 'Paiement', 'Confirmation'];
 export function CheckoutPage() {
   const location = useLocation();
   const { profile } = useAuth();
-  const parsed = parseState(location.state);
+  // Reprise du brouillon si le navigation state a été perdu (refresh,
+  // détour par /login ou /verify-email).
+  const fromState = parseState(location.state);
+  const [fallback] = useState<CheckoutState | null>(() =>
+    fromState ? null : loadCheckoutDraft(),
+  );
+  const parsed = fromState ?? fallback;
+
+  useEffect(() => {
+    if (fromState) saveCheckoutDraft(fromState);
+  }, [fromState]);
 
   const [step, setStep] = useState(0);
   const [names, setNames] = useState<Record<string, string[]>>({});
@@ -171,6 +171,7 @@ export function CheckoutPage() {
       if (res.status === 'paid') {
         setPaidTickets(res.tickets);
         setFailed(false);
+        clearCheckoutDraft();
         // Email billet Resend (non bloquant : la commande reste payée si l'email échoue).
         try {
           await ticketEmail.mutateAsync(order.order_id);
@@ -198,7 +199,7 @@ export function CheckoutPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6">
       <Link
         to={`/events/${eventSlug}`}
         className="inline-flex items-center gap-1 text-sm font-medium text-zinc-600 hover:underline"
@@ -225,7 +226,7 @@ export function CheckoutPage() {
       </ol>
 
       {step === 0 && (
-        <Card className="p-5">
+        <Card className="w-full p-5">
           <ul className="space-y-2 text-sm">
             {items.map((i) => (
               <li key={i.ticket_type_id} className="flex justify-between gap-2">
@@ -249,7 +250,7 @@ export function CheckoutPage() {
       )}
 
       {step === 1 && (
-        <div className="space-y-4">
+        <div className="w-full space-y-4">
           <AttendeeForm
             lines={items}
             names={names}
@@ -269,7 +270,7 @@ export function CheckoutPage() {
       )}
 
       {step === 2 && (
-        <Card className="p-5">
+        <Card className="w-full p-5 sm:p-8">
           <PaymentMethodForm
             defaultPhone={profile?.phone ?? ''}
             isSubmitting={createOrder.isPending}
@@ -282,9 +283,91 @@ export function CheckoutPage() {
         </Card>
       )}
 
-      {step === 3 && order && (
+      {step === 3 && order && paidTickets === null && !failed && !declared && (
+        <div className="grid w-full items-start gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
+          {/* Récapitulatif sticky */}
+          <Card className="p-5 lg:sticky lg:top-24">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-bold">Votre commande</h2>
+              <Badge tone="warning">En attente de paiement</Badge>
+            </div>
+            <p className="mt-1 font-mono text-xs text-zinc-500">{order.order_number}</p>
+            <p className="mt-1 text-sm font-semibold">{eventTitle}</p>
+            <ul className="mt-3 space-y-2 border-t border-zinc-100 pt-3 text-sm">
+              {items.map((i) => (
+                <li key={i.ticket_type_id} className="flex justify-between gap-2">
+                  <span className="text-zinc-600">
+                    {i.name} × {i.quantity}
+                  </span>
+                  <strong className="tabular-nums">
+                    {formatAr(i.unit_price * i.quantity)}
+                  </strong>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 flex justify-between border-t border-zinc-100 pt-3 font-bold">
+              <span>TOTAL</span>
+              <span className="tabular-nums">{formatAr(order.total)}</span>
+            </p>
+            <p className="mt-2 text-xs text-zinc-500">
+              via {PAYMENT_METHODS.find((m) => m.id === orderMethod)?.label ?? orderMethod}
+            </p>
+            <Button
+              size="sm"
+              variant="ghost"
+              loading={cancelOrder.isPending}
+              onClick={cancelAll}
+              className="mt-3 w-full"
+            >
+              Annuler la commande
+            </Button>
+          </Card>
+
+          {/* Transfert + preuve */}
+          <div className="min-w-0 space-y-4">
+            <ManualPaymentForm
+              orderId={order.order_id}
+              methodId={orderMethod}
+              providerLabel={
+                PAYMENT_METHODS.find((m) => m.id === orderMethod)?.label ?? orderMethod
+              }
+              total={order.total}
+              defaultPhone={profile?.phone ?? ''}
+              isSubmitting={declarePayment.isPending}
+              serverError={serverError}
+              onSubmit={submitDeclaration}
+            />
+            {env.enablePaymentSimulation && (
+              <div className="rounded-xl border border-dashed border-amber-400 bg-amber-50 p-4 text-center">
+                <p className="text-xs font-semibold text-amber-800">
+                  DEV UNIQUEMENT — simulation de l'opérateur (remplacée par le webhook Phase 5)
+                </p>
+                <div className="mt-2 flex justify-center gap-2">
+                  <Button
+                    size="sm"
+                    loading={simulate.isPending}
+                    onClick={() => simulateResult(true)}
+                  >
+                    Simuler le succès
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={simulate.isPending}
+                    onClick={() => simulateResult(false)}
+                  >
+                    Simuler l'échec
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {step === 3 && order && (paidTickets !== null || failed || declared) && (
         <div className="space-y-4">
-          <Card className="p-5 text-center">
+          <Card className="w-full p-5 text-center sm:p-8">
             {paidTickets !== null ? (
               <>
                 <CheckCircle2 className="mx-auto size-12 text-green-600" aria-hidden />
@@ -332,88 +415,20 @@ export function CheckoutPage() {
               </>
             ) : (
               <>
-                <h2 className="text-lg font-bold">Commande {order.order_number}</h2>
-                <p className="mt-1">
-                  <Badge tone="warning">En attente de paiement</Badge>
+                <Clock className="mx-auto size-12 text-amber-500" aria-hidden />
+                <h2 className="mt-3 text-lg font-bold">Déclaration envoyée !</h2>
+                <p className="mx-auto mt-1 max-w-md text-sm text-zinc-500">
+                  Votre transfert est <strong>en attente de validation</strong>.
+                  Vos billets seront générés dès vérification du paiement.
                 </p>
-                {declared ? (
-                  <>
-                    <Clock className="mx-auto mt-4 size-12 text-amber-500" aria-hidden />
-                    <h3 className="mt-3 text-lg font-bold">Déclaration envoyée !</h3>
-                    <p className="mx-auto mt-1 max-w-md text-sm text-zinc-500">
-                      Votre transfert est <strong>en attente de validation</strong>.
-                      Vos billets seront générés dès vérification du paiement.
-                    </p>
-                    <div className="mt-4 flex justify-center gap-2">
-                      <Link to={`/dashboard/orders/${order.order_id}`}>
-                        <Button>Suivre ma commande</Button>
-                      </Link>
-                      <Link to="/events">
-                        <Button variant="secondary">Voir les événements</Button>
-                      </Link>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="mx-auto mt-4 flex max-w-md flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm">
-                      <span className="text-zinc-500">
-                        Commande <strong className="font-mono text-zinc-900">{order.order_number}</strong>
-                      </span>
-                      <span className="font-bold tabular-nums">{formatAr(order.total)}</span>
-                      <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold">
-                        {PAYMENT_METHODS.find((m) => m.id === orderMethod)?.label ?? orderMethod}
-                      </span>
-                    </div>
-                    <div className="mt-4 text-left">
-                      <ManualPaymentForm
-                        orderId={order.order_id}
-                        methodId={orderMethod}
-                        providerLabel={
-                          PAYMENT_METHODS.find((m) => m.id === orderMethod)?.label ?? orderMethod
-                        }
-                        total={order.total}
-                        defaultPhone={profile?.phone ?? ''}
-                        isSubmitting={declarePayment.isPending}
-                        serverError={serverError}
-                        onSubmit={submitDeclaration}
-                      />
-                    </div>
-                    <div className="mt-3 flex justify-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        loading={cancelOrder.isPending}
-                        onClick={cancelAll}
-                      >
-                        Annuler la commande
-                      </Button>
-                    </div>
-                  </>
-                )}
-                {env.enablePaymentSimulation && !declared && (
-                  <div className="mt-4 rounded-xl border border-dashed border-amber-400 bg-amber-50 p-4">
-                    <p className="text-xs font-semibold text-amber-800">
-                      DEV UNIQUEMENT — simulation de l'opérateur (remplacée par le webhook Phase 5)
-                    </p>
-                    <div className="mt-2 flex justify-center gap-2">
-                      <Button
-                        size="sm"
-                        loading={simulate.isPending}
-                        onClick={() => simulateResult(true)}
-                      >
-                        Simuler le succès
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        loading={simulate.isPending}
-                        onClick={() => simulateResult(false)}
-                      >
-                        Simuler l'échec
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                <div className="mt-4 flex justify-center gap-2">
+                  <Link to={`/dashboard/orders/${order.order_id}`}>
+                    <Button>Suivre ma commande</Button>
+                  </Link>
+                  <Link to="/events">
+                    <Button variant="secondary">Voir les événements</Button>
+                  </Link>
+                </div>
               </>
             )}
             {serverError && (

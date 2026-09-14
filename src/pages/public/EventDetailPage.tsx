@@ -28,6 +28,10 @@ import { OrganizedBy } from '../../components/brand/CoBrand';
 import { EventDetailSkeleton } from '../../components/events/EventSkeletons';
 import { TicketTypeCard } from '../../components/events/TicketTypeCard';
 import { OrderSummary, type OrderLine } from '../../components/orders/OrderSummary';
+import {
+  loadCheckoutDraft,
+  saveCheckoutDraft,
+} from '../../features/orders/checkoutDraft';
 
 function formatTime(iso: string): string {
   return new Intl.DateTimeFormat('fr-FR', {
@@ -67,6 +71,21 @@ export function EventDetailPage() {
   const { data: event, isPending, isError, refetch } = useEventDetail(slug);
   const [selection, setSelection] = useState<Record<string, number>>({});
   const [copied, setCopied] = useState(false);
+
+  // Restaure la sélection si l'utilisateur revient après une connexion
+  // (le brouillon a été sauvegardé avant la redirection vers /login).
+  useEffect(() => {
+    if (!event) return;
+    const draft = loadCheckoutDraft();
+    if (draft && draft.eventId === event.id) {
+      setSelection((prev) => {
+        if (Object.keys(prev).length > 0) return prev;
+        const next: Record<string, number> = {};
+        for (const item of draft.items) next[item.ticket_type_id] = item.quantity;
+        return next;
+      });
+    }
+  }, [event]);
 
   usePageMeta(
     event?.title ?? 'Événement',
@@ -148,25 +167,24 @@ export function EventDetailPage() {
 
   const handleBuy = () => {
     if (lines.length === 0) return;
+    // Panier persisté : survit au détour par /login (next=/checkout) ou au refresh.
+    const draft = {
+      eventId: event.id,
+      eventSlug: event.slug,
+      eventTitle: event.title,
+      items: lines.map((l) => ({
+        ticket_type_id: l.ticketType.id,
+        name: l.ticketType.name,
+        unit_price: l.ticketType.price,
+        quantity: l.quantity,
+      })),
+    };
+    saveCheckoutDraft(draft);
     if (!user) {
-      navigate(`/login?next=${encodeURIComponent(`/events/${event.slug}`)}`, {
-        replace: false,
-      });
+      navigate('/login?next=/checkout', { replace: false });
       return;
     }
-    navigate('/checkout', {
-      state: {
-        eventId: event.id,
-        eventSlug: event.slug,
-        eventTitle: event.title,
-        items: lines.map((l) => ({
-          ticket_type_id: l.ticketType.id,
-          name: l.ticketType.name,
-          unit_price: l.ticketType.price,
-          quantity: l.quantity,
-        })),
-      },
-    });
+    navigate('/checkout', { state: draft });
   };
 
   return (

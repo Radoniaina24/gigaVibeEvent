@@ -37,6 +37,15 @@ export const checkoutLineSchema = z.object({
 });
 export type CheckoutLine = z.infer<typeof checkoutLineSchema>;
 
+/** État du panier transmis à /checkout (navigation state + brouillon session). */
+export const checkoutStateSchema = z.object({
+  eventId: z.string().uuid(),
+  eventSlug: z.string(),
+  eventTitle: z.string(),
+  items: z.array(checkoutLineSchema).min(1).max(10),
+});
+export type CheckoutState = z.infer<typeof checkoutStateSchema>;
+
 /** Refus d'un paiement : motif obligatoire (traçabilité + info utilisateur). */
 export const paymentRejectSchema = z.object({
   reason: z
