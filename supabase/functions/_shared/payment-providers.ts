@@ -4,7 +4,7 @@
  * uniquement via Edge Functions (secrets côté serveur).
  */
 
-export type PaymentProviderName = 'mvola' | 'orange_money' | 'airtel_money';
+export type PaymentProviderName = 'yas' | 'orange_money' | 'airtel_money';
 
 export interface PaymentIntent {
   orderId: string;
@@ -28,7 +28,7 @@ export interface PaymentProvider {
 }
 
 // Implémentations réelles en Phase 5 (une classe par opérateur).
-// Exemple : MvolaProvider, OrangeMoneyProvider, AirtelMoneyProvider.
+// Exemple : YasProvider, OrangeMoneyProvider, AirtelMoneyProvider.
 
 export function getProvider(name: PaymentProviderName): PaymentProvider {
   throw new Error(

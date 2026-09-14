@@ -24,7 +24,7 @@ export type OrderStatus =
   | 'cancelled'
   | 'expired';
 export type PaymentMethod =
-  | 'mvola'
+  | 'yas'
   | 'orange_money'
   | 'airtel_money'
   | 'card'
@@ -158,6 +158,7 @@ export interface Payment {
   provider_payload: Record<string, unknown> | null;
   phone_number: string | null;
   receipt_url: string | null; // migration 0007 (capture du transfert)
+  rejection_reason: string | null; // migration 0010 (motif du refus)
   validated_by: string | null;
   validated_at: string | null;
   paid_at: string | null;

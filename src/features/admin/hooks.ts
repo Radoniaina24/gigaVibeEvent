@@ -493,8 +493,12 @@ export function useAdminOrders() {
 }
 
 export interface AdminPaymentRow extends Payment {
-  order: Pick<Order, 'order_number'> | null;
-  user: Pick<Profile, 'email'> | null;
+  order:
+    | (Pick<Order, 'order_number'> & {
+        event: Pick<Event, 'title'> | null;
+      })
+    | null;
+  user: Pick<Profile, 'email' | 'first_name' | 'last_name' | 'phone'> | null;
 }
 
 export function useAdminPayments() {
@@ -505,7 +509,9 @@ export function useAdminPayments() {
       const supabase = getSupabase();
       const { data, error } = await supabase
         .from('payments')
-        .select('*, order:orders(order_number), user:profiles(email)')
+        .select(
+          '*, order:orders(order_number, event:events(title)), user:profiles(email,first_name,last_name,phone)',
+        )
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -625,7 +631,7 @@ export interface AdminStats {
 }
 
 const METHOD_LABEL: Record<string, string> = {
-  mvola: 'MVola',
+  yas: 'YAS',
   orange_money: 'Orange Money',
   airtel_money: 'Airtel Money',
   card: 'Carte',

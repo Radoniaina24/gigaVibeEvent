@@ -19,9 +19,10 @@ import {
   LoadingState,
 } from '../../components/ui/States';
 import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
+import { OrderStepper, OrderTimeline } from '../../components/orders/OrderStepper';
 
 const PROVIDER_LABEL: Record<string, string> = {
-  mvola: 'MVola',
+  yas: 'YAS',
   orange_money: 'Orange Money',
   airtel_money: 'Airtel Money',
   card: 'Carte',
@@ -114,6 +115,39 @@ export function OrderDetailPage() {
         </div>
         <OrderStatusBadge status={order.payment_status} />
       </div>
+
+      <OrderStepper status={order.payment_status} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Suivi de la commande</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <OrderTimeline
+            status={order.payment_status}
+            event={{
+              createdAt: order.created_at,
+              declaredAt:
+                payment && payment.status !== 'pending' ? payment.updated_at : null,
+              paidAt: order.paid_at,
+              ticketCount: order.ticket_count,
+              rejectionReason: payment?.rejection_reason,
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      {order.payment_status === 'failed' && payment?.rejection_reason && (
+        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <strong>Paiement refusé.</strong> Motif : {payment.rejection_reason}
+        </p>
+      )}
+      {order.payment_status === 'processing' && (
+        <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Votre preuve de paiement a bien été envoyée. Vérification en cours par
+          notre équipe — votre billet sera généré dès validation.
+        </p>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

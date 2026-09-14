@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const paymentMethodSchema = z.enum([
-  'mvola',
+  'yas',
   'orange_money',
   'airtel_money',
 ]);
@@ -37,7 +37,21 @@ export const checkoutLineSchema = z.object({
 });
 export type CheckoutLine = z.infer<typeof checkoutLineSchema>;
 
-/** Déclaration manuelle du transfert Mobile Money (§16 CDC v2). */
+/** Refus d'un paiement : motif obligatoire (traçabilité + info utilisateur). */
+export const paymentRejectSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(4, 'Motif requis (min. 4 caractères)')
+    .max(300, 'Motif trop long (max. 300 caractères)'),
+});
+export type PaymentRejectInput = z.infer<typeof paymentRejectSchema>;
+
+/**
+ * Déclaration manuelle du transfert Mobile Money (§16 CDC v2).
+ * 100 % manuel : référence ET capture obligatoires (aucune API opérateur).
+ * `receipt_url` est un chemin Storage privé (`{orderId}/recu-…`), pas une URL.
+ */
 export const manualPaymentSchema = z.object({
   phone: z
     .string()
@@ -48,6 +62,6 @@ export const manualPaymentSchema = z.object({
     .trim()
     .min(4, 'Référence requise (min. 4 caractères)')
     .max(60),
-  receipt_url: z.string().url().optional().or(z.literal('')),
+  receipt_url: z.string().min(1, 'Capture du reçu requise (JPG, PNG ou WebP)'),
 });
 export type ManualPaymentInput = z.infer<typeof manualPaymentSchema>;

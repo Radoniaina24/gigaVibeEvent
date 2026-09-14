@@ -32,7 +32,7 @@ const HOW_IT_WORKS = [
     icon: Smartphone,
     step: '02',
     title: 'Payez',
-    text: 'MVola, Orange Money ou Airtel Money, via un paiement sécurisé côté serveur.',
+    text: 'YAS, Orange Money ou Airtel Money, via un paiement sécurisé côté serveur.',
   },
   {
     icon: QrCode,
@@ -42,7 +42,7 @@ const HOW_IT_WORKS = [
   },
 ];
 
-const PAYMENT_METHODS = ['MVola', 'Orange Money', 'Airtel Money'];
+const PAYMENT_METHODS = ['YAS', 'Orange Money', 'Airtel Money'];
 
 /** Conteneur aéré commun (pleine largeur + marges latérales). */
 function Container({ children }: { children: React.ReactNode }) {

@@ -60,7 +60,7 @@ export function CheckoutPage() {
   const [attendeesValid, setAttendeesValid] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [order, setOrder] = useState<CreateOrderResult | null>(null);
-  const [orderMethod, setOrderMethod] = useState<string>('mvola');
+  const [orderMethod, setOrderMethod] = useState<string>('yas');
   const [paidTickets, setPaidTickets] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
   const [declared, setDeclared] = useState(false);
@@ -355,9 +355,19 @@ export function CheckoutPage() {
                   </>
                 ) : (
                   <>
+                    <div className="mx-auto mt-4 flex max-w-md flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm">
+                      <span className="text-zinc-500">
+                        Commande <strong className="font-mono text-zinc-900">{order.order_number}</strong>
+                      </span>
+                      <span className="font-bold tabular-nums">{formatAr(order.total)}</span>
+                      <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold">
+                        {PAYMENT_METHODS.find((m) => m.id === orderMethod)?.label ?? orderMethod}
+                      </span>
+                    </div>
                     <div className="mt-4 text-left">
                       <ManualPaymentForm
                         orderId={order.order_id}
+                        methodId={orderMethod}
                         providerLabel={
                           PAYMENT_METHODS.find((m) => m.id === orderMethod)?.label ?? orderMethod
                         }

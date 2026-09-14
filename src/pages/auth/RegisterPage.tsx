@@ -14,7 +14,7 @@ import { Logo } from '../../components/brand/Logo';
 const BENEFITS = [
   { icon: Sparkles, text: 'Compte gratuit, pour toujours' },
   { icon: QrCode, text: 'Billets QR Code reçus immédiatement' },
-  { icon: Smartphone, text: 'Paiement MVola, Orange, Airtel' },
+  { icon: Smartphone, text: 'Paiement YAS, Orange, Airtel' },
 ];
 
 const RESEND_COOLDOWN_S = 60;

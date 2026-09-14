@@ -6,6 +6,7 @@ import {
   shouldTryPartnerEmbed,
 } from '../../lib/partnerEmbed';
 import { useAuth } from '../auth/AuthContext';
+import { logAudit } from '../admin/audit';
 import { queryKeys } from '../../app/config/query';
 import type {
   Event,
@@ -158,9 +159,28 @@ export function useMyTickets() {
   });
 }
 
+/** Paiements de l'utilisateur avec commande (RLS : own payments). */
+export function useMyPayments() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['payments', 'mine'],
+    enabled: Boolean(user),
+    staleTime: 30_000,
+    queryFn: async (): Promise<(Payment & { order: Pick<Order, 'order_number'> | null })[]> => {
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*, order:orders(order_number)')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as (Payment & { order: Pick<Order, 'order_number'> | null })[];
+    },
+  });
+}
+
 export interface CreateOrderInput {
   event_id: string;
-  payment_method: 'mvola' | 'orange_money' | 'airtel_money';
+  payment_method: 'yas' | 'orange_money' | 'airtel_money';
   phone: string;
   items: CheckoutLineInput[];
 }
@@ -268,6 +288,10 @@ export function useDeclarePayment() {
         p_receipt_url: input.receipt_url || null,
       });
       if (error) throw new Error(error.message);
+      await logAudit('payment.submitted', 'orders', input.order_id, {
+        reference: input.reference,
+        amount: input.amount,
+      });
       return data as { status: string };
     },
     onSuccess: async () => {
@@ -292,16 +316,26 @@ export function useValidatePayment() {
     mutationFn: async ({
       order_id,
       approved,
+      reason,
     }: {
       order_id: string;
       approved: boolean;
+      /** Motif obligatoire en cas de refus (validé par Zod + RPC). */
+      reason?: string;
     }): Promise<ValidatePaymentResult> => {
       const supabase = getSupabase();
       const { data, error } = await supabase.rpc('validate_manual_payment', {
         p_order_id: order_id,
         p_approved: approved,
+        p_reason: reason ?? null,
       });
       if (error) throw new Error(error.message);
+      await logAudit(
+        approved ? 'payment.approved' : 'payment.rejected',
+        'orders',
+        order_id,
+        approved ? { tickets: (data as ValidatePaymentResult).tickets } : { reason },
+      );
       return data as ValidatePaymentResult;
     },
     onSuccess: async () => {

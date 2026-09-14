@@ -55,7 +55,7 @@ function useCountdown(targetIso: string) {
 }
 
 const TRUST_ITEMS = [
-  { icon: ShieldCheck, title: 'Paiement sécurisé', text: 'MVola · Orange · Airtel' },
+  { icon: ShieldCheck, title: 'Paiement sécurisé', text: 'YAS · Orange · Airtel' },
   { icon: QrCode, title: 'QR Code unique', text: 'Vérifié à l’entrée' },
   { icon: RotateCcw, title: 'Remboursé si annulé', text: 'Automatiquement' },
 ];
@@ -484,7 +484,7 @@ export function EventDetailPage() {
               Achat 100 % sécurisé
             </p>
             <p className="mt-1.5 text-xs leading-relaxed text-zinc-300">
-              MVola, Orange Money, Airtel Money. Vos billets QR sont générés
+              YAS, Orange Money, Airtel Money. Vos billets QR sont générés
               dès la confirmation du paiement.
             </p>
           </div>

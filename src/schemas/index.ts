@@ -96,7 +96,7 @@ export type TicketTypeInput = z.infer<typeof ticketTypeSchema>;
 export const orderSchema = z.object({
   event_id: z.string().uuid(),
   payment_method: z.enum([
-    'mvola',
+    'yas',
     'orange_money',
     'airtel_money',
     'card',
@@ -115,7 +115,7 @@ export type OrderInput = z.infer<typeof orderSchema>;
 
 export const paymentSchema = z.object({
   order_id: z.string().uuid(),
-  provider: z.enum(['mvola', 'orange_money', 'airtel_money']),
+  provider: z.enum(['yas', 'orange_money', 'airtel_money']),
   phone_number: z.string().regex(/^\+?[0-9\s-]{8,20}$/, 'Numéro invalide'),
 });
 export type PaymentInput = z.infer<typeof paymentSchema>;

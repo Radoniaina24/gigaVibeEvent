@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ReceiptText } from 'lucide-react';
 import { useOrderDetail } from '../../features/orders/hooks';
+import { signReceiptUrl } from '../../services/storage';
 import { formatAr, formatDateTime } from '../../lib/utils';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -12,7 +14,7 @@ import {
 import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
 
 const PROVIDER_LABEL: Record<string, string> = {
-  mvola: 'MVola',
+  yas: 'YAS',
   orange_money: 'Orange Money',
   airtel_money: 'Airtel Money',
   card: 'Carte',
@@ -24,6 +26,17 @@ const PROVIDER_LABEL: Record<string, string> = {
 export function AdminOrderDetailPage() {
   const { id } = useParams();
   const { data: order, isPending, isError, refetch } = useOrderDetail(id);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+
+  const openReceipt = async (path: string) => {
+    setReceiptError(null);
+    try {
+      const url = path.startsWith('http') ? path : await signReceiptUrl(path);
+      window.open(url, '_blank', 'noopener');
+    } catch {
+      setReceiptError('Reçu illisible.');
+    }
+  };
 
   if (isPending) return <LoadingState label="Chargement de la commande…" />;
   if (isError)
@@ -131,13 +144,38 @@ export function AdminOrderDetailPage() {
                   <OrderStatusBadge status={payment.status} />
                 </dd>
               </div>
+              {payment.rejection_reason && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-zinc-500">Motif du refus</dt>
+                  <dd className="text-right text-red-700">{payment.rejection_reason}</dd>
+                </div>
+              )}
+              {payment.receipt_url && (
+                <div className="flex justify-between">
+                  <dt className="text-zinc-500">Preuve</dt>
+                  <dd>
+                    <button
+                      type="button"
+                      onClick={() => openReceipt(payment.receipt_url as string)}
+                      className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline"
+                    >
+                      <ReceiptText className="size-4" aria-hidden /> Voir la capture
+                    </button>
+                  </dd>
+                </div>
+              )}
             </dl>
           ) : (
             <p className="mt-2 text-sm text-zinc-500">Aucun paiement enregistré.</p>
           )}
+          {receiptError && (
+            <p role="alert" className="mt-2 text-sm text-red-600">
+              {receiptError}
+            </p>
+          )}
           <p className="mt-3 rounded-lg bg-zinc-50 p-2 text-xs text-zinc-500">
-            Un paiement ne peut pas être déclaré « payé » manuellement : seul le
-            webhook du fournisseur (Phase 5) fait foi. Toute modification est
+            Validation manuelle via la page Paiements (vérification de la
+            référence et du reçu avant génération des billets). Toute action est
             auditée.
           </p>
         </Card>

@@ -109,7 +109,7 @@ export function Header() {
             Billetterie officielle · Madagascar
           </p>
           <p className="hidden truncate text-zinc-300 sm:block">
-            Paiement sécurisé : MVola · Orange Money · Airtel Money
+            Paiement sécurisé : YAS · Orange Money · Airtel Money
           </p>
         </div>
       </div>
@@ -369,7 +369,7 @@ export function Footer() {
         <div>
           <p className="text-sm font-semibold">Paiement</p>
           <p className="mt-2 text-sm text-zinc-500">
-            MVola · Orange Money · Airtel Money (via Edge Functions sécurisées).
+            YAS · Orange Money · Airtel Money (via Edge Functions sécurisées).
           </p>
         </div>
       </div>

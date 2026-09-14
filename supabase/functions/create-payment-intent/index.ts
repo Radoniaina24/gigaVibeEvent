@@ -5,7 +5,7 @@
 //   2. Valide order_id + provider + phone (zod côté serveur).
 //   3. Vérifie que la commande appartient à l'utilisateur et est `pending`.
 //   4. Réserve le stock via rpc `reserve_stock` (atomique).
-//   5. Appelle le provider (MVola/Orange/Airtel) avec les secrets serveur.
+//   5. Appelle le provider (YAS/Orange/Airtel) avec les secrets serveur.
 //   6. Crée la ligne `payments` (status processing) et passe la commande en `processing`.
 // Secrets requis : SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, *_API_KEY/SECRET (par opérateur).
 

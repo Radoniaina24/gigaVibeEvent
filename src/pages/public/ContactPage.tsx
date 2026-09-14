@@ -81,7 +81,7 @@ const FAQS = [
   },
   {
     q: 'Quels moyens de paiement acceptez-vous ?',
-    a: 'MVola, Orange Money et Airtel Money via un parcours sécurisé côté serveur. Le QR Code de vos billets est généré dès la confirmation du paiement.',
+    a: 'YAS, Orange Money et Airtel Money via un parcours sécurisé côté serveur. Le QR Code de vos billets est généré dès la confirmation du paiement.',
   },
   {
     q: 'Puis-je me faire rembourser ou transférer un billet ?',

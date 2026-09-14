@@ -72,7 +72,7 @@ export function LoginPage() {
           </ul>
         </div>
         <p className="relative text-xs font-medium text-zinc-300">
-          Paiement sécurisé : MVola · Orange Money · Airtel Money
+          Paiement sécurisé : YAS · Orange Money · Airtel Money
         </p>
       </div>
 

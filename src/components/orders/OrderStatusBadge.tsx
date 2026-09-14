@@ -2,9 +2,9 @@ import { Badge } from '../ui/Card';
 
 const LABELS: Record<string, string> = {
   pending: 'En attente',
-  processing: 'En cours',
+  processing: 'En vérification',
   paid: 'Payé',
-  failed: 'Échoué',
+  failed: 'Refusé',
   cancelled: 'Annulé',
   expired: 'Expiré',
 };
