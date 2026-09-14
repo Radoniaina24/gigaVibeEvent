@@ -1,4 +1,5 @@
-import { formatAr, formatDate } from '../../lib/utils';
+import { CalendarDays } from 'lucide-react';
+import { formatAr, formatDate, formatDateTime } from '../../lib/utils';
 import type { EventListTicketType } from '../../features/events/eventUtils';
 import { Badge } from '../ui/Card';
 import { QuantitySelector } from './QuantitySelector';
@@ -42,6 +43,27 @@ export function TicketTypeCard({ ticketType: t, quantity, onQuantityChange }: Pr
           <strong>{formatAr(t.price)}</strong>
           <span className="text-zinc-500"> / billet</span>
         </p>
+        {(t.sales_start || t.sales_end) && (
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+            {t.sales_start && (
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarDays className="size-3.5 shrink-0" aria-hidden />
+                Début des ventes :{' '}
+                <strong className="font-semibold text-zinc-700">
+                  {formatDateTime(t.sales_start)}
+                </strong>
+              </span>
+            )}
+            {t.sales_end && (
+              <span className="inline-flex items-center gap-1.5">
+                Fin des ventes :{' '}
+                <strong className="font-semibold text-zinc-700">
+                  {formatDateTime(t.sales_end)}
+                </strong>
+              </span>
+            )}
+          </p>
+        )}
       </div>
       {selectable ? (
         <QuantitySelector

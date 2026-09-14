@@ -16,7 +16,7 @@ import {
 import { useEventDetail } from '../../hooks/useEvents';
 import { usePageMeta } from '../../hooks/usePageMeta';
 import { useAuth } from '../../features/auth/AuthContext';
-import { formatAr, formatDate } from '../../lib/utils';
+import { formatAr, formatDate, formatDateTime } from '../../lib/utils';
 import { Badge } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import {
@@ -127,6 +127,14 @@ export function EventDetailPage() {
       : 0;
   const priceLabel =
     soldOut || event.min_price === null ? null : formatAr(event.min_price);
+
+  const salesStarts = event.ticket_types
+    .map((t) => t.sales_start)
+    .filter((d): d is string => Boolean(d))
+    .sort();
+  const salesStartMin = salesStarts.length > 0 ? salesStarts[0] : null;
+  const salesNotStarted =
+    salesStartMin !== null && new Date(salesStartMin).getTime() > Date.now();
 
   const share = async () => {
     try {
@@ -343,11 +351,29 @@ export function EventDetailPage() {
               style={{ width: `${soldPct}%` }}
             />
           </div>
-          <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {salesNotStarted && salesStartMin && (
+            <p
+              role="status"
+              className="mt-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900"
+            >
+              <CalendarDays className="size-4 shrink-0" aria-hidden />
+              Ouverture de la billetterie le {formatDateTime(salesStartMin)}
+            </p>
+          )}
+          <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {[
               { icon: CalendarDays, label: 'Date', value: formatDate(event.starts_at) },
               { icon: Clock, label: 'Horaire', value: timeLabel },
               { icon: MapPin, label: 'Lieu', value: `${event.venue}`, sub: `${event.city}${event.address ? ` · ${event.address}` : ''}` },
+              ...(salesStartMin
+                ? [
+                    {
+                      icon: CalendarDays,
+                      label: 'Début des ventes',
+                      value: formatDateTime(salesStartMin),
+                    },
+                  ]
+                : []),
               {
                 icon: Ticket,
                 label: 'Disponibilités',
