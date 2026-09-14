@@ -156,8 +156,13 @@ export function DateTimePickerField({
       if (triggerRef.current?.contains(t as Node) || panelRef.current?.contains(t as Node)) return;
       closePanel(false);
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closePanel(true);
+    // Capture + stopPropagation : le panneau vit en portail au-dessus des
+    // modales — Escape ne doit fermer que lui, pas la modale parente.
+    const onKeyCapture = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        closePanel(true);
+      }
     };
     const onScroll = (e: Event) => {
       const t = e.target as Element;
@@ -167,12 +172,12 @@ export function DateTimePickerField({
     };
     const onResize = () => closePanel(false);
     document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKeyCapture, true);
     document.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onResize);
     return () => {
       document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('keydown', onKeyCapture, true);
       document.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onResize);
     };

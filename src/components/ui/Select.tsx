@@ -93,8 +93,12 @@ export function SelectField<T extends string>({
       if (triggerRef.current?.contains(t) || contentRef.current?.contains(t)) return;
       closeMenu(false);
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeMenu(true);
+    const onKeyCapture = (e: KeyboardEvent) => {
+      // Menu en portail au-dessus des modales : Escape ne ferme que lui.
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        closeMenu(true);
+      }
     };
     const onScroll = (e: Event) => {
       if (contentRef.current?.contains(e.target as Node)) return;
@@ -102,12 +106,12 @@ export function SelectField<T extends string>({
     };
     const onResize = () => closeMenu(false);
     document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKeyCapture, true);
     document.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onResize);
     return () => {
       document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('keydown', onKeyCapture, true);
       document.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onResize);
     };

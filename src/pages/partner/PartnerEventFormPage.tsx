@@ -15,7 +15,7 @@ import {
 } from '../../features/partner/hooks';
 import { TicketTypesManager } from '../../features/admin/components/TicketTypesManager';
 import { useCategories } from '../../hooks/useEvents';
-import { eventSchema, type EventInput } from '../../schemas';
+import { eventSchema, type EventInput, type TicketTypeInput } from '../../schemas';
 import { slugify } from '../../lib/utils';
 import { uploadPartnerAsset, deletePartnerAssetIfUnused } from '../../services/storage';
 import { useImageDraft } from '../../hooks/useImageDraft';
@@ -48,10 +48,13 @@ export function PartnerEventFormPage() {
   const createEvent = useCreatePartnerEvent();
   const updateEvent = useUpdatePartnerEvent();
   const submitReview = useSubmitEventForReview();
+  const createTicketType = useCreatePartnerTicketType();
   const { toast } = useToast();
 
   const [serverError, setServerError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  /** Billets saisis pendant la création — créés avec l'événement. */
+  const [draftTickets, setDraftTickets] = useState<TicketTypeInput[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -161,12 +164,33 @@ export function PartnerEventFormPage() {
     try {
       if (isNew) {
         const created = await createEvent.mutateAsync(values);
-        toast.created('Événement', `« ${values.title} » est en brouillon. Ajoutez vos billets.`, {
-          action: {
-            label: 'Gérer les billets',
-            onClick: () => navigate(`/partner/events/${created.id}/edit`),
+        let ticketsFailed = 0;
+        for (const t of draftTickets) {
+          try {
+            await createTicketType.mutateAsync({ event_id: created.id, input: t });
+          } catch {
+            ticketsFailed += 1;
+          }
+        }
+        const createdCount = draftTickets.length - ticketsFailed;
+        toast.created(
+          'Événement',
+          createdCount > 0
+            ? `« ${values.title} » est en brouillon avec ${createdCount} type(s) de billet.`
+            : `« ${values.title} » est en brouillon. Ajoutez vos billets.`,
+          {
+            action: {
+              label: 'Gérer les billets',
+              onClick: () => navigate(`/partner/events/${created.id}/edit`),
+            },
           },
-        });
+        );
+        if (ticketsFailed > 0) {
+          toast.warning(
+            'Billets incomplets',
+            `${ticketsFailed} type(s) n’ont pas pu être créés — retrouvez-les dans la fiche.`,
+          );
+        }
         navigate('/partner/events', { replace: true });
       } else if (id) {
         await updateEvent.mutateAsync({ id, input: values });
@@ -373,6 +397,20 @@ export function PartnerEventFormPage() {
           </Card>
         </fieldset>
 
+        {/* Billets — uniquement en création (brouillons créés avec l'événement) */}
+        {isNew && (
+          <Card className="p-5">
+            <TicketTypesManager
+              draftTickets={draftTickets}
+              onDraftChange={setDraftTickets}
+              fetchHook={usePartnerEvent}
+              createHook={useCreatePartnerTicketType}
+              updateHook={useUpdatePartnerTicketType}
+              deleteHook={useDeletePartnerTicketType}
+            />
+          </Card>
+        )}
+
         {serverError && (
           <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
             {serverError}
@@ -382,7 +420,13 @@ export function PartnerEventFormPage() {
           {!readOnly && (
             <Button
               type="submit"
-              loading={isSubmitting || uploading || createEvent.isPending || updateEvent.isPending}
+              loading={
+                isSubmitting ||
+                uploading ||
+                createEvent.isPending ||
+                updateEvent.isPending ||
+                createTicketType.isPending
+              }
               size="lg"
             >
               {isNew ? 'Créer l’événement' : 'Enregistrer'}

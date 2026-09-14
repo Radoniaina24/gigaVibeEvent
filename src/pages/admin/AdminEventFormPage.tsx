@@ -16,11 +16,12 @@ import {
 import {
   useAdminEvent,
   useCreateEvent,
+  useCreateTicketType,
   useUpdateEvent,
 } from '../../features/admin/hooks';
 import { TicketTypesManager } from '../../features/admin/components/TicketTypesManager';
 import { useCategories } from '../../hooks/useEvents';
-import { eventSchema, type EventInput } from '../../schemas';
+import { eventSchema, type EventInput, type TicketTypeInput } from '../../schemas';
 import { formatDate, slugify } from '../../lib/utils';
 import { deleteEventImageIfUnused, uploadEventImage } from '../../services/storage';
 import { useImageDraft } from '../../hooks/useImageDraft';
@@ -98,10 +99,13 @@ export function AdminEventFormPage() {
   const categories = useCategories();
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
+  const createTicketType = useCreateTicketType();
   const { toast } = useToast();
 
   const [serverError, setServerError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  /** Billets saisis pendant la création — créés avec l'événement. */
+  const [draftTickets, setDraftTickets] = useState<TicketTypeInput[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -207,12 +211,33 @@ export function AdminEventFormPage() {
     try {
       if (isNew) {
         const created = await createEvent.mutateAsync(values);
-        toast.created('Événement', `« ${values.title} » est en brouillon.`, {
-          action: {
-            label: 'Gérer les billets',
-            onClick: () => navigate(`/admin/events/${created.id}/edit`),
+        let ticketsFailed = 0;
+        for (const t of draftTickets) {
+          try {
+            await createTicketType.mutateAsync({ event_id: created.id, input: t });
+          } catch {
+            ticketsFailed += 1;
+          }
+        }
+        const createdCount = draftTickets.length - ticketsFailed;
+        toast.created(
+          'Événement',
+          createdCount > 0
+            ? `« ${values.title} » est en brouillon avec ${createdCount} type(s) de billet.`
+            : `« ${values.title} » est en brouillon.`,
+          {
+            action: {
+              label: 'Gérer les billets',
+              onClick: () => navigate(`/admin/events/${created.id}/edit`),
+            },
           },
-        });
+        );
+        if (ticketsFailed > 0) {
+          toast.warning(
+            'Billets incomplets',
+            `${ticketsFailed} type(s) n’ont pas pu être créés — retrouvez-les dans la fiche.`,
+          );
+        }
         navigate('/admin/events', { replace: true });
       } else if (id) {
         await updateEvent.mutateAsync({ id, input: values });
@@ -236,7 +261,8 @@ export function AdminEventFormPage() {
   if (!isNew && (isError || !existing))
     return <ErrorState description="Événement introuvable." onRetry={() => refetch()} />;
 
-  const saving = isSubmitting || uploading || createEvent.isPending || updateEvent.isPending;
+  const saving =
+    isSubmitting || uploading || createEvent.isPending || updateEvent.isPending || createTicketType.isPending;
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -258,7 +284,7 @@ export function AdminEventFormPage() {
             </h1>
             <p className="mt-1 text-sm text-zinc-500">
               {isNew
-                ? 'Renseignez les informations, puis gérez la billetterie.'
+                ? 'Renseignez les informations, l’affiche et les billets.'
                 : 'Les modifications sont visibles dès l’enregistrement.'}
             </p>
           </div>
@@ -530,6 +556,13 @@ export function AdminEventFormPage() {
             </details>
           </Card>
           </section>
+
+          {/* 05 Billets — uniquement en création (brouillons créés avec l'événement) */}
+          {isNew && (
+            <Card className="p-5 md:p-6">
+              <TicketTypesManager draftTickets={draftTickets} onDraftChange={setDraftTickets} />
+            </Card>
+          )}
 
           {serverError && (
             <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">

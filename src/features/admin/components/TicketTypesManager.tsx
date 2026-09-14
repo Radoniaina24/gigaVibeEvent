@@ -1,39 +1,19 @@
-import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Pencil, Plus, Trash2, X } from 'lucide-react';
+import { useState } from 'react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   useAdminEvent,
   useCreateTicketType,
   useDeleteTicketType,
   useUpdateTicketType,
 } from '../hooks';
-import { ticketTypeSchema, type TicketTypeInput } from '../../../schemas';
+import type { TicketTypeInput } from '../../../schemas';
 import type { TicketType } from '../../../types/database';
 import { formatAr } from '../../../lib/utils';
 import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
-import { Select, Textarea } from '../../../components/ui/Fields';
 import { Badge } from '../../../components/ui/Card';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { LoadingState } from '../../../components/ui/States';
-
-const EMPTY: TicketTypeInput = {
-  name: '',
-  description: '',
-  price: 0,
-  quantity: 100,
-  sales_start: '',
-  sales_end: '',
-  status: 'active',
-};
-
-function toLocalInput(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+import { TicketTypeModal, type TicketTypeInitial } from './TicketTypeModal';
 
 export function TicketTypesManager({
   eventId,
@@ -41,8 +21,10 @@ export function TicketTypesManager({
   createHook = useCreateTicketType,
   updateHook = useUpdateTicketType,
   deleteHook = useDeleteTicketType,
+  draftTickets,
+  onDraftChange,
 }: {
-  eventId: string;
+  eventId?: string;
   /** Injection des hooks (admin par défaut, partenaire en espace organisateur). */
   fetchHook?: (id: string | undefined) => {
     data: { ticket_types: TicketType[] } | null | undefined;
@@ -60,46 +42,68 @@ export function TicketTypesManager({
     mutateAsync: (row: TicketType) => Promise<unknown>;
     isPending: boolean;
   };
+  /**
+   * Mode brouillon (création d'événement, pas encore d'id) : aucune requête,
+   * la liste vit dans le formulaire parent et sera créée avec l'événement.
+   */
+  draftTickets?: TicketTypeInput[];
+  onDraftChange?: (tickets: TicketTypeInput[]) => void;
 }) {
-  const { data: event, isPending } = fetchHook(eventId);
+  const isDraft = draftTickets !== undefined && onDraftChange !== undefined;
+  /** Liste locale en mode brouillon (toujours définie quand `isDraft`). */
+  const draftList = draftTickets ?? [];
+  const { data: event, isPending } = fetchHook(isDraft ? undefined : eventId);
   const createType = createHook();
   const updateType = updateHook();
   const deleteType = deleteHook();
 
   const [editing, setEditing] = useState<TicketType | 'new' | null>(null);
+  const [draftEditing, setDraftEditing] = useState<number | 'new' | null>(null);
   const [toDelete, setToDelete] = useState<TicketType | null>(null);
+  const [toDeleteDraft, setToDeleteDraft] = useState<number | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<TicketTypeInput>({
-    resolver: zodResolver(ticketTypeSchema),
-    defaultValues: EMPTY,
-  });
+  const openCreate = () => {
+    setServerError(null);
+    if (isDraft) setDraftEditing('new');
+    else setEditing('new');
+  };
 
-  useEffect(() => {
-    if (editing === 'new') {
-      reset(EMPTY);
-    } else if (editing) {
-      reset({
-        name: editing.name,
-        description: editing.description ?? '',
-        price: editing.price,
-        quantity: editing.quantity,
-        sales_start: toLocalInput(editing.sales_start),
-        sales_end: toLocalInput(editing.sales_end),
-        status: editing.status,
-      });
-    }
-  }, [editing, reset]);
+  const openEdit = (t: TicketType, index: number) => {
+    setServerError(null);
+    if (isDraft) setDraftEditing(index);
+    else setEditing(t);
+  };
+
+  const closeModal = () => {
+    if (createType.isPending || updateType.isPending) return;
+    setEditing(null);
+    setDraftEditing(null);
+    setServerError(null);
+  };
+
+  /** Valeur initiale de la modale : ligne serveur ou brouillon (`null` = création). */
+  const modalTicket: TicketTypeInitial =
+    editing && editing !== 'new'
+      ? editing
+      : draftEditing !== null && draftEditing !== 'new'
+        ? (draftList[draftEditing] ?? null)
+        : null;
 
   const onSubmit = async (values: TicketTypeInput) => {
     setServerError(null);
+    if (isDraft) {
+      if (draftEditing === 'new') {
+        onDraftChange?.([...draftList, values]);
+      } else if (draftEditing !== null) {
+        onDraftChange?.(draftList.map((t, i) => (i === draftEditing ? values : t)));
+      }
+      setDraftEditing(null);
+      return;
+    }
     try {
       if (editing === 'new') {
+        if (!eventId) throw new Error('Événement introuvable.');
         await createType.mutateAsync({ event_id: eventId, input: values });
       } else if (editing) {
         await updateType.mutateAsync({ id: editing.id, input: values });
@@ -121,20 +125,27 @@ export function TicketTypesManager({
     }
   };
 
-  if (isPending) return <LoadingState label="Chargement des billets…" />;
+  if (!isDraft && isPending) return <LoadingState label="Chargement des billets…" />;
 
-  const types = event?.ticket_types ?? [];
+  const types = isDraft ? draftList : (event?.ticket_types ?? []);
+  const modalOpen = editing !== null || draftEditing !== null;
 
   return (
     <section aria-label="Types de billets" className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="font-bold">Types de billets ({types.length})</h2>
-        {editing === null && (
-          <Button size="sm" variant="secondary" onClick={() => setEditing('new')}>
+        {!modalOpen && (
+          <Button size="sm" variant="secondary" onClick={openCreate}>
             <Plus className="size-4" aria-hidden /> Ajouter
           </Button>
         )}
       </div>
+
+      {isDraft && (
+        <p className="text-xs text-zinc-500">
+          Ces billets seront créés avec l’événement à l’enregistrement.
+        </p>
+      )}
 
       {serverError && (
         <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
@@ -142,117 +153,68 @@ export function TicketTypesManager({
         </p>
       )}
 
-      {types.length === 0 && editing !== 'new' ? (
+      {types.length === 0 && !modalOpen ? (
         <p className="rounded-xl border border-dashed border-zinc-300 p-4 text-center text-sm text-zinc-500">
           Aucun type de billet. Ajoutez au moins un type pour vendre.
         </p>
       ) : (
         <ul className="space-y-2">
-          {types.map((t) => (
-            <li
-              key={t.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white p-3 text-sm"
-            >
-              <div>
-                <p className="font-semibold">
-                  {t.name}{' '}
-                  <Badge tone={t.status === 'active' ? 'success' : 'neutral'}>
-                    {t.status}
-                  </Badge>
-                </p>
-                <p className="text-zinc-500 tabular-nums">
-                  {formatAr(t.price)} · {t.sold}/{t.quantity} vendus
-                </p>
-              </div>
-              <span className="flex gap-1">
-                <button
-                  type="button"
-                  title="Modifier"
-                  onClick={() => setEditing(t)}
-                  className="rounded-md p-2 hover:bg-zinc-100"
-                >
-                  <Pencil className="size-4" aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  title="Supprimer"
-                  onClick={() => setToDelete(t)}
-                  className="rounded-md p-2 text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="size-4" aria-hidden />
-                </button>
-              </span>
-            </li>
-          ))}
+          {types.map((t, i) => {
+            const key = isDraft ? `draft-${i}` : (t as TicketType).id;
+            const sold = isDraft ? null : (t as TicketType).sold;
+            return (
+              <li
+                key={key}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white p-3 text-sm"
+              >
+                <div>
+                  <p className="font-semibold">
+                    {t.name}{' '}
+                    {isDraft ? (
+                      <Badge tone="neutral">Brouillon</Badge>
+                    ) : (
+                      <Badge tone={t.status === 'active' ? 'success' : 'neutral'}>
+                        {t.status}
+                      </Badge>
+                    )}
+                  </p>
+                  <p className="text-zinc-500 tabular-nums">
+                    {formatAr(t.price)} ·{' '}
+                    {sold === null ? `${t.quantity} places` : `${sold}/${t.quantity} vendus`}
+                  </p>
+                </div>
+                <span className="flex gap-1">
+                  <button
+                    type="button"
+                    title="Modifier"
+                    onClick={() => openEdit(t as TicketType, i)}
+                    className="rounded-md p-2 hover:bg-zinc-100"
+                  >
+                    <Pencil className="size-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    title="Supprimer"
+                    onClick={() => (isDraft ? setToDeleteDraft(i) : setToDelete(t as TicketType))}
+                    className="rounded-md p-2 text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </button>
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
 
-      {editing !== null && (
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          noValidate
-          className="space-y-3 rounded-xl border border-zinc-300 bg-zinc-50 p-4"
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold">
-              {editing === 'new' ? 'Nouveau type' : `Modifier ${editing.name}`}
-            </p>
-            <button
-              type="button"
-              onClick={() => setEditing(null)}
-              aria-label="Fermer le formulaire"
-              className="rounded-md p-1 hover:bg-zinc-200"
-            >
-              <X className="size-4" aria-hidden />
-            </button>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input label="Nom" error={errors.name?.message} {...register('name')} />
-            <Select label="Statut" error={errors.status?.message} {...register('status')}>
-              <option value="active">Actif</option>
-              <option value="inactive">Inactif</option>
-              <option value="sold_out">Épuisé</option>
-            </Select>
-            <Input
-              label="Prix (Ar)"
-              type="number"
-              min={0}
-              error={errors.price?.message}
-              {...register('price', { valueAsNumber: true })}
-            />
-            <Input
-              label="Quantité"
-              type="number"
-              min={1}
-              error={errors.quantity?.message}
-              {...register('quantity', { valueAsNumber: true })}
-            />
-            <Input
-              label="Début des ventes"
-              type="datetime-local"
-              error={errors.sales_start?.message}
-              {...register('sales_start')}
-            />
-            <Input
-              label="Fin des ventes"
-              type="datetime-local"
-              error={errors.sales_end?.message}
-              {...register('sales_end')}
-            />
-          </div>
-          <Textarea
-            label="Description"
-            error={errors.description?.message}
-            {...register('description')}
-          />
-          <Button
-            type="submit"
-            loading={isSubmitting || createType.isPending || updateType.isPending}
-          >
-            Enregistrer
-          </Button>
-        </form>
-      )}
+      <TicketTypeModal
+        open={modalOpen}
+        ticket={modalTicket}
+        saving={createType.isPending || updateType.isPending}
+        serverError={serverError}
+        onSubmit={onSubmit}
+        onClose={closeModal}
+      />
 
       <ConfirmDialog
         open={toDelete !== null}
@@ -270,6 +232,22 @@ export function TicketTypesManager({
           setToDelete(null);
           setServerError(null);
         }}
+      />
+
+      <ConfirmDialog
+        open={toDeleteDraft !== null}
+        title="Retirer ce type de billet ?"
+        description={
+          toDeleteDraft !== null && draftList[toDeleteDraft]
+            ? `"${draftList[toDeleteDraft].name}" sera retiré de la liste (l’événement n’est pas encore créé).`
+            : undefined
+        }
+        confirmLabel="Retirer"
+        onConfirm={() => {
+          if (toDeleteDraft !== null) onDraftChange?.(draftList.filter((_, i) => i !== toDeleteDraft));
+          setToDeleteDraft(null);
+        }}
+        onClose={() => setToDeleteDraft(null)}
       />
     </section>
   );
