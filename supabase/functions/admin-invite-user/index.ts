@@ -97,19 +97,29 @@ serve(async (req: Request) => {
         invitationUrl,
         expiresDays: INVITE_EXPIRES_DAYS,
       });
-      await sendEmailViaResend({
+      const sendResult = await sendEmailViaResend({
         to: email,
         subject: tpl.subject,
         html: tpl.html,
         kind: 'invitation',
         context: { invited_by: caller.userId },
       });
-      await logEmail(admin, {
-        type: 'invitation',
-        to_email: email,
-        user_id: caller.userId,
-        status: 'sent',
-      });
+      if (sendResult.dev) {
+        await logEmail(admin, {
+          type: 'invitation',
+          to_email: email,
+          user_id: caller.userId,
+          status: 'skipped',
+          error: 'dev_mode_no_send',
+        });
+      } else {
+        await logEmail(admin, {
+          type: 'invitation',
+          to_email: email,
+          user_id: caller.userId,
+          status: 'sent',
+        });
+      }
     } catch {
       await logEmail(admin, {
         type: 'invitation',

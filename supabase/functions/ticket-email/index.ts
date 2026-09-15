@@ -121,13 +121,23 @@ serve(async (req: Request) => {
     });
 
     try {
-      await sendEmailViaResend({
+      const sendResult = await sendEmailViaResend({
         to: toEmail,
         subject: tpl.subject,
         html: tpl.html,
         kind: 'ticket',
         context: { order_id: o.id },
       });
+      if (sendResult.dev) {
+        await logEmail(admin, {
+          type: 'ticket',
+          to_email: toEmail,
+          user_id: o.user_id,
+          status: 'skipped',
+          error: 'dev_mode_no_send',
+        });
+        return json(req, { error: "Email non envoyé (mode dev). Passez EMAIL_MODE=production." }, 500);
+      }
       await logEmail(admin, {
         type: 'ticket',
         to_email: toEmail,

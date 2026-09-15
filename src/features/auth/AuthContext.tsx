@@ -29,7 +29,7 @@ interface AuthContextValue {
     first_name: string;
     last_name: string;
     phone?: string;
-  }) => Promise<{ confirmationSent: boolean }>;
+  }) => Promise<{ confirmationSent: boolean; emailSent: boolean; email: string }>;
   signIn: (args: { email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -123,10 +123,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       phone: args.phone,
     });
     if (!res.email_sent) {
-      // Compte créé mais email non parti : le resend reste possible.
+      // Compte créé mais email non parti (prod mal configurée, Resend 403,
+      // quota, rate-limit) : le resend reste possible. Ne jamais masquer
+      // cet état au client.
       console.warn('[auth] inscription sans email initial, resend requis.');
     }
-    return { confirmationSent: true };
+    return { confirmationSent: true, emailSent: res.email_sent, email: res.email };
   }, []);
 
   const signIn: AuthContextValue['signIn'] = useCallback(async (args) => {

@@ -29,10 +29,18 @@ const LOG_TAG: Record<EmailKind, { sent: string; failed: string }> = {
   },
 };
 
+function fromEmail(): string {
+  return Deno.env.get('RESEND_FROM_EMAIL') ?? 'onboarding@resend.dev';
+}
+
 function fromAddress(): string {
   const name = Deno.env.get('RESEND_FROM_NAME') ?? 'Giga Vibe Event';
-  const email = Deno.env.get('RESEND_FROM_EMAIL') ?? 'onboarding@resend.dev';
-  return `${name} <${email}>`;
+  return `${name} <${fromEmail()}>`;
+}
+
+/** Adresse de test Resend : ne peut envoyer qu'au propriétaire du compte. */
+export function isOnboardingFrom(): boolean {
+  return fromEmail().toLowerCase() === 'onboarding@resend.dev';
 }
 
 export function isDevMailMode(): boolean {
@@ -53,10 +61,11 @@ export async function sendEmailViaResend(
 ): Promise<{ id?: string; dev?: boolean }> {
   const apiKey = Deno.env.get('RESEND_API_KEY');
   const tag = LOG_TAG[args.kind];
+  const devMode = isDevMailMode();
 
-  if (isDevMailMode()) {
+  if (devMode) {
     console.log(
-      `[${tag.sent}] to=${args.to} subject="${args.subject}" (dev, non envoyé)`,
+      `[${tag.sent}] to=${args.to} subject="${args.subject}" (dev_mode_no_send)`,
       args.context ?? {},
     );
     return { dev: true };
@@ -65,6 +74,16 @@ export async function sendEmailViaResend(
   if (!apiKey) {
     console.error(`[${tag.failed}] to=${args.to} reason=missing_RESEND_API_KEY`);
     throw new Error('Configuration email incomplète.');
+  }
+
+  // Garde-fou prod le plus fréquent : l'adresse de test Resend ne délivre
+  // qu'au propriétaire du compte. Tout autre destinataire = 403 Resend.
+  if (isOnboardingFrom()) {
+    console.warn(
+      `[${tag.failed}] to=${args.to} reason=onboarding_from_in_production ` +
+        '(RESEND_FROM_EMAIL=onboarding@resend.dev : vérifiez un domaine Resend et mettez noreply@mondomaine.com)',
+      args.context ?? {},
+    );
   }
 
   try {
@@ -83,8 +102,16 @@ export async function sendEmailViaResend(
     });
     if (!res.ok) {
       // Ne jamais retourner les détails Resend au client.
+      // Le corps est loggé côté serveur uniquement (ex. limite onboarding,
+      // domaine non vérifié, quota) pour diagnostiquer la prod.
+      let detail = '';
+      try {
+        detail = (await res.text()).slice(0, 500);
+      } catch {
+        detail = '';
+      }
       console.error(
-        `[${tag.failed}] to=${args.to} status=${res.status}`,
+        `[${tag.failed}] to=${args.to} status=${res.status} detail=${detail}`,
       );
       throw new Error("Échec de l'envoi de l'email.");
     }

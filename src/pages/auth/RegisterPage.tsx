@@ -26,6 +26,7 @@ export function RegisterPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPasswords, setShowPasswords] = useState(false);
   const [createdEmail, setCreatedEmail] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(true);
   const [cooldown, setCooldown] = useState(0);
   const {
     register,
@@ -43,7 +44,7 @@ export function RegisterPage() {
     setServerError(null);
     try {
       // Backend + Resend (aucun email Supabase).
-      await signUp({
+      const result = await signUp({
         email: values.email,
         password: values.password,
         first_name: values.first_name,
@@ -51,11 +52,19 @@ export function RegisterPage() {
         phone: values.phone || undefined,
       });
       setCreatedEmail(values.email);
+      setEmailSent(result.emailSent);
       setCooldown(RESEND_COOLDOWN_S);
-      toast.success(
-        'Compte créé — vérifiez votre adresse email',
-        `Un lien de confirmation a été envoyé à ${values.email}. Cliquez dessus avant de vous connecter.`,
-      );
+      if (result.emailSent) {
+        toast.success(
+          'Compte créé — vérifiez votre adresse email',
+          `Un lien de confirmation a été envoyé à ${values.email}. Cliquez dessus avant de vous connecter.`,
+        );
+      } else {
+        toast.warning(
+          'Compte créé, mais email non envoyé',
+          `Aucun email de confirmation n'a pu partir vers ${values.email}. Cliquez sur « Renvoyer l’email » (vérifiez aussi vos spams).`,
+        );
+      }
     } catch (err) {
       setServerError(
         err instanceof Error ? err.message : 'Inscription impossible.',
@@ -87,8 +96,17 @@ export function RegisterPage() {
           <h1 className="mt-4 font-display text-2xl font-bold tracking-tight">
             Compte créé !
           </h1>
+          {!emailSent && (
+            <p role="alert" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              L'email de confirmation n'a pas pu être envoyé. Vérifiez vos spams puis
+              cliquez sur « Renvoyer l'email ». Si le problème persiste, le service
+              email de production est mal configuré (RESEND_API_KEY / domaine vérifié).
+            </p>
+          )}
           <p className="mt-2 text-sm text-zinc-600">
-            Nous avons envoyé un email de confirmation à :
+            {emailSent
+              ? 'Nous avons envoyé un email de confirmation à :'
+              : 'Votre compte en attente de confirmation :'}
           </p>
           <p className="mt-1 text-sm font-bold">{createdEmail}</p>
           <p className="mt-2 text-sm text-zinc-500">

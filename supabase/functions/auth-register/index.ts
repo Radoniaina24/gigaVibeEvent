@@ -131,13 +131,31 @@ serve(async (req: Request) => {
     });
 
     try {
-      await sendEmailViaResend({
+      const sendResult = await sendEmailViaResend({
         to: email,
         subject: tpl.subject,
         html: tpl.html,
         kind: 'confirmation',
         context: { user_id: userId },
       });
+      // EMAIL_MODE != production : aucun envoi réel. Ne jamais faire croire
+      // au client que l'email est parti (cause n°1 des "pas de mail en prod"
+      // quand le secret EMAIL_MODE est absent).
+      if (sendResult.dev) {
+        await logEmail(admin, {
+          type: 'confirmation',
+          to_email: email,
+          user_id: userId,
+          status: 'skipped',
+          error: 'dev_mode_no_send',
+        });
+        return json(req, {
+          ok: true,
+          email_sent: false,
+          email,
+          message: 'Compte créé, mais email non envoyé (mode dev). Utilisez « Renvoyer l’email » en production.',
+        }, 201);
+      }
       await logEmail(admin, {
         type: 'confirmation',
         to_email: email,

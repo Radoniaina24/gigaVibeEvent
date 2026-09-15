@@ -72,19 +72,29 @@ serve(async (req: Request) => {
     const resetUrl = `${env.appUrl.replace(/\/+$/, '')}/reset-password?token=${token}`;
     try {
       const tpl = passwordResetEmail({ resetUrl, expiresMinutes: RESET_EXPIRES_MIN });
-      await sendEmailViaResend({
+      const sendResult = await sendEmailViaResend({
         to: email,
         subject: tpl.subject,
         html: tpl.html,
         kind: 'password_reset',
         context: { user_id: userId },
       });
-      await logEmail(admin, {
-        type: 'password_reset',
-        to_email: email,
-        user_id: userId,
-        status: 'sent',
-      });
+      if (sendResult.dev) {
+        await logEmail(admin, {
+          type: 'password_reset',
+          to_email: email,
+          user_id: userId,
+          status: 'skipped',
+          error: 'dev_mode_no_send',
+        });
+      } else {
+        await logEmail(admin, {
+          type: 'password_reset',
+          to_email: email,
+          user_id: userId,
+          status: 'sent',
+        });
+      }
     } catch {
       await logEmail(admin, {
         type: 'password_reset',

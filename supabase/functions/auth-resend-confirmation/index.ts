@@ -94,19 +94,29 @@ serve(async (req: Request) => {
         confirmationUrl,
         expiresMinutes: CONFIRM_EXPIRES_MIN,
       });
-      await sendEmailViaResend({
+      const sendResult = await sendEmailViaResend({
         to: email,
         subject: tpl.subject,
         html: tpl.html,
         kind: 'confirmation',
         context: { user_id: p.id },
       });
-      await logEmail(admin, {
-        type: 'confirmation',
-        to_email: email,
-        user_id: p.id,
-        status: 'sent',
-      });
+      if (sendResult.dev) {
+        await logEmail(admin, {
+          type: 'confirmation',
+          to_email: email,
+          user_id: p.id,
+          status: 'skipped',
+          error: 'dev_mode_no_send',
+        });
+      } else {
+        await logEmail(admin, {
+          type: 'confirmation',
+          to_email: email,
+          user_id: p.id,
+          status: 'sent',
+        });
+      }
     } catch {
       await logEmail(admin, {
         type: 'confirmation',
