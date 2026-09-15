@@ -23,6 +23,57 @@ export function orderStepIndex(status: string): number {
   }
 }
 
+const CHECKOUT_STEPS = ['Récapitulatif', 'Participants', 'Paiement', 'Confirmation'] as const;
+
+/**
+ * Stepper numéroté du tunnel d'achat : pastilles numérotées reliées,
+ * état terminé (coche verte) / courant (noir) / à venir (grisé).
+ */
+export function CheckoutSteps({ step }: { step: number }) {
+  return (
+    <ol aria-label="Progression de la commande" className="flex items-start">
+      {CHECKOUT_STEPS.map((label, i) => {
+        const done = step > i;
+        const current = step === i;
+        return (
+          <li key={label} className={cn('flex items-start', i < CHECKOUT_STEPS.length - 1 && 'flex-1')}>
+            <div className="flex flex-col items-center gap-1.5">
+              <span
+                aria-current={current ? 'step' : undefined}
+                className={cn(
+                  'flex size-9 items-center justify-center rounded-full text-sm font-black transition',
+                  done && 'bg-green-600 text-white',
+                  current && 'bg-zinc-950 text-white ring-4 ring-zinc-950/10',
+                  !done && !current && 'bg-zinc-200 text-zinc-500',
+                )}
+              >
+                {done ? <Check className="size-4" strokeWidth={3} /> : (i + 1)}
+              </span>
+              <span
+                className={cn(
+                  'hidden text-center text-[11px] leading-tight sm:block',
+                  current ? 'font-bold text-zinc-900' : done ? 'font-semibold text-zinc-700' : 'text-zinc-400',
+                )}
+              >
+                {label}
+              </span>
+            </div>
+            {i < CHECKOUT_STEPS.length - 1 && (
+              <span
+                aria-hidden
+                className={cn(
+                  'mx-1 mt-[18px] h-0.5 min-w-4 flex-1 rounded-full sm:mx-2',
+                  step > i ? 'bg-green-600' : 'bg-zinc-200',
+                )}
+              />
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export interface OrderTimelineEvent {
   createdAt: string;
   declaredAt?: string | null;

@@ -7,12 +7,14 @@ import {
 } from '../../../schemas/orders';
 import {
   PAYMENT_METHODS,
+  formatPhoneDisplay,
   prefixMismatchWarning,
   type PaymentMethodId,
 } from '../../payments/providers';
 import { usePlatformSettings } from '../../../hooks/usePlatformSettings';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
+import { OperatorLogo } from '../../../components/orders/OperatorLogo';
 import { cn } from '../../../lib/utils';
 
 interface Props {
@@ -20,6 +22,7 @@ interface Props {
   isSubmitting: boolean;
   serverError: string | null;
   onSubmit: (values: CheckoutPaymentInput) => void;
+  onBack?: () => void;
 }
 
 /** Étape 3 : choix Mobile Money + numéro (aucun secret manipulé ici). */
@@ -28,6 +31,7 @@ export function PaymentMethodForm({
   isSubmitting,
   serverError,
   onSubmit,
+  onBack,
 }: Props) {
   const {
     register,
@@ -89,10 +93,16 @@ export function PaymentMethodForm({
               />
               <span
                 aria-hidden
-                style={{ backgroundColor: m.brandBg }}
-                className="mx-auto flex size-12 items-center justify-center rounded-2xl text-xl font-black text-white shadow"
+                className="mx-auto flex h-14 items-center justify-center rounded-2xl bg-white px-3 shadow-inner"
               >
-                {m.brandInitial}
+                <OperatorLogo
+                  src={m.logo}
+                  label={m.label}
+                  initial={m.brandInitial}
+                  bg={m.brandBg}
+                  imgClassName="max-h-10 w-auto max-w-full object-contain"
+                  className="size-10 rounded-xl text-lg"
+                />
               </span>
               <span className={cn('mt-2 block text-sm font-bold', active ? 'text-white' : 'text-zinc-900')}>
                 {m.label}
@@ -107,7 +117,7 @@ export function PaymentMethodForm({
                   active ? 'bg-white/10 text-amber-300' : 'bg-zinc-100 text-zinc-800',
                 )}
               >
-                {configById.get(m.id)?.number || 'N° à venir'}
+                {formatPhoneDisplay(configById.get(m.id)?.number ?? '') || 'N° à venir'}
               </span>
               <span className={cn('mt-1 block text-[10px]', active ? 'text-zinc-400' : 'text-zinc-400')}>
                 Numéro marchand
@@ -149,9 +159,16 @@ export function PaymentMethodForm({
         </p>
       )}
 
-      <Button type="submit" loading={isSubmitting} className="w-full" size="lg">
-        Continuer vers le transfert
-      </Button>
+      <div className="flex gap-2">
+        {onBack && (
+          <Button type="button" variant="secondary" onClick={onBack}>
+            Retour
+          </Button>
+        )}
+        <Button type="submit" loading={isSubmitting} className="flex-1">
+          Continuer vers le transfert
+        </Button>
+      </div>
       <p className="text-center text-xs text-zinc-500">
         Paiement 100 % manuel : vous transférez depuis votre téléphone, puis
         envoyez la référence et la capture. Billets générés après vérification

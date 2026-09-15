@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, CheckCircle2, Clock, ShieldCheck, Ticket, XCircle } from 'lucide-react';
 import { env } from '../../app/config/env';
 import { useAuth } from '../../features/auth/AuthContext';
 import {
@@ -29,6 +29,8 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/States';
 import { AttendeeForm } from '../../features/orders/components/AttendeeForm';
+import { CheckoutSteps } from '../../components/orders/OrderStepper';
+import { OrderRecapCard } from '../../components/orders/OrderRecapCard';
 import { PaymentMethodForm } from '../../features/orders/components/PaymentMethodForm';
 import { ManualPaymentForm } from '../../features/orders/components/ManualPaymentForm';
 
@@ -36,8 +38,6 @@ function parseState(value: unknown): CheckoutState | null {
   const r = checkoutStateSchema.safeParse(value);
   return r.success ? r.data : null;
 }
-
-const STEPS = ['Récapitulatif', 'Participants', 'Paiement', 'Confirmation'];
 
 export function CheckoutPage() {
   const location = useLocation();
@@ -206,81 +206,190 @@ export function CheckoutPage() {
       >
         <ArrowLeft className="size-4" aria-hidden /> Retour à l'événement
       </Link>
-      <h1 className="text-2xl font-bold">Commande — {eventTitle}</h1>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <h1 className="text-2xl font-bold tracking-tight">Commande — {eventTitle}</h1>
+        <p className="text-sm font-semibold tabular-nums text-zinc-500">
+          Étape {Math.min(step + 1, 4)} / 4
+        </p>
+      </div>
 
-      {/* Étapes */}
-      <ol aria-label="Progression" className="flex gap-1">
-        {STEPS.map((label, i) => (
-          <li key={label} className="flex-1">
-            <div
-              aria-current={i === step ? 'step' : undefined}
-              className={`h-1.5 rounded-full ${i <= step ? 'bg-zinc-900' : 'bg-zinc-200'}`}
-            />
-            <p
-              className={`mt-1 text-[11px] ${i === step ? 'font-semibold' : 'text-zinc-500'}`}
-            >
-              {label}
-            </p>
-          </li>
-        ))}
-      </ol>
+      <CheckoutSteps step={step} />
 
       {step === 0 && (
-        <Card className="w-full p-5">
-          <ul className="space-y-2 text-sm">
-            {items.map((i) => (
-              <li key={i.ticket_type_id} className="flex justify-between gap-2">
-                <span className="text-zinc-600">
-                  {i.name} · {formatAr(i.unit_price)} × {i.quantity}
-                </span>
-                <strong className="tabular-nums">
-                  {formatAr(i.unit_price * i.quantity)}
-                </strong>
+        <div className="grid w-full items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+          {/* Billets sélectionnés */}
+          <Card className="p-5 sm:p-6">
+            <p className="text-xs font-bold uppercase tracking-widest text-amber-600">
+              Étape 1 / 4 — Récapitulatif
+            </p>
+            <p className="mt-1 text-sm text-zinc-500">
+              {eventTitle} · {items.reduce((s, i) => s + i.quantity, 0)} billet
+              {items.reduce((s, i) => s + i.quantity, 0) > 1 ? 's' : ''}
+            </p>
+            <ul className="mt-4 divide-y divide-dashed divide-zinc-200">
+              {items.map((i, idx) => (
+                <li key={i.ticket_type_id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                  <span
+                    aria-hidden
+                    className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-zinc-950 font-black text-amber-300"
+                  >
+                    {idx + 1}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 text-sm font-bold">
+                      <Ticket className="size-4 shrink-0 text-zinc-400" aria-hidden />
+                      <span className="truncate">{i.name}</span>
+                    </span>
+                    <span className="mt-0.5 block text-xs tabular-nums text-zinc-500">
+                      {formatAr(i.unit_price)} × {i.quantity}
+                    </span>
+                  </span>
+                  <strong className="shrink-0 text-sm tabular-nums">
+                    {formatAr(i.unit_price * i.quantity)}
+                  </strong>
+                </li>
+              ))}
+            </ul>
+          </Card>
+
+          {/* Total + action */}
+          <div className="space-y-4 lg:sticky lg:top-24">
+            <div className="overflow-hidden rounded-2xl bg-zinc-950 text-white">
+              <div className="p-5">
+                <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400">
+                  Total à payer
+                </p>
+                <p className="mt-1 font-display text-4xl font-black tabular-nums tracking-tight">
+                  {formatAr(total)}
+                </p>
+                <p className="mt-1 text-xs text-zinc-400">
+                  Sous-total {formatAr(total)} · Frais 0 Ar
+                </p>
+              </div>
+              <div className="bg-white/5 p-5 pt-4">
+                <Button onClick={initNames} className="w-full">
+                  Continuer
+                </Button>
+                <p className="mt-2 text-center text-xs text-zinc-400">
+                  Étape suivante : participants
+                </p>
+              </div>
+            </div>
+            <ul className="space-y-2 text-xs text-zinc-500">
+              <li className="flex items-center gap-2">
+                <ShieldCheck className="size-4 shrink-0 text-green-600" aria-hidden />
+                Paiement manuel sécurisé (YAS, Orange, Airtel)
               </li>
-            ))}
-          </ul>
-          <p className="mt-4 flex justify-between border-t border-zinc-100 pt-3 font-bold">
-            <span>TOTAL</span>
-            <span className="tabular-nums">{formatAr(total)}</span>
-          </p>
-          <Button onClick={initNames} className="mt-4 w-full" size="lg">
-            Continuer
-          </Button>
-        </Card>
+              <li className="flex items-center gap-2">
+                <Clock className="size-4 shrink-0 text-green-600" aria-hidden />
+                Billets générés après vérification du transfert
+              </li>
+              <li className="flex items-center gap-2">
+                <BadgeCheck className="size-4 shrink-0 text-green-600" aria-hidden />
+                QR Code unique par billet
+              </li>
+            </ul>
+          </div>
+        </div>
       )}
 
       {step === 1 && (
-        <div className="w-full space-y-4">
-          <AttendeeForm
-            lines={items}
-            names={names}
-            showErrors={showErrors}
-            onNamesChange={setNames}
-            onValidityChange={onValidityChange}
-          />
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setStep(0)}>
-              Retour
-            </Button>
-            <Button onClick={submitAttendees} className="flex-1">
-              Continuer vers le paiement
-            </Button>
+        <div className="grid w-full items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="min-w-0 space-y-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-amber-600">
+              Étape 2 / 4 — Participants
+            </p>
+            <p className="-mt-2 text-sm text-zinc-500">
+              Un nom par billet : il sera imprimé sur le billet et contrôlé à l'entrée.
+            </p>
+            <AttendeeForm
+              lines={items}
+              names={names}
+              showErrors={showErrors}
+              onNamesChange={setNames}
+              onValidityChange={onValidityChange}
+              buyerName={buyerName || undefined}
+            />
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setStep(0)}>
+                Retour
+              </Button>
+              <Button onClick={submitAttendees} className="flex-1">
+                Continuer vers le paiement
+              </Button>
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white lg:sticky lg:top-24">
+            <div className="bg-zinc-950 p-5 text-white">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-300">
+                  Votre commande
+                </h2>
+                <span className="rounded-full bg-amber-400 px-2.5 py-0.5 text-xs font-black tabular-nums text-zinc-950">
+                  {items.reduce((s, i) => s + i.quantity, 0)} billet
+                  {items.reduce((s, i) => s + i.quantity, 0) > 1 ? 's' : ''}
+                </span>
+              </div>
+              <p className="mt-1.5 truncate text-sm font-semibold">{eventTitle}</p>
+            </div>
+            <ul className="space-y-3 p-5">
+              {items.map((i) => (
+                <li key={i.ticket_type_id} className="flex items-center gap-3">
+                  <span
+                    aria-hidden
+                    className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100"
+                  >
+                    <Ticket className="size-4 text-zinc-600" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">{i.name}</span>
+                    <span className="block text-xs tabular-nums text-zinc-500">
+                      {formatAr(i.unit_price)} × {i.quantity}
+                    </span>
+                  </span>
+                  <strong className="shrink-0 text-sm tabular-nums">
+                    {formatAr(i.unit_price * i.quantity)}
+                  </strong>
+                </li>
+              ))}
+            </ul>
+            <div className="border-t border-dashed border-zinc-200 bg-zinc-50 p-5">
+              <p className="flex items-baseline justify-between">
+                <span className="text-sm font-semibold text-zinc-500">TOTAL</span>
+                <span className="font-display text-2xl font-black tabular-nums tracking-tight">
+                  {formatAr(total)}
+                </span>
+              </p>
+              <p className="mt-1 flex items-center gap-1.5 text-[11px] text-zinc-500">
+                <ShieldCheck className="size-3.5 shrink-0 text-green-600" aria-hidden />
+                Paiement manuel vérifié par notre équipe
+              </p>
+            </div>
           </div>
         </div>
       )}
 
       {step === 2 && (
-        <Card className="w-full p-5 sm:p-8">
-          <PaymentMethodForm
-            defaultPhone={profile?.phone ?? ''}
-            isSubmitting={createOrder.isPending}
-            serverError={serverError ?? (createOrder.isError ? 'Commande refusée.' : null)}
-            onSubmit={submitPayment}
-          />
-          <Button variant="ghost" size="sm" className="mt-2" onClick={() => setStep(1)}>
-            Retour
-          </Button>
-        </Card>
+        <div className="grid w-full items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <Card className="min-w-0 p-5 sm:p-6">
+            <p className="text-xs font-bold uppercase tracking-widest text-amber-600">
+              Étape 3 / 4 — Paiement
+            </p>
+            <p className="mt-1 text-sm text-zinc-500">
+              Choisissez votre opérateur : le numéro marchand s'affiche sous chaque logo.
+            </p>
+            <div className="mt-4">
+              <PaymentMethodForm
+                defaultPhone={profile?.phone ?? ''}
+                isSubmitting={createOrder.isPending}
+                serverError={serverError ?? (createOrder.isError ? 'Commande refusée.' : null)}
+                onSubmit={submitPayment}
+                onBack={() => setStep(1)}
+              />
+            </div>
+          </Card>
+          <OrderRecapCard eventTitle={eventTitle} items={items} total={total} />
+        </div>
       )}
 
       {step === 3 && order && paidTickets === null && !failed && !declared && (

@@ -18,10 +18,11 @@ import {
 } from '../../../schemas/orders';
 import { signReceiptUrl, uploadPaymentReceipt } from '../../../services/storage';
 import { usePlatformSettings } from '../../../hooks/usePlatformSettings';
-import { PAYMENT_METHODS } from '../../payments/providers';
+import { PAYMENT_METHODS, formatPhoneDisplay } from '../../payments/providers';
 import { formatAr } from '../../../lib/utils';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
+import { OperatorLogo } from '../../../components/orders/OperatorLogo';
 import { cn } from '../../../lib/utils';
 
 interface Props {
@@ -87,10 +88,16 @@ export function PaymentInstructions({
           {brand && (
             <span
               aria-hidden
-              style={{ backgroundColor: brand.brandBg }}
-              className="flex size-7 items-center justify-center rounded-lg text-sm font-black text-white"
+              className="flex h-7 items-center rounded-lg bg-white px-2"
             >
-              {brand.brandInitial}
+              <OperatorLogo
+                src={brand.logo}
+                label={brand.label}
+                initial={brand.brandInitial}
+                bg={brand.brandBg}
+                imgClassName="h-5 w-auto max-w-20 object-contain"
+                className="size-5 rounded text-[10px]"
+              />
             </span>
           )}
           <span className="text-sm font-semibold">{providerLabel}</span>
@@ -105,7 +112,7 @@ export function PaymentInstructions({
             title="Copier le numéro marchand"
             className="mt-3 flex w-full items-center justify-between gap-2 rounded-xl bg-white/10 px-4 py-3 font-mono text-lg font-bold tracking-wider transition hover:bg-white/15"
           >
-            {number}
+            {formatPhoneDisplay(number)}
             <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-300">
               {copied ? (
                 <>

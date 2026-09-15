@@ -13,6 +13,8 @@ export interface PaymentMethodMeta {
   /** Couleur de marque pour le badge opérateur (pastille + initiale). */
   brandBg: string;
   brandInitial: string;
+  /** Logo officiel auto-hébergé (/public/operators). */
+  logo: string;
   /** Préfixes nationaux de l'opérateur (ex. 034, 038) pour le contrôle doux. */
   prefixes: string[];
 }
@@ -25,16 +27,18 @@ export const PAYMENT_METHODS: PaymentMethodMeta[] = [
     prefixHint: '+261 34 / 38 …',
     brandBg: '#E11D48',
     brandInitial: 'Y',
+    logo: '/operators/yas.svg',
     prefixes: ['034', '038'],
   },
   {
     id: 'orange_money',
     label: 'Orange Money',
     hint: 'Paiement via Orange Money',
-    prefixHint: '+261 32 …',
+    prefixHint: '+261 32 / 37 …',
     brandBg: '#F97316',
     brandInitial: 'O',
-    prefixes: ['032'],
+    logo: '/operators/orange-money.svg',
+    prefixes: ['032', '037'],
   },
   {
     id: 'airtel_money',
@@ -43,6 +47,7 @@ export const PAYMENT_METHODS: PaymentMethodMeta[] = [
     prefixHint: '+261 33 …',
     brandBg: '#DC2626',
     brandInitial: 'A',
+    logo: '/operators/airtel.svg',
     prefixes: ['033'],
   },
 ];
@@ -53,6 +58,26 @@ export function normalizePhone(phone: string): string {
   if (digits.startsWith('+261')) return `0${digits.slice(4)}`;
   if (digits.startsWith('261') && digits.length > 9) return `0${digits.slice(3)}`;
   return digits.replace(/^\+/, '');
+}
+
+/**
+ * Affiche un numéro marchand avec espaces : +261329190796 -> +261 32 91 907 96.
+ * Le stockage reste brut (la copie retire les espaces).
+ */
+export function formatPhoneDisplay(phone: string): string {
+  const trimmed = phone.trim();
+  if (!trimmed) return trimmed;
+  const mIntl = trimmed.match(/^\+261(\d{9})$/);
+  if (mIntl) {
+    const d = mIntl[1];
+    return `+261 ${d.slice(0, 2)} ${d.slice(2, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+  }
+  const mNat = trimmed.replace(/[\s-]/g, '').match(/^0(\d{9})$/);
+  if (mNat) {
+    const d = mNat[1];
+    return `0${d.slice(0, 2)} ${d.slice(2, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+  }
+  return trimmed;
 }
 
 /** Avertissement (non bloquant) si le numéro ne ressemble pas à l'opérateur. */
