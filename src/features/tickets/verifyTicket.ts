@@ -28,6 +28,37 @@ export interface VerifyFailure {
 
 export type VerifyResult = VerifySuccess | VerifyFailure;
 
+export interface LookupSuccess {
+  ok: true;
+  ticket_number: string;
+  holder_name: string;
+  buyer_first_name: string | null;
+  event_title: string | null;
+  starts_at: string | null;
+  venue: string | null;
+  city: string | null;
+  ticket_type: string | null;
+  status: string;
+}
+
+export interface LookupFailure {
+  ok: false;
+  reason: 'not_found';
+}
+
+export type LookupResult = LookupSuccess | LookupFailure;
+
+/**
+ * Lecture publique limitée d'un billet (page /tickets/verify, sans login).
+ * N'expose que l'affichage : événement, date/lieu, participant, statut.
+ */
+export async function lookupTicket(qr: string): Promise<LookupResult> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc('lookup_ticket', { p_qr: qr.trim() });
+  if (error) throw new Error('Vérification impossible.');
+  return data as LookupResult;
+}
+
 /**
  * Scan contrôleur (Phase 6) : vérification serveur + check-in atomique.
  * Jamais de validation côté client — seul `verify-ticket` fait foi.

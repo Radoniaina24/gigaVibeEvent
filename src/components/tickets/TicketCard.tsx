@@ -7,6 +7,7 @@ import { formatAr, formatDate, formatShortDateTime } from '../../lib/utils';
 import { Badge, Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { downloadTicketHtml } from '../../features/tickets/downloadTicket';
+import { ticketQrValue } from '../../lib/ticketQr';
 import { cn } from '../../lib/utils';
 
 function statusTone(status: string): 'success' | 'neutral' | 'danger' | 'warning' {
@@ -51,6 +52,7 @@ export function TicketCard({ ticket }: { ticket: TicketWithRelations }) {
       !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
   const isActive = ticket.status === 'valid';
+  const qrValue = ticketQrValue(ticket);
 
   const handleDownload = () => {
     const svg = qrRef.current?.querySelector('svg');
@@ -180,7 +182,7 @@ export function TicketCard({ ticket }: { ticket: TicketWithRelations }) {
                 !isActive && 'opacity-60 grayscale',
               )}
             >
-              <QRCodeSVG value={ticket.qr_payload} size={112} level="M" />
+                <QRCodeSVG value={qrValue} size={112} level="M" />
             </div>
             <div className="min-w-0 flex-1 sm:w-full sm:flex-none sm:text-center">
               <p className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-zinc-500 sm:justify-center">

@@ -22,6 +22,7 @@ import { UserTicketsPage } from '../../pages/dashboard/UserTicketsPage';
 import { ProfilePage } from '../../pages/dashboard/ProfilePage';
 import { CheckoutPage } from '../../pages/public/CheckoutPage';
 import { ContactPage } from '../../pages/public/ContactPage';
+import { TicketVerifyPage } from '../../pages/public/TicketVerifyPage';
 import { AdminDashboardPage } from '../../pages/admin/AdminDashboardPage';
 import { AdminEventsPage } from '../../pages/admin/AdminEventsPage';
 import { AdminEventFormPage } from '../../pages/admin/AdminEventFormPage';
@@ -54,6 +55,7 @@ const router = createBrowserRouter([
       { path: '/events', element: <EventsPage /> },
       { path: '/events/:slug', element: <EventDetailPage /> },
       { path: '/contact', element: <ContactPage /> },
+      { path: '/tickets/verify', element: <TicketVerifyPage /> },
       { path: '/login', element: <LoginPage /> },
       { path: '/register', element: <RegisterPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },

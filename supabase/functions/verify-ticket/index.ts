@@ -32,7 +32,7 @@ serve(async (req: Request) => {
     } catch {
       return json(req, { error: 'Corps JSON invalide.' }, 400);
     }
-    if (!qr || qr.length > 128) return json(req, { error: 'QR invalide.' }, 400);
+    if (!qr || qr.length > 256) return json(req, { error: 'QR invalide.' }, 400);
 
     // Exécuté avec le JWT de l'appelant : auth.uid() porte le contrôleur,
     // le rpc applique les rôles (admin / controller / partner de l'event).
