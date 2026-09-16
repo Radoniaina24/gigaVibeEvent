@@ -73,19 +73,28 @@ export function TicketListSkeleton({ count = 4 }: { count?: number }) {
     <div
       role="status"
       aria-label="Chargement des billets"
-      className="grid gap-4 xl:grid-cols-2"
+      className="flex flex-col gap-4"
     >
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
           aria-hidden
-          className="flex gap-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"
+          className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm"
         >
-          <div className="skeleton size-[104px] shrink-0 rounded-lg" />
-          <div className="flex-1 space-y-2">
-            <div className="skeleton h-5 w-3/4" />
-            <div className="skeleton h-4 w-1/2" />
-            <div className="skeleton h-3 w-2/3" />
+          <div className="flex items-center gap-2.5 bg-zinc-900 px-4 py-3">
+            <div className="skeleton size-10 shrink-0 rounded-lg" />
+            <div className="flex-1 space-y-1.5">
+              <div className="skeleton h-4 w-2/3" />
+              <div className="skeleton h-3 w-1/3" />
+            </div>
+          </div>
+          <div className="flex flex-col gap-4 p-4 sm:flex-row">
+            <div className="flex-1 space-y-2">
+              <div className="skeleton h-5 w-3/4" />
+              <div className="skeleton h-4 w-1/2" />
+              <div className="skeleton h-3 w-2/3" />
+            </div>
+            <div className="skeleton size-[112px] shrink-0 rounded-xl" />
           </div>
         </div>
       ))}

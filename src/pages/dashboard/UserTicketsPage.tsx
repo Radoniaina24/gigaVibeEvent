@@ -104,7 +104,7 @@ export function UserTicketsPage() {
               description="Essayez un autre filtre."
             />
           ) : (
-            <div className="grid gap-4 xl:grid-cols-2">
+            <div className="flex flex-col gap-4">
               {data
                 .filter((t) => filter === 'all' || t.status === filter)
                 .map((t) => (
