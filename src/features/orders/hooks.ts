@@ -14,6 +14,7 @@ import type {
   Order,
   OrderItem,
   Payment,
+  Profile,
   Ticket,
   TicketType,
 } from '../../types/database';
@@ -28,6 +29,8 @@ export interface OrderDetail extends Order {
     Event,
     'title' | 'slug' | 'starts_at' | 'venue' | 'city' | 'image_url'
   > & { partner: { id: string; name: string; logo_url: string | null } | null } | null;
+  /** Acheteur (nom complet + contacts) — jamais un simple ID. */
+  buyer: Pick<Profile, 'email' | 'first_name' | 'last_name' | 'phone'> | null;
   items: (OrderItem & {
     ticket_type: Pick<TicketType, 'name' | 'price'> | null;
   })[];
@@ -79,11 +82,19 @@ export function useOrderDetail(orderId: string | undefined) {
         '*, event:events(title,slug,starts_at,venue,city,image_url), items:order_items(*, ticket_type:ticket_types(name,price)), payments:payments(*)';
       const withTicketCount = async (row: unknown): Promise<OrderDetail> => {
         const detail = row as OrderDetail;
-        const { count } = await supabase
-          .from('tickets')
-          .select('id', { count: 'exact', head: true })
-          .eq('order_id', orderId);
+        const [{ count }, buyerRes] = await Promise.all([
+          supabase
+            .from('tickets')
+            .select('id', { count: 'exact', head: true })
+            .eq('order_id', orderId),
+          supabase
+            .from('profiles')
+            .select('email,first_name,last_name,phone')
+            .eq('id', (detail as Order).user_id)
+            .maybeSingle(),
+        ]);
         detail.ticket_count = count ?? 0;
+        detail.buyer = (buyerRes.data as OrderDetail['buyer']) ?? null;
         return detail;
       };
       // Si on sait déjà que la DB n'a pas events.partner_id → direct sans embed.
@@ -127,11 +138,19 @@ export function useOrderDetail(orderId: string | undefined) {
           ...(retry.data as object),
           event: { ...((retry.data as { event: object }).event ?? {}), partner: null },
         } as unknown as OrderDetail;
-        const { count } = await supabase
-          .from('tickets')
-          .select('id', { count: 'exact', head: true })
-          .eq('order_id', orderId);
+        const [{ count }, buyerRes] = await Promise.all([
+          supabase
+            .from('tickets')
+            .select('id', { count: 'exact', head: true })
+            .eq('order_id', orderId),
+          supabase
+            .from('profiles')
+            .select('email,first_name,last_name,phone')
+            .eq('id', detail.user_id)
+            .maybeSingle(),
+        ]);
         detail.ticket_count = count ?? 0;
+        detail.buyer = (buyerRes.data as OrderDetail['buyer']) ?? null;
         return detail;
       }
       throw error;

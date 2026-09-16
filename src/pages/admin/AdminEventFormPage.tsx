@@ -34,7 +34,8 @@ import { Checkbox, Textarea } from '../../components/ui/Fields';
 import { SelectField } from '../../components/ui/Select';
 import { DateTimePickerField } from '../../components/ui/DateTimePicker';
 import { EventImage } from '../../components/events/EventImage';
-import { ErrorState, LoadingState } from '../../components/ui/States';
+import { ErrorState } from '../../components/ui/States';
+import { EventFormSkeleton } from '../../components/admin/AdminSkeletons';
 
 function toLocalInput(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -257,7 +258,7 @@ export function AdminEventFormPage() {
     }
   };
 
-  if (!isNew && isPending) return <LoadingState label="Chargement de l'événement…" />;
+  if (!isNew && isPending) return <EventFormSkeleton />;
   if (!isNew && (isError || !existing))
     return <ErrorState description="Événement introuvable." onRetry={() => refetch()} />;
 
@@ -265,7 +266,7 @@ export function AdminEventFormPage() {
     isSubmitting || uploading || createEvent.isPending || updateEvent.isPending || createTicketType.isPending;
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       {/* En-tête */}
       <div>
         <Link

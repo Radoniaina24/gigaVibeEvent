@@ -43,10 +43,17 @@ export function PartnerPaymentsPage() {
     try {
       const res = await validate.mutateAsync({ order_id: orderId, approved });
       if (approved) {
-        toast.success(
-          'Paiement validé',
-          `${res.tickets} billet${res.tickets > 1 ? 's' : ''} généré${res.tickets > 1 ? 's' : ''}.`,
-        );
+        if (res.email === 'sent') {
+          toast.success(
+            'Paiement validé',
+            `${res.tickets} billet${res.tickets > 1 ? 's' : ''} généré${res.tickets > 1 ? 's' : ''} et envoyé par email au client.`,
+          );
+        } else {
+          toast.warning(
+            'Paiement validé',
+            `${res.tickets} billet${res.tickets > 1 ? 's' : ''} généré${res.tickets > 1 ? 's' : ''}, mais l’email n’a pas pu être envoyé.`,
+          );
+        }
       } else {
         toast.info('Paiement refusé', 'Stock libéré pour les autres clients.');
       }

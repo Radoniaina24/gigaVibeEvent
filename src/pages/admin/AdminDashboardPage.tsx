@@ -27,7 +27,7 @@ export function AdminDashboardPage() {
     .filter((o) => o.payment_status === 'pending' || o.payment_status === 'processing')
     .slice(0, 5);
 
-  if (kpis.isPending) return <AdminHomeSkeleton />;
+  if (kpis.isPending || orders.isPending) return <AdminHomeSkeleton />;
   if (kpis.isError)
     return (
       <ErrorState description="Impossible de charger les indicateurs." onRetry={() => kpis.refetch()} />
@@ -109,9 +109,7 @@ export function AdminDashboardPage() {
             </Link>
           </CardHeader>
           <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
-            {orders.isPending ? (
-              <p className="py-6 text-center text-sm text-zinc-500">Chargement…</p>
-            ) : recent.length === 0 ? (
+            {recent.length === 0 ? (
               <div className="rounded-lg border border-dashed border-zinc-300 px-4 py-8 text-center">
                 <Inbox className="mx-auto size-8 text-zinc-300" aria-hidden />
                 <p className="mt-2 text-sm font-medium text-zinc-600">Aucune commande pour le moment.</p>
