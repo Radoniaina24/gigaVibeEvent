@@ -14,15 +14,22 @@ import {
 import {
   ArrowDown,
   ArrowUp,
+  BadgeCheck,
+  Ban,
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
   Eye,
+  Pencil,
   Search,
 } from 'lucide-react';
 import type { AdminOrderRow } from '../hooks';
+import { useAdminSetOrderStatus } from '../../orders/hooks';
 import { OrderStatusBadge } from '../../../components/orders/OrderStatusBadge';
 import { MiniSelect } from '../../../components/ui/MiniSelect';
+import { Button } from '../../../components/ui/Button';
+import { Modal } from '../../../components/ui/Modal';
+import { useToast } from '../../../components/ui/Toaster';
 import { cn, formatAr, formatShortDateTime } from '../../../lib/utils';
 
 const columnHelper = createColumnHelper<AdminOrderRow>();
@@ -56,6 +63,96 @@ function clientLabel(row: AdminOrderRow): string {
 }
 
 /**
+ * Changement de statut en ligne (payée / annulée) avec confirmation.
+ * Payée → billets générés + envoyés par email ; annulée → stock libéré.
+ * Garde-fou serveur : RPC `admin_set_order_status` (admin + audit).
+ */
+function OrderStatusDialog({ order, onClose }: { order: AdminOrderRow; onClose: () => void }) {
+  const [to, setTo] = useState<'paid' | 'cancelled' | null>(null);
+  const setStatus = useAdminSetOrderStatus();
+  const { toast } = useToast();
+
+  const confirm = async () => {
+    if (!to || setStatus.isPending) return;
+    try {
+      const res = await setStatus.mutateAsync({ order_id: order.id, status: to });
+      if (to === 'paid') {
+        const plural = res.tickets > 1 ? 's' : '';
+        if (res.email === 'sent') {
+          toast.success(
+            'Commande payée',
+            `${res.tickets} billet${plural} généré${plural} et envoyé${plural} par email au client.`,
+          );
+        } else {
+          toast.warning(
+            'Commande payée',
+            `${res.tickets} billet${plural} généré${plural}, mais l’email n’a pas pu être envoyé.`,
+          );
+        }
+      } else {
+        toast.success('Commande annulée', 'Stock réservé libéré pour les autres clients.');
+      }
+      onClose();
+    } catch (err) {
+      toast.error('Action impossible', err instanceof Error ? err.message : 'Réessayez.');
+    }
+  };
+
+  const optionClass = (selected: boolean, tone: 'green' | 'red') =>
+    cn(
+      'flex w-full items-start gap-3 rounded-xl border p-3 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2',
+      selected
+        ? tone === 'green'
+          ? 'border-green-500 bg-green-50 ring-1 ring-green-500 focus-visible:outline-green-600'
+          : 'border-red-500 bg-red-50 ring-1 ring-red-500 focus-visible:outline-red-600'
+        : 'border-zinc-200 hover:bg-zinc-50 focus-visible:outline-brand-600',
+    );
+
+  return (
+    <Modal open onClose={onClose} title="Changer le statut" subtitle={order.order_number}>
+      <div className="space-y-3">
+        <p className="flex items-center gap-2 text-sm text-zinc-600">
+          Statut actuel : <OrderStatusBadge status={order.payment_status} />
+        </p>
+        <div className="space-y-2" role="group" aria-label="Nouveau statut">
+          <button type="button" aria-pressed={to === 'paid'} onClick={() => setTo('paid')} className={optionClass(to === 'paid', 'green')}>
+            <BadgeCheck aria-hidden className="size-5 shrink-0 text-green-600" />
+            <span>
+              <span className="block text-sm font-bold text-zinc-900">Marquer comme payée</span>
+              <span className="mt-0.5 block text-xs text-zinc-500">
+                Billets générés et envoyés par email au client. Irréversible.
+              </span>
+            </span>
+          </button>
+          <button type="button" aria-pressed={to === 'cancelled'} onClick={() => setTo('cancelled')} className={optionClass(to === 'cancelled', 'red')}>
+            <Ban aria-hidden className="size-5 shrink-0 text-red-600" />
+            <span>
+              <span className="block text-sm font-bold text-zinc-900">Annuler la commande</span>
+              <span className="mt-0.5 block text-xs text-zinc-500">
+                Stock réservé libéré. Le client devra recommander.
+              </span>
+            </span>
+          </button>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" disabled={setStatus.isPending} onClick={onClose}>
+            Retour
+          </Button>
+          <Button
+            variant={to === 'cancelled' ? 'danger' : 'primary'}
+            loading={setStatus.isPending}
+            disabled={!to}
+            onClick={() => void confirm()}
+          >
+            Confirmer
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/**
  * Tableau commandes propulsé par TanStack Table :
  * recherche, filtre statut (shadcn), tri, pagination (shadcn).
  */
@@ -64,6 +161,7 @@ export function OrdersTable({ data }: OrdersTableProps) {
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 15 });
+  const [statusOrder, setStatusOrder] = useState<AdminOrderRow | null>(null);
 
   const statusFilter = (columnFilters.find((f) => f.id === 'payment_status')?.value as string) ?? '';
   const eventFilter = (columnFilters.find((f) => f.id === 'event')?.value as string) ?? '';
@@ -143,7 +241,27 @@ export function OrdersTable({ data }: OrdersTableProps) {
           if (!filterValue) return true;
           return row.original.payment_status === filterValue;
         },
-        cell: (info) => <OrderStatusBadge status={info.getValue()} />,
+        cell: (info) => {
+          const row = info.row.original;
+          const editable =
+            row.payment_status === 'pending' || row.payment_status === 'processing';
+          if (!editable) return <OrderStatusBadge status={info.getValue()} />;
+          return (
+            <button
+              type="button"
+              onClick={() => setStatusOrder(row)}
+              title="Changer le statut"
+              aria-label={`Changer le statut de la commande ${row.order_number}`}
+              className="group inline-flex items-center gap-1 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            >
+              <OrderStatusBadge status={info.getValue()} />
+              <Pencil
+                aria-hidden
+                className="size-3.5 text-zinc-400 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100"
+              />
+            </button>
+          );
+        },
       }),
       columnHelper.accessor('created_at', {
         header: 'Date',
@@ -369,6 +487,10 @@ export function OrdersTable({ data }: OrdersTableProps) {
           </button>
         </div>
       </div>
+
+      {statusOrder && (
+        <OrderStatusDialog order={statusOrder} onClose={() => setStatusOrder(null)} />
+      )}
     </div>
   );
 }
