@@ -18,8 +18,8 @@ interface Props<T> {
 /** Tableau responsive (scroll horizontal sur mobile). */
 export function DataTable<T>({ columns, rows, keyOf, caption }: Props<T>) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-      <table className="w-full min-w-160 text-left text-sm">
+    <div className="max-w-full overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+      <table className="w-full min-w-[640px] text-left text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr className="border-b border-zinc-200 bg-zinc-50">
@@ -28,7 +28,7 @@ export function DataTable<T>({ columns, rows, keyOf, caption }: Props<T>) {
                 key={c.key}
                 scope="col"
                 className={cn(
-                  'whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500',
+                  'whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-zinc-500 sm:px-4 sm:py-3',
                   c.className,
                 )}
               >
@@ -41,7 +41,7 @@ export function DataTable<T>({ columns, rows, keyOf, caption }: Props<T>) {
           {rows.map((row) => (
             <tr key={keyOf(row)} className="transition hover:bg-zinc-50">
               {columns.map((c) => (
-                <td key={c.key} className={cn('px-4 py-3 align-middle', c.className)}>
+                <td key={c.key} className={cn('px-3 py-2.5 align-middle sm:px-4 sm:py-3', c.className)}>
                   {c.render(row)}
                 </td>
               ))}

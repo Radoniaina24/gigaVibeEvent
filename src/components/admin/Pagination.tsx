@@ -20,7 +20,7 @@ export function Pagination({ page, totalPages, onChange, label }: Props) {
     }
   }
   return (
-    <nav aria-label={label} className="flex items-center justify-center gap-2">
+    <nav aria-label={label} className="flex max-w-full flex-wrap items-center justify-center gap-1.5 sm:gap-2">
       <Button
         variant="secondary"
         size="sm"

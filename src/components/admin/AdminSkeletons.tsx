@@ -6,25 +6,25 @@
 /* ---------- Accueil admin : KPI + 2 colonnes ---------- */
 export function AdminHomeSkeleton() {
   return (
-    <div role="status" aria-label="Chargement du tableau de bord" className="space-y-6">
+    <div role="status" aria-label="Chargement du tableau de bord" className="space-y-4 sm:space-y-6">
       <div aria-hidden className="space-y-1.5">
-        <div className="skeleton h-8 w-56" />
-        <div className="skeleton h-4 w-80" />
+        <div className="skeleton h-8 w-56 max-w-full" />
+        <div className="skeleton h-4 w-80 max-w-full" />
       </div>
-      <div aria-hidden className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div aria-hidden className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
+          <div key={i} className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="flex items-center justify-between gap-3">
               <div className="skeleton h-4 w-28" />
-              <div className="skeleton size-4 rounded" />
+              <div className="skeleton size-10 rounded-xl" />
             </div>
-            <div className="skeleton mt-3 h-8 w-24" />
-            <div className="skeleton mt-2 h-3 w-32" />
+            <div className="skeleton mt-3 h-8 w-24 max-w-full" />
+            <div className="skeleton mt-2 h-3 w-32 max-w-full" />
           </div>
         ))}
       </div>
-      <div aria-hidden className="grid gap-4 lg:grid-cols-5">
-        <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm lg:col-span-3">
+      <div aria-hidden className="grid gap-3 sm:gap-4 lg:grid-cols-5">
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6 lg:col-span-3">
           <div className="skeleton h-5 w-48" />
           <div className="skeleton mt-1.5 h-3 w-64" />
           <div className="mt-5 space-y-4">
@@ -39,7 +39,7 @@ export function AdminHomeSkeleton() {
             ))}
           </div>
         </div>
-        <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm lg:col-span-2">
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6 lg:col-span-2">
           <div className="skeleton h-5 w-40" />
           <div className="skeleton mt-1.5 h-3 w-56" />
           <div className="mt-5 space-y-3">

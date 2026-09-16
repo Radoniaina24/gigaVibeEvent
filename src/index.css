@@ -147,6 +147,19 @@ body {
   animation: drawer-in 0.22s ease-out;
 }
 
+/* Entrée du drawer latéral gauche (sidebar admin mobile) */
+@keyframes drawer-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.drawer-in-left {
+  animation: drawer-in-left 0.22s ease-out;
+}
+
 /* Entrée des modales */
 @keyframes overlay-in {
   from {
@@ -179,6 +192,7 @@ body {
   .toast-out,
   .toast-progress,
   .drawer-in,
+  .drawer-in-left,
   .skeleton-shimmer {
     animation: none;
   }

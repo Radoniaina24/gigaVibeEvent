@@ -182,7 +182,7 @@ export function OrdersTable({ data }: OrdersTableProps) {
     <div className="space-y-3">
       {/* Barre d'outils */}
       <div className="flex flex-wrap items-center gap-2">
-        <label className="relative min-w-52 flex-1 sm:max-w-xs">
+        <label className="relative w-full flex-1 sm:min-w-52 sm:max-w-xs">
           <span className="sr-only">Rechercher une commande</span>
           <Search
             aria-hidden
@@ -216,7 +216,7 @@ export function OrdersTable({ data }: OrdersTableProps) {
             ])
           }
           options={STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
-          className="h-9 min-w-44 justify-between"
+          className="h-9 w-full justify-between sm:w-auto sm:min-w-44"
         />
         <p aria-live="polite" className="text-xs tabular-nums text-zinc-500">
           {filteredCount} résultat{filteredCount > 1 ? 's' : ''}
@@ -224,8 +224,8 @@ export function OrdersTable({ data }: OrdersTableProps) {
       </div>
 
       {/* Tableau */}
-      <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full min-w-200 text-left text-sm">
+      <div className="max-w-full overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+        <table className="w-full min-w-[640px] text-left text-sm">
           <caption className="sr-only">Liste des commandes</caption>
           <thead>
             {table.getHeaderGroups().map((hg) => (
@@ -300,7 +300,7 @@ export function OrdersTable({ data }: OrdersTableProps) {
       </div>
 
       {/* Pagination */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <span className="flex items-center gap-2 text-xs text-zinc-500">
           Lignes par page
           <MiniSelect
