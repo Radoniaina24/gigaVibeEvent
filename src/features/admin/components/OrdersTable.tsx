@@ -66,6 +66,26 @@ export function OrdersTable({ data }: OrdersTableProps) {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 15 });
 
   const statusFilter = (columnFilters.find((f) => f.id === 'payment_status')?.value as string) ?? '';
+  const eventFilter = (columnFilters.find((f) => f.id === 'event')?.value as string) ?? '';
+
+  /** Événements présents dans les commandes (id + titre), triés par titre. */
+  const eventOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const row of data) {
+      if (row.event_id && !byId.has(row.event_id)) {
+        byId.set(row.event_id, row.event?.title ?? 'Événement');
+      }
+    }
+    return [...byId.entries()]
+      .map(([id, title]) => ({ id, title }))
+      .sort((a, b) => a.title.localeCompare(b.title, 'fr'));
+  }, [data]);
+
+  const setFilterValue = (id: string, value: string) =>
+    setColumnFilters((prev) => [
+      ...prev.filter((f) => f.id !== id),
+      ...(value ? [{ id, value }] : []),
+    ]);
 
   useEffect(() => {
     setPagination((p) => ({ ...p, pageIndex: 0 }));
@@ -85,7 +105,7 @@ export function OrdersTable({ data }: OrdersTableProps) {
         cell: (info) => {
           const row = info.row.original;
           return (
-            <span className="block max-w-64 truncate text-xs" title={clientLabel(row)}>
+            <span className="block max-w-80 truncate text-xs" title={clientLabel(row)}>
               {row.user ? (
                 <>
                   {[row.user.first_name, row.user.last_name].filter(Boolean).join(' ') || '—'}
@@ -101,8 +121,12 @@ export function OrdersTable({ data }: OrdersTableProps) {
       columnHelper.accessor((row) => row.event?.title ?? '—', {
         id: 'event',
         header: 'Événement',
+        filterFn: (row, _columnId, filterValue) => {
+          if (!filterValue) return true;
+          return row.original.event_id === filterValue;
+        },
         cell: (info) => (
-          <span className="block max-w-56 truncate text-xs" title={info.getValue()}>
+          <span className="block max-w-72 truncate text-xs" title={info.getValue()}>
             {info.getValue()}
           </span>
         ),
@@ -209,14 +233,19 @@ export function OrdersTable({ data }: OrdersTableProps) {
         <MiniSelect
           ariaLabel="Filtrer par statut"
           value={statusFilter}
-          onChange={(v) =>
-            setColumnFilters((prev) => [
-              ...prev.filter((f) => f.id !== 'payment_status'),
-              ...(v ? [{ id: 'payment_status', value: v }] : []),
-            ])
-          }
+          onChange={(v) => setFilterValue('payment_status', v)}
           options={STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
           className="h-9 w-full justify-between sm:w-auto sm:min-w-44"
+        />
+        <MiniSelect
+          ariaLabel="Filtrer par événement"
+          value={eventFilter}
+          onChange={(v) => setFilterValue('event', v)}
+          options={[
+            { value: '', label: 'Tous les événements' },
+            ...eventOptions.map((e) => ({ value: e.id, label: e.title })),
+          ]}
+          className="h-9 w-full justify-between sm:w-auto sm:min-w-72 sm:max-w-96 [&>span]:min-w-0 [&>span]:truncate"
         />
         <p aria-live="polite" className="text-xs tabular-nums text-zinc-500">
           {filteredCount} résultat{filteredCount > 1 ? 's' : ''}
@@ -225,7 +254,7 @@ export function OrdersTable({ data }: OrdersTableProps) {
 
       {/* Tableau */}
       <div className="max-w-full overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full min-w-[640px] text-left text-sm">
+        <table className="w-full min-w-[960px] text-left text-sm">
           <caption className="sr-only">Liste des commandes</caption>
           <thead>
             {table.getHeaderGroups().map((hg) => (

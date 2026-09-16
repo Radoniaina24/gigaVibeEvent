@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import Tilt from 'react-parallax-tilt';
 import { QRCodeSVG } from 'qrcode.react';
 import { CalendarDays, Download, MapPin, ScanLine, User } from 'lucide-react';
@@ -6,7 +6,6 @@ import type { TicketWithRelations } from '../../features/orders/hooks';
 import { formatAr, formatDate, formatShortDateTime } from '../../lib/utils';
 import { Badge, Card } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { downloadTicketHtml } from '../../features/tickets/downloadTicket';
 import { ticketQrValue } from '../../lib/ticketQr';
 import { cn } from '../../lib/utils';
 
@@ -44,21 +43,46 @@ function holderInitials(name: string): string {
  * `prefers-reduced-motion`.
  */
 export function TicketCard({ ticket }: { ticket: TicketWithRelations }) {
-  const qrRef = useRef<HTMLDivElement>(null);
   const [tiltEnabled] = useState(
     () =>
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
       !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
+  const [downloading, setDownloading] = useState(false);
   const isActive = ticket.status === 'valid';
   const qrValue = ticketQrValue(ticket);
 
-  const handleDownload = () => {
-    const svg = qrRef.current?.querySelector('svg');
-    if (!svg) return;
-    const markup = new XMLSerializer().serializeToString(svg);
-    downloadTicketHtml(ticket, markup);
+  /** Télécharge le billet directement en PDF (même design que la carte). */
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      // Chargement différé : la librairie PDF ne pèse pas sur le bundle initial.
+      const [{ pdf }, { TicketPdfDocument }, QRCode] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('../../features/tickets/TicketPdf'),
+        import('qrcode'),
+      ]);
+      const qrDataUrl = await QRCode.toDataURL(qrValue, {
+        width: 448,
+        margin: 1,
+        color: { dark: '#000000', light: '#ffffff' },
+      });
+      const blob = await pdf(
+        <TicketPdfDocument ticket={ticket} qrDataUrl={qrDataUrl} />,
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${ticket.ticket_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -174,7 +198,6 @@ export function TicketCard({ ticket }: { ticket: TicketWithRelations }) {
           {/* Souche QR */}
           <div className="flex items-center gap-3 p-4 [transform:translateZ(34px)] sm:w-48 sm:flex-col sm:justify-center sm:p-5">
             <div
-              ref={qrRef}
               role="img"
               aria-label={`QR Code du billet ${ticket.ticket_number}`}
               className={cn(
@@ -196,10 +219,11 @@ export function TicketCard({ ticket }: { ticket: TicketWithRelations }) {
                 variant="secondary"
                 size="sm"
                 onClick={handleDownload}
+                loading={downloading}
                 className="mt-2 w-full sm:w-full"
-                aria-label={`Télécharger le billet ${ticket.ticket_number}`}
+                aria-label={`Télécharger le billet ${ticket.ticket_number} en PDF`}
               >
-                <Download className="size-4" aria-hidden /> Billet
+                <Download className="size-4" aria-hidden /> Billet PDF
               </Button>
             </div>
           </div>

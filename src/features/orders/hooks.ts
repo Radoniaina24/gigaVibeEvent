@@ -7,6 +7,7 @@ import {
 } from '../../lib/partnerEmbed';
 import { useAuth } from '../auth/AuthContext';
 import { logAudit } from '../admin/audit';
+import { apiSendTicketEmail } from '../../lib/edgeFunctions';
 import { queryKeys } from '../../app/config/query';
 import type {
   Event,
@@ -303,12 +304,15 @@ export function useDeclarePayment() {
 export interface ValidatePaymentResult {
   status: string;
   tickets: number;
+  /** Envoi auto du billet au client (uniquement si approuvé). */
+  email: 'sent' | 'failed' | 'skipped';
 }
 
 /**
  * Validation manuelle GVE/partenaire (§17 CDC v2).
  * L'autorisation est vérifiée côté base (réglage payment_validation).
- * Approuvé → billets générés (GVE-000001…) ; refusé → stock libéré.
+ * Approuvé → billets générés (GVE-000001…) + billet envoyé par email au
+ * client automatiquement ; refusé → stock libéré.
  */
 export function useValidatePayment() {
   const queryClient = useQueryClient();
@@ -336,7 +340,76 @@ export function useValidatePayment() {
         order_id,
         approved ? { tickets: (data as ValidatePaymentResult).tickets } : { reason },
       );
-      return data as ValidatePaymentResult;
+      let email: ValidatePaymentResult['email'] = 'skipped';
+      if (approved) {
+        try {
+          await apiSendTicketEmail(order_id);
+          email = 'sent';
+        } catch (err) {
+          console.warn('[ticket-email] envoi auto impossible :', err);
+          email = 'failed';
+        }
+      }
+      return { ...(data as ValidatePaymentResult), email };
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tickets.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.events.all });
+      await queryClient.invalidateQueries({ queryKey: ['admin'] });
+      await queryClient.invalidateQueries({ queryKey: ['partner'] });
+    },
+  });
+}
+
+export interface AdminSetOrderStatusResult {
+  status: string;
+  tickets: number;
+  /** Envoi auto du billet au client (uniquement si passé en payé). */
+  email: 'sent' | 'failed' | 'skipped';
+}
+
+/**
+ * Changement de statut d'une commande par l'admin (détail commande).
+ * - `paid` (depuis pending/processing) : billets générés + envoyés par
+ *   email au client automatiquement.
+ * - `cancelled` : commande annulée, stock réservé libéré (jamais si payée).
+ * Garde-fou serveur : RPC `admin_set_order_status` (admin only + audit).
+ */
+export function useAdminSetOrderStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      order_id,
+      status,
+      reason,
+    }: {
+      order_id: string;
+      status: 'paid' | 'cancelled';
+      reason?: string;
+    }): Promise<AdminSetOrderStatusResult> => {
+      const supabase = getSupabase();
+      const { data, error } = await supabase.rpc('admin_set_order_status', {
+        p_order_id: order_id,
+        p_status: status,
+        p_reason: reason ?? null,
+      });
+      if (error) throw new Error(error.message);
+      await logAudit('order.status_changed', 'orders', order_id, {
+        to: status,
+        ...(reason ? { reason } : {}),
+      });
+      let email: AdminSetOrderStatusResult['email'] = 'skipped';
+      if (status === 'paid') {
+        try {
+          await apiSendTicketEmail(order_id);
+          email = 'sent';
+        } catch (err) {
+          console.warn('[ticket-email] envoi auto impossible :', err);
+          email = 'failed';
+        }
+      }
+      return { ...(data as AdminSetOrderStatusResult), email };
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
