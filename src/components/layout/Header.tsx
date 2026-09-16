@@ -333,7 +333,7 @@ export function Header() {
 export function Footer() {
   return (
     <footer className="border-t border-zinc-200 bg-white">
-      <div className="mx-auto grid max-w-7xl gap-8 px-2 py-10 md:grid-cols-3 md:px-2">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-3">
         <div>
           <Logo size={32} />
           <p className="mt-2 text-sm text-zinc-500">

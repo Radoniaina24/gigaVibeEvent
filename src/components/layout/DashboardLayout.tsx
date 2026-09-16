@@ -28,7 +28,7 @@ export function DashboardLayout() {
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      <div className="mx-auto grid w-full max-w-6xl flex-1 gap-6 px-4 py-6 md:py-8 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <div className="mx-auto grid w-full max-w-6xl min-w-0 flex-1 gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6 md:py-8 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside aria-label="Menu utilisateur" className="lg:sticky lg:top-24 lg:self-start">
           {/* Carte membre */}
           <div className="mb-3 hidden items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm lg:flex">
@@ -46,7 +46,7 @@ export function DashboardLayout() {
 
           <nav
             aria-label="Navigation du compte"
-            className="no-scrollbar -mx-4 flex gap-1 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:rounded-xl lg:border lg:border-zinc-200 lg:bg-white lg:p-1.5 lg:shadow-sm"
+            className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:flex-col lg:overflow-visible lg:rounded-xl lg:border lg:border-zinc-200 lg:bg-white lg:p-1.5 lg:shadow-sm"
           >
             {links.map((l) => (
               <NavLink
@@ -55,7 +55,7 @@ export function DashboardLayout() {
                 end={l.end}
                 className={({ isActive }) =>
                   cn(
-                    'flex shrink-0 items-center gap-2.5 rounded-md px-3.5 py-2 text-sm transition-colors lg:px-3',
+                    'flex shrink-0 snap-start items-center gap-2.5 whitespace-nowrap rounded-md px-3.5 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 lg:px-3',
                     isActive
                       ? 'bg-zinc-900 font-medium text-white lg:bg-zinc-100 lg:font-medium lg:text-zinc-900'
                       : 'border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 lg:border-0 lg:bg-transparent',
@@ -70,7 +70,7 @@ export function DashboardLayout() {
 
           <Link
             to="/contact"
-            className="mt-3 hidden items-center gap-2.5 rounded-xl border border-zinc-200 bg-white p-4 text-sm shadow-sm transition hover:bg-zinc-50 lg:flex"
+            className="mt-3 hidden items-center gap-2.5 rounded-xl border border-zinc-200 bg-white p-4 text-sm shadow-sm transition hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 lg:flex"
           >
             <LifeBuoy className="size-4 shrink-0 text-zinc-500" aria-hidden />
             <span>
@@ -79,7 +79,7 @@ export function DashboardLayout() {
             </span>
           </Link>
         </aside>
-        <main className="min-w-0">
+        <main className="w-full min-w-0">
           {user && !emailVerified && (
             <p
               role="alert"
