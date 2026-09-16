@@ -9,7 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Fields';
+import { SelectField } from '../../components/ui/Select';
 
 const METHOD_LABEL: Record<ConfigPaymentMethodId, string> = {
   yas: 'YAS',
@@ -178,17 +178,18 @@ export function AdminSettingsPage() {
           Qui vérifie les transferts déclarés par les clients avant génération des billets.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-          <Select
+          <SelectField
             label="Responsable de validation"
             value={currentMode}
-            onChange={(e) => {
-              setValidationMode(e.target.value);
+            onChange={(v) => {
+              setValidationMode(v);
               setSaved(false);
             }}
-          >
-            <option value="gve">Giga Vibe Event (backoffice admin)</option>
-            <option value="partner">Chaque partenaire (ses événements)</option>
-          </Select>
+            options={[
+              { value: 'gve', label: 'Giga Vibe Event (backoffice admin)' },
+              { value: 'partner', label: 'Chaque partenaire (ses événements)' },
+            ]}
+          />
           <Button
             size="sm"
             className="h-10"

@@ -24,9 +24,13 @@ interface InvokeOptions {
   auth?: boolean;
 }
 
+function normalizeSupabaseUrl(raw: string): string {
+  return raw.trim().replace(/\/+$/, '').replace(/(\/rest\/v1)+$/, '');
+}
+
 function functionsBase(): string {
   if (!env.supabaseUrl) throw new Error('Configuration Supabase manquante.');
-  return `${env.supabaseUrl.replace(/\/+$/, '')}/functions/v1`;
+  return `${normalizeSupabaseUrl(env.supabaseUrl)}/functions/v1`;
 }
 
 async function accessToken(useAuth: boolean): Promise<string | null> {

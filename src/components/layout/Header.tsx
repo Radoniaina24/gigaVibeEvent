@@ -103,7 +103,7 @@ export function Header() {
     <header className="sticky top-0 z-40">
       {/* Barre d'annonce */}
       <div className="bg-night-950 text-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-2 py-1.5 text-[11px] font-medium md:px-2">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-1.5 text-[11px] font-medium sm:px-6">
           <p className="flex items-center gap-1.5">
             <ShieldCheck className="size-3.5 text-gold-400" aria-hidden />
             Billetterie officielle · Madagascar
@@ -116,7 +116,7 @@ export function Header() {
 
       {/* Barre principale */}
       <div className="border-b border-zinc-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-2 md:px-2">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-4 sm:px-6">
           <Link to="/" aria-label="Accueil Ticket">
             <Logo size={36} />
           </Link>

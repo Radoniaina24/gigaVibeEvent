@@ -105,9 +105,9 @@ function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AdminLayout() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen w-full flex-col overflow-x-clip">
       <Header />
-      <div className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 py-6 md:py-8 lg:grid-cols-[250px_minmax(0,1fr)]">
+      <div className="mx-auto grid w-full max-w-7xl min-w-0 flex-1 gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6 md:py-8 lg:grid-cols-[250px_minmax(0,1fr)]">
         {/* Sidebar desktop */}
         <aside aria-label="Menu administrateur" className="hidden lg:block">
           <div className="sticky top-24 space-y-3">
@@ -137,8 +137,8 @@ export function AdminLayout() {
         </aside>
 
         {/* Nav horizontale (mobile / tablette) */}
-        <div className="no-scrollbar -mx-4 overflow-x-auto px-4 pb-1 lg:hidden">
-          <nav aria-label="Menu administrateur" className="flex gap-1.5">
+        <div className="no-scrollbar -mx-4 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:hidden">
+          <nav aria-label="Menu administrateur" className="flex snap-x gap-1.5">
             {groups.flatMap((g) => g.links).map((l) => (
               <NavLink
                 key={l.to}
@@ -146,7 +146,7 @@ export function AdminLayout() {
                 end={l.end}
                 className={({ isActive }) =>
                   cn(
-                    'flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-sm transition-colors',
+                    'flex shrink-0 snap-start items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-[13px] transition-colors sm:px-3.5 sm:text-sm',
                     isActive
                       ? 'border-zinc-900 bg-zinc-900 font-medium text-white'
                       : 'border-zinc-200 bg-white text-zinc-500 hover:text-zinc-900',
@@ -160,7 +160,7 @@ export function AdminLayout() {
           </nav>
         </div>
 
-        <main className="min-w-0">
+        <main className="w-full min-w-0">
           <Outlet />
         </main>
       </div>
