@@ -48,3 +48,7 @@ verify_jwt = true
 [functions.payment-webhook]
 enabled = true
 verify_jwt = false
+
+[functions.verify-ticket]
+enabled = true
+verify_jwt = true
