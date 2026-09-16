@@ -1,4 +1,6 @@
+import { Suspense, lazy } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { LoadingState } from '../../components/ui/States';
 import { PublicLayout } from '../../components/layout/PublicLayout';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { AdminLayout } from '../../components/layout/AdminLayout';
@@ -30,8 +32,12 @@ import { AdminOrdersPage } from '../../pages/admin/AdminOrdersPage';
 import { AdminOrderDetailPage } from '../../pages/admin/AdminOrderDetailPage';
 import { AdminPaymentsPage } from '../../pages/admin/AdminPaymentsPage';
 import { AdminTicketsPage } from '../../pages/admin/AdminTicketsPage';
-import { AdminStatisticsPage } from '../../pages/admin/AdminStatisticsPage';
 import { AdminSettingsPage } from '../../pages/admin/AdminSettingsPage';
+
+/** Recharts est chargé uniquement sur /admin/statistics (chunk séparé). */
+const AdminStatisticsPage = lazy(() =>
+  import('../../pages/admin/AdminStatisticsPage').then((m) => ({ default: m.AdminStatisticsPage })),
+);
 import { AdminPartnersPage } from '../../pages/admin/AdminPartnersPage';
 import { AdminValidationsPage } from '../../pages/admin/AdminValidationsPage';
 import { PartnerLayout } from '../../components/layout/PartnerLayout';
@@ -115,7 +121,14 @@ const router = createBrowserRouter([
           { path: '/admin/users/:id', element: <AdminUserDetailPage /> },
           { path: '/admin/partners', element: <AdminPartnersPage /> },
           { path: '/admin/validations', element: <AdminValidationsPage /> },
-          { path: '/admin/statistics', element: <AdminStatisticsPage /> },
+          {
+            path: '/admin/statistics',
+            element: (
+              <Suspense fallback={<LoadingState label="Chargement des statistiques…" />}>
+                <AdminStatisticsPage />
+              </Suspense>
+            ),
+          },
           { path: '/admin/settings', element: <AdminSettingsPage /> },
         ],
       },
