@@ -188,6 +188,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .overlay-in,
   .modal-in,
+  .rise,
   .toast-in,
   .toast-out,
   .toast-progress,
@@ -196,6 +197,21 @@ body {
   .skeleton-shimmer {
     animation: none;
   }
+}
+
+/* Entrée des sections statistiques — remontée douce */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* Entrée des toasts — remonte depuis le bas + léger spring */

@@ -1,6 +1,6 @@
 import { Suspense, lazy } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import { LoadingState } from '../../components/ui/States';
+import { AdminStatisticsSkeleton } from '../../components/admin/AdminSkeletons';
 import { PublicLayout } from '../../components/layout/PublicLayout';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { AdminLayout } from '../../components/layout/AdminLayout';
@@ -126,7 +126,7 @@ const router = createBrowserRouter([
           {
             path: '/admin/statistics',
             element: (
-              <Suspense fallback={<LoadingState label="Chargement des statistiques…" />}>
+              <Suspense fallback={<AdminStatisticsSkeleton />}>
                 <AdminStatisticsPage />
               </Suspense>
             ),

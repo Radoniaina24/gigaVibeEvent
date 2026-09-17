@@ -23,6 +23,7 @@ import { logAudit } from './audit';
 export const adminKeys = {
   kpis: ['admin', 'kpis'] as const,
   stats: (days: number) => ['admin', 'stats', days] as const,
+  orderStats: (days: number) => ['admin', 'order-stats', days] as const,
   users: ['admin', 'users'] as const,
   userDetail: (id: string) => ['admin', 'users', id] as const,
   orders: ['admin', 'orders'] as const,
@@ -630,6 +631,88 @@ export interface AdminStats {
   paymentsByMethod: { label: string; value: number; display: string }[];
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  paid: 'Payées',
+  pending: 'En attente',
+  processing: 'En cours',
+  failed: 'Échouées',
+  cancelled: 'Annulées',
+  expired: 'Expirées',
+};
+
+export interface OrderDayPoint {
+  label: string;
+  fullLabel: string;
+  total: number;
+  paid: number;
+}
+
+export interface AdminOrderStats {
+  dailyOrders: OrderDayPoint[];
+  ordersByStatus: { label: string; value: number; display: string }[];
+}
+
+/** Commandes par jour + par statut (tous statuts, pas seulement payées). */
+export function useAdminOrderStats(days: number) {
+  return useQuery({
+    queryKey: adminKeys.orderStats(days),
+    staleTime: 30_000,
+    queryFn: async (): Promise<AdminOrderStats> => {
+      const supabase = getSupabase();
+      const since = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select('created_at,payment_status')
+        .gte('created_at', since)
+        .order('created_at')
+        .limit(5000);
+      if (error) throw error;
+
+      const rows = (orders ?? []) as Pick<Order, 'created_at' | 'payment_status'>[];
+
+      // Volume par jour : total vs payées
+      const buckets = new Map<string, { total: number; paid: number }>();
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(Date.now() - i * 24 * 3600 * 1000);
+        buckets.set(d.toISOString().slice(0, 10), { total: 0, paid: 0 });
+      }
+      for (const o of rows) {
+        const key = o.created_at.slice(0, 10);
+        const b = buckets.get(key);
+        if (b) {
+          b.total += 1;
+          if (o.payment_status === 'paid') b.paid += 1;
+        }
+      }
+      const dailyOrders: OrderDayPoint[] = [...buckets.entries()].map(([day, v]) => {
+        const d = new Date(day + 'T00:00:00');
+        return {
+          label: d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
+          fullLabel: d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }),
+          total: v.total,
+          paid: v.paid,
+        };
+      });
+
+      // Répartition par statut
+      const byStatus = new Map<string, number>();
+      for (const o of rows) {
+        const s = o.payment_status ?? 'pending';
+        byStatus.set(s, (byStatus.get(s) ?? 0) + 1);
+      }
+      const total = rows.length || 1;
+      const ordersByStatus = [...byStatus.entries()]
+        .map(([s, count]) => ({
+          label: STATUS_LABEL[s] ?? s,
+          value: count,
+          display: `${count} cmd · ${Math.round((count / total) * 100)} %`,
+        }))
+        .sort((a, b) => b.value - a.value);
+
+      return { dailyOrders, ordersByStatus };
+    },
+  });
+}
 const METHOD_LABEL: Record<string, string> = {
   yas: 'YAS',
   orange_money: 'Orange Money',

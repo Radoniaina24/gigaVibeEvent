@@ -89,6 +89,344 @@ export function AdminHomeSkeleton() {
   );
 }
 
+/* ---------- Statistiques admin : miroir de AdminStatisticsPage ---------- */
+export function AdminStatisticsSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement des statistiques" className="space-y-4 sm:space-y-6">
+      {/* En-tête clair */}
+      <div aria-hidden className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <div className="skeleton h-3 w-32" />
+          <div className="skeleton mt-2 h-8 w-52 max-w-full" />
+          <div className="skeleton mt-2 h-4 w-80 max-w-full" />
+          <div className="skeleton mt-2 h-3 w-36" />
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex gap-2">
+            <div className="skeleton h-8 w-28 rounded-xl" />
+            <div className="skeleton h-8 w-28 rounded-xl" />
+          </div>
+          <div className="flex gap-1 self-start rounded-xl border border-zinc-200 bg-white p-1 shadow-sm sm:self-auto">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="skeleton h-7 w-14 rounded-lg" />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Onglets soulignés */}
+      <div aria-hidden className="flex gap-5 border-b border-zinc-200 px-1">
+        {['Vue d’ensemble', 'Commandes', 'Événements & paiements'].map((t) => (
+          <div key={t} className="flex flex-col items-stretch gap-1.5 py-2.5">
+            <div className="skeleton h-4 w-28 rounded" />
+            <div className="skeleton h-0.5 w-full rounded-full" />
+          </div>
+        ))}
+      </div>
+
+      {/* Titre de section + KPI premium : 4 cartes avec liseré + sparkline */}
+      <div aria-hidden>
+        <div className="skeleton h-3 w-32" />
+        <div className="skeleton mt-2 h-6 w-64 max-w-full" />
+        <div className="skeleton mt-1.5 h-4 w-80 max-w-full" />
+      </div>
+      <div aria-hidden className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="relative min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+            <div className="skeleton h-1 w-full rounded-none" />
+            <div className="flex items-start justify-between gap-3 p-4 pt-5 sm:p-5 sm:pt-6">
+              <div className="min-w-0 flex-1">
+                <div className="skeleton h-3 w-24" />
+                <div className="skeleton mt-2 h-8 w-32" />
+                <div className="skeleton mt-2 h-3 w-36 max-w-full" />
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <div className="skeleton size-10 rounded-xl sm:size-11" />
+                <div className="skeleton h-5 w-16 rounded-full" />
+              </div>
+            </div>
+            <div className="px-3 pb-2">
+              <div className="skeleton h-9 w-full rounded-lg" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Revenus par jour */}
+      <div aria-hidden className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <div className="flex items-start gap-3 p-4 sm:p-5 sm:pb-4">
+          <div className="skeleton size-10 shrink-0 rounded-xl" />
+          <div className="min-w-0 flex-1">
+            <div className="skeleton h-5 w-44" />
+            <div className="skeleton mt-1.5 h-4 w-64 max-w-full" />
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <div className="skeleton h-5 w-16 rounded-full" />
+            <div className="skeleton h-6 w-28 rounded-full" />
+          </div>
+        </div>
+        <div className="px-4 pb-4 sm:px-6 sm:pb-6">
+          <div className="relative h-64 w-full overflow-hidden rounded-lg bg-zinc-50 sm:h-72">
+            {/* grille horizontale */}
+            <div className="absolute inset-x-8 inset-y-4 flex flex-col justify-between">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="border-t border-dashed border-zinc-200" />
+              ))}
+            </div>
+            {/* aire simulée */}
+            <div className="absolute inset-x-8 bottom-6 top-8 flex items-end gap-1.5 sm:gap-2">
+              {[38, 55, 42, 68, 50, 78, 62, 88, 70, 58, 74, 92, 66, 80, 72].map((h, i) => (
+                <div
+                  key={i}
+                  className="skeleton w-full rounded-t-md"
+                  style={{ height: `${h}%` }}
+                />
+              ))}
+            </div>
+            {/* axe X */}
+            <div className="absolute inset-x-8 bottom-0 flex justify-between gap-2 pt-1">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <div key={i} className="skeleton h-3 w-8" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ---------- Section Commandes : miroir de la section Volume & conversion ---------- */}
+      <div aria-hidden className="space-y-3 sm:space-y-4">
+        {/* Titre de section */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <div className="skeleton h-3 w-28" />
+            <div className="skeleton mt-2 h-6 w-56 max-w-full" />
+            <div className="skeleton mt-1.5 h-4 w-72 max-w-full" />
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <div className="skeleton h-8 w-28 rounded-xl" />
+            <div className="skeleton h-8 w-24 rounded-xl" />
+          </div>
+        </div>
+
+        {/* KPI commandes : 4 cartes premium */}
+        <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="relative min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+              <div className="skeleton h-1 w-full rounded-none" />
+              <div className="flex items-start justify-between gap-3 p-4 pt-5 sm:p-5 sm:pt-6">
+                <div className="min-w-0 flex-1">
+                  <div className="skeleton h-3 w-24" />
+                  <div className="skeleton mt-2 h-8 w-24" />
+                  <div className="skeleton mt-2 h-3 w-36 max-w-full" />
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <div className="skeleton size-10 rounded-xl sm:size-11" />
+                  <div className="skeleton h-5 w-16 rounded-full" />
+                </div>
+              </div>
+              <div className="px-3 pb-2">
+                <div className="skeleton h-9 w-full rounded-lg" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Courbe commandes + donut statuts */}
+        <div className="grid items-start gap-3 sm:gap-4 lg:grid-cols-5">
+          {/* Tendance : double aire */}
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm lg:col-span-3">
+            <div className="flex items-start gap-3 p-4 sm:p-5 sm:pb-3">
+              <div className="skeleton size-10 shrink-0 rounded-xl" />
+              <div className="min-w-0 flex-1">
+                <div className="skeleton h-5 w-44" />
+                <div className="skeleton mt-1.5 h-4 w-60 max-w-full" />
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <div className="skeleton h-5 w-16 rounded-full" />
+                <div className="skeleton h-6 w-28 rounded-full" />
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 px-4 pb-1 sm:px-6">
+              <div className="skeleton h-4 w-20 rounded-full" />
+              <div className="skeleton h-4 w-16 rounded-full" />
+            </div>
+            <div className="px-4 pb-4 sm:px-6 sm:pb-6">
+              <div className="relative h-64 w-full overflow-hidden rounded-lg bg-zinc-50 sm:h-72">
+                <div className="absolute inset-x-8 inset-y-4 flex flex-col justify-between">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="border-t border-dashed border-zinc-200" />
+                  ))}
+                </div>
+                <div className="absolute inset-x-8 bottom-6 top-8 flex items-end gap-1.5 sm:gap-2">
+                  {[30, 48, 36, 58, 44, 66, 52, 74, 60, 50, 64, 78, 56, 68, 62].map((h, i) => (
+                    <div key={i} className="w-full space-y-1">
+                      <div className="skeleton w-full rounded-t-md bg-emerald-100" style={{ height: `${h}%` }} />
+                      <div className="skeleton h-6 w-full rounded-t-sm opacity-60" />
+                    </div>
+                  ))}
+                </div>
+                <div className="absolute inset-x-8 bottom-0 flex justify-between gap-2 pt-1">
+                  {Array.from({ length: 7 }).map((_, i) => (
+                    <div key={i} className="skeleton h-3 w-8" />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Donut statuts */}
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm lg:col-span-2">
+            <div className="flex items-start gap-3 p-4 sm:p-5 sm:pb-2">
+              <div className="skeleton size-10 shrink-0 rounded-xl" />
+              <div className="min-w-0 flex-1">
+                <div className="skeleton h-5 w-44" />
+                <div className="skeleton mt-1.5 h-4 w-48 max-w-full" />
+              </div>
+              <div className="skeleton h-6 w-24 shrink-0 rounded-full" />
+            </div>
+            <div className="px-4 pb-4 sm:px-6 sm:pb-6">
+              <div className="mx-auto grid h-52 w-full max-w-72 place-items-center sm:h-56">
+                <div className="skeleton size-44 rounded-full sm:size-48" />
+              </div>
+              <div className="mt-3 space-y-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2.5 px-2 py-1.5">
+                    <div className="skeleton size-2.5 shrink-0 rounded-full" />
+                    <div className="skeleton h-4 min-w-0 flex-1" />
+                    <div className="skeleton h-4 w-24 shrink-0" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tunnel de conversion */}
+        <div className="min-w-0 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+          <div className="flex flex-row items-start justify-between gap-2 p-4 sm:p-6 sm:pb-3">
+            <div className="min-w-0">
+              <div className="skeleton h-5 w-48" />
+              <div className="skeleton mt-1.5 h-4 w-72 max-w-full" />
+            </div>
+            <div className="skeleton h-4 w-20 shrink-0" />
+          </div>
+          <div className="p-4 pt-0 sm:p-6 sm:pt-0">
+            <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 sm:p-4">
+                  <div className="skeleton h-4 w-24" />
+                  <div className="skeleton mt-2 h-8 w-16" />
+                  <div className="skeleton mt-2 h-2 w-full rounded-full" />
+                  <div className="skeleton mt-1.5 h-3 w-12" />
+                </div>
+              ))}
+            </div>
+            <div className="skeleton mt-3 h-10 w-full rounded-lg" />
+          </div>
+        </div>
+      </div>
+
+      {/* Top événements + Paiements */}
+      <div aria-hidden className="grid items-start gap-3 sm:gap-4 lg:grid-cols-2">
+        {/* Top événements */}
+        <div className="min-w-0 rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <div className="flex items-start gap-3 p-4 sm:p-5 sm:pb-4">
+            <div className="skeleton size-10 shrink-0 rounded-xl" />
+            <div className="min-w-0 flex-1">
+              <div className="skeleton h-5 w-36" />
+              <div className="skeleton mt-1.5 h-4 w-48 max-w-full" />
+            </div>
+            <div className="skeleton h-6 w-16 shrink-0 rounded-full" />
+          </div>
+          <div className="space-y-3 p-4 pt-0 sm:p-6 sm:pt-0">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="skeleton size-6 shrink-0 rounded-full" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="skeleton h-4 w-32 max-w-full" />
+                    <div className="skeleton h-4 w-16" />
+                  </div>
+                  <div className="skeleton mt-1.5 h-2 w-full rounded-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Donut paiements */}
+        <div className="min-w-0 rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <div className="flex items-start gap-3 p-4 sm:p-5 sm:pb-2">
+            <div className="skeleton size-10 shrink-0 rounded-xl" />
+            <div className="min-w-0 flex-1">
+              <div className="skeleton h-5 w-44" />
+              <div className="skeleton mt-1.5 h-4 w-52 max-w-full" />
+            </div>
+            <div className="skeleton h-6 w-24 shrink-0 rounded-full" />
+          </div>
+          <div className="px-4 pb-4 sm:px-6 sm:pb-6">
+            <div className="mx-auto grid h-52 w-full max-w-72 place-items-center sm:h-56">
+              <div className="skeleton size-44 rounded-full sm:size-48" />
+            </div>
+            <div className="mt-3 space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-2.5 px-2 py-1.5">
+                  <div className="skeleton size-2.5 shrink-0 rounded-full" />
+                  <div className="skeleton h-4 min-w-0 flex-1" />
+                  <div className="skeleton h-4 w-20 shrink-0" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Insights (ambre clair) + détail journalier */}
+      <div aria-hidden className="grid items-start gap-3 sm:gap-4 lg:grid-cols-5">
+        <div className="min-w-0 rounded-2xl border border-amber-200/70 bg-gradient-to-b from-amber-50/70 to-white shadow-sm lg:col-span-2">
+          <div className="flex items-center gap-2 p-4 sm:p-5 sm:pb-3">
+            <div className="skeleton size-8 shrink-0 rounded-xl" />
+            <div className="min-w-0 flex-1">
+              <div className="skeleton h-5 w-32" />
+              <div className="skeleton mt-1.5 h-4 w-56 max-w-full" />
+            </div>
+          </div>
+          <div className="space-y-2 p-4 pt-0 sm:p-5 sm:pt-0">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-start gap-3 rounded-xl border border-amber-100 bg-white px-3 py-2.5 shadow-sm">
+                <div className="skeleton size-8 shrink-0 rounded-lg" />
+                <div className="min-w-0 flex-1">
+                  <div className="skeleton h-4 w-3/4" />
+                  <div className="skeleton mt-1.5 h-3 w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="min-w-0 rounded-2xl border border-zinc-200 bg-white shadow-sm lg:col-span-3">
+          <div className="flex items-start justify-between gap-2 p-4 sm:p-6 sm:pb-3">
+            <div className="min-w-0">
+              <div className="skeleton h-5 w-48" />
+              <div className="skeleton mt-1.5 h-4 w-64 max-w-full" />
+            </div>
+            <div className="skeleton size-9 shrink-0 rounded-full" />
+          </div>
+          <div className="space-y-0 p-4 pt-0 sm:p-6 sm:pt-0">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 border-b border-zinc-100 py-2.5 last:border-0">
+                <div className="skeleton h-4 w-16" />
+                <div className="skeleton h-2 min-w-0 flex-1 rounded-full" />
+                <div className="skeleton h-4 w-20 shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Lignes de tableau admin ---------- */
 export function AdminRowsSkeleton({ count = 5 }: { count?: number }) {
   return (
