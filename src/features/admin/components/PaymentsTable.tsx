@@ -68,13 +68,15 @@ interface PaymentsTableProps {
   signingId: string | null;
   onOpenReceipt: (paymentId: string, path: string) => void;
   onReview: (row: AdminPaymentRow) => void;
+  /** Remonte les lignes visibles après filtres (pour synchroniser les KPI). */
+  onFilteredChange?: (rows: AdminPaymentRow[]) => void;
 }
 
 /**
  * Tableau paiements propulsé par TanStack Table :
  * recherche globale, filtres statut + méthode + événement, tri, pagination.
  */
-export function PaymentsTable({ data, signingId, onOpenReceipt, onReview }: PaymentsTableProps) {
+export function PaymentsTable({ data, signingId, onOpenReceipt, onReview, onFilteredChange }: PaymentsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'created_at', desc: true }]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -246,6 +248,14 @@ export function PaymentsTable({ data, signingId, onOpenReceipt, onReview }: Paym
   const canPrev = table.getCanPreviousPage();
   const canNext = table.getCanNextPage();
   const currentPage = pagination.pageIndex + 1;
+
+  // Remonte les lignes filtrées au parent (KPI synchronisés avec les filtres).
+  // Clé stable : ne notifie que si la sélection change vraiment.
+  const filteredKey = table.getFilteredRowModel().rows.map((r) => r.original.id).join(',');
+  useEffect(() => {
+    onFilteredChange?.(table.getFilteredRowModel().rows.map((r) => r.original));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredKey]);
 
   /** Numéros affichés : 1 … (p-1) p (p+1) … N */
   const pageItems: (number | '…')[] = (() => {

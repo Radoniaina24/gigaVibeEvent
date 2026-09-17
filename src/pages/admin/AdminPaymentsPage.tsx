@@ -47,9 +47,14 @@ export function AdminPaymentsPage() {
   const [signingId, setSigningId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [review, setReview] = useState<AdminPaymentRow | null>(null);
+  /** Lignes visibles après filtres du tableau (KPI synchronisés). */
+  const [visiblePayments, setVisiblePayments] = useState<AdminPaymentRow[] | null>(null);
+
+  const kpiSource = visiblePayments ?? data ?? [];
+  const isFiltered = visiblePayments !== null && visiblePayments.length !== (data?.length ?? 0);
 
   const kpis = useMemo(() => {
-    const rows = data ?? [];
+    const rows = kpiSource;
     let paidCount = 0;
     let paidAmount = 0;
     let pendingCount = 0;
@@ -79,7 +84,7 @@ export function AdminPaymentsPage() {
       if (diff >= 0 && diff < 7) spark[6 - diff] += p.amount;
     }
     return { total: rows.length, totalAmount, paidCount, paidAmount, pendingCount, pendingAmount, failedCount, spark };
-  }, [data]);
+  }, [kpiSource]);
 
   const handleValidate = async (orderId: string, approved: boolean, reason?: string) => {
     setActionError(null);
@@ -155,32 +160,32 @@ export function AdminPaymentsPage() {
         <EmptyState title="Aucun paiement trouvé." />
       ) : (
         <>
-          {/* KPI pro, responsive */}
+          {/* KPI pro, responsive — synchronisés avec les filtres du tableau */}
           <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:gap-4 xl:grid-cols-4">
             <KpiCard
-              label="Encaissé validé"
+              label={isFiltered ? 'Encaissé validé (filtre)' : 'Encaissé validé'}
               value={formatAr(kpis.paidAmount)}
-              hint={`${kpis.paidCount} paiement${kpis.paidCount > 1 ? 's' : ''} validé${kpis.paidCount > 1 ? 's' : ''}`}
+              hint={`${kpis.paidCount} paiement${kpis.paidCount > 1 ? 's' : ''} validé${kpis.paidCount > 1 ? 's' : ''}${isFiltered ? ' · sélection filtrée' : ''}`}
               icon={Banknote}
               tone="success"
               spark={kpis.spark}
             />
             <KpiCard
-              label="À vérifier"
+              label={isFiltered ? 'À vérifier (filtre)' : 'À vérifier'}
               value={String(kpis.pendingCount)}
-              hint={kpis.pendingCount > 0 ? `${formatAr(kpis.pendingAmount)} en attente` : 'File vide, tout est traité'}
+              hint={kpis.pendingCount > 0 ? `${formatAr(kpis.pendingAmount)} en attente${isFiltered ? ' · sélection filtrée' : ''}` : 'File vide, tout est traité'}
               icon={Clock3}
               tone="warning"
             />
             <KpiCard
-              label="Déclarations"
+              label={isFiltered ? 'Déclarations (filtre)' : 'Déclarations'}
               value={String(kpis.total)}
-              hint={`${formatAr(kpis.totalAmount)} déclarés au total`}
+              hint={`${formatAr(kpis.totalAmount)} déclarés${isFiltered ? ' · sélection filtrée' : ' au total'}`}
               icon={ReceiptText}
               tone="brand"
             />
             <KpiCard
-              label="Refusés"
+              label={isFiltered ? 'Refusés (filtre)' : 'Refusés'}
               value={String(kpis.failedCount)}
               hint="Stock libéré pour les autres clients"
               icon={XCircle}
@@ -192,6 +197,7 @@ export function AdminPaymentsPage() {
             signingId={signingId}
             onOpenReceipt={(paymentId, path) => void openReceipt(paymentId, path)}
             onReview={(row) => setReview(row)}
+            onFilteredChange={setVisiblePayments}
           />
         </>
       )}
