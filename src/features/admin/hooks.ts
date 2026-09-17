@@ -575,6 +575,8 @@ export interface AdminTicketRow extends Ticket {
   event: Pick<Event, 'title'> | null;
   ticket_type: Pick<TicketType, 'name'> | null;
   order: Pick<Order, 'order_number'> | null;
+  /** Acheteur du billet (nom, prénom, email) — comme la colonne Client des paiements. */
+  user: Pick<Profile, 'email' | 'first_name' | 'last_name'> | null;
 }
 
 export function useAdminTickets() {
@@ -586,7 +588,7 @@ export function useAdminTickets() {
       const { data, error } = await supabase
         .from('tickets')
         .select(
-          '*, event:events(title), ticket_type:ticket_types(name), order:orders(order_number)',
+          '*, event:events(title), ticket_type:ticket_types(name), order:orders(order_number), user:profiles(email,first_name,last_name)',
         )
         .order('created_at', { ascending: false })
         .limit(200);

@@ -13,9 +13,11 @@ import {
 } from '@tanstack/react-table';
 import {
   ArrowDown,
+  ArrowLeftRight,
   ArrowUp,
   BadgeCheck,
   Ban,
+  Check,
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
@@ -100,53 +102,147 @@ function OrderStatusDialog({ order, onClose }: { order: AdminOrderRow; onClose: 
 
   const optionClass = (selected: boolean, tone: 'green' | 'red') =>
     cn(
-      'flex w-full items-start gap-3 rounded-xl border p-3 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2',
+      'flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 sm:p-4',
       selected
         ? tone === 'green'
-          ? 'border-green-500 bg-green-50 ring-1 ring-green-500 focus-visible:outline-green-600'
-          : 'border-red-500 bg-red-50 ring-1 ring-red-500 focus-visible:outline-red-600'
-        : 'border-zinc-200 hover:bg-zinc-50 focus-visible:outline-brand-600',
+          ? 'border-green-500 bg-green-50 shadow-sm ring-1 ring-green-500 focus-visible:outline-green-600'
+          : 'border-red-500 bg-red-50 shadow-sm ring-1 ring-red-500 focus-visible:outline-red-600'
+        : 'border-zinc-200 bg-white hover:-translate-y-px hover:border-zinc-300 hover:shadow-sm focus-visible:outline-brand-600',
     );
 
+  const optionTile = (tone: 'green' | 'red') =>
+    cn(
+      'grid size-11 shrink-0 place-items-center rounded-xl text-white shadow-sm',
+      tone === 'green'
+        ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-600/30'
+        : 'bg-gradient-to-br from-red-500 to-rose-600 shadow-red-600/30',
+    );
+
+  const pending = setStatus.isPending;
+
   return (
-    <Modal open onClose={onClose} title="Changer le statut" subtitle={order.order_number}>
-      <div className="space-y-3">
-        <p className="flex items-center gap-2 text-sm text-zinc-600">
-          Statut actuel : <OrderStatusBadge status={order.payment_status} />
-        </p>
-        <div className="space-y-2" role="group" aria-label="Nouveau statut">
-          <button type="button" aria-pressed={to === 'paid'} onClick={() => setTo('paid')} className={optionClass(to === 'paid', 'green')}>
-            <BadgeCheck aria-hidden className="size-5 shrink-0 text-green-600" />
-            <span>
+    <Modal
+      open
+      onClose={onClose}
+      title="Changer le statut"
+      subtitle={`${order.order_number} · ${order.event?.title ?? 'Événement'}`}
+      icon={<ArrowLeftRight className="size-5" aria-hidden />}
+      size="lg"
+      footer={
+        <>
+          <Button variant="ghost" disabled={pending} onClick={onClose}>
+            Retour
+          </Button>
+          <Button
+            variant={to === 'cancelled' ? 'danger' : 'primary'}
+            loading={pending}
+            disabled={!to}
+            onClick={() => void confirm()}
+          >
+            {to === 'cancelled' ? 'Annuler la commande' : to === 'paid' ? 'Marquer comme payée' : 'Confirmer'}
+          </Button>
+        </>
+      }
+    >
+      <div className="relative space-y-4" aria-busy={pending}>
+        {/* Voile de traitement */}
+        {pending && (
+          <div
+            role="status"
+            aria-label="Traitement en cours"
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-white/75 backdrop-blur-[2px]"
+          >
+            <span
+              aria-hidden
+              className="size-9 animate-spin rounded-full border-[3px] border-zinc-200 border-t-zinc-900"
+            />
+            <p className="text-sm font-bold text-zinc-800">Traitement en cours…</p>
+            <div aria-hidden className="w-48 max-w-full space-y-2">
+              <div className="skeleton h-2.5 w-full" />
+              <div className="skeleton mx-auto h-2.5 w-2/3" />
+            </div>
+          </div>
+        )}
+
+        {/* Résumé commande */}
+        <div className="flex flex-col gap-3 rounded-2xl bg-night-950 p-4 text-white sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
+              {clientLabel(order)}
+            </p>
+            <p className="mt-1 font-display text-2xl font-bold tabular-nums leading-none sm:text-3xl">
+              {formatAr(order.total)}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-xs text-zinc-400">Actuel :</span>
+            <OrderStatusBadge status={order.payment_status} />
+          </div>
+        </div>
+
+        <div className="space-y-2" role="radiogroup" aria-label="Nouveau statut">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={to === 'paid'}
+            onClick={() => setTo('paid')}
+            className={optionClass(to === 'paid', 'green')}
+          >
+            <span aria-hidden className={optionTile('green')}>
+              <BadgeCheck className="size-5" />
+            </span>
+            <span className="min-w-0 flex-1">
               <span className="block text-sm font-bold text-zinc-900">Marquer comme payée</span>
               <span className="mt-0.5 block text-xs text-zinc-500">
                 Billets générés et envoyés par email au client. Irréversible.
               </span>
             </span>
+            <span
+              aria-hidden
+              className={cn(
+                'grid size-6 shrink-0 place-items-center rounded-full border-2 transition',
+                to === 'paid'
+                  ? 'border-green-600 bg-green-600 text-white'
+                  : 'border-zinc-300 bg-white text-transparent',
+              )}
+            >
+              <Check className="size-3.5" strokeWidth={3} />
+            </span>
           </button>
-          <button type="button" aria-pressed={to === 'cancelled'} onClick={() => setTo('cancelled')} className={optionClass(to === 'cancelled', 'red')}>
-            <Ban aria-hidden className="size-5 shrink-0 text-red-600" />
-            <span>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={to === 'cancelled'}
+            onClick={() => setTo('cancelled')}
+            className={optionClass(to === 'cancelled', 'red')}
+          >
+            <span aria-hidden className={optionTile('red')}>
+              <Ban className="size-5" />
+            </span>
+            <span className="min-w-0 flex-1">
               <span className="block text-sm font-bold text-zinc-900">Annuler la commande</span>
               <span className="mt-0.5 block text-xs text-zinc-500">
                 Stock réservé libéré. Le client devra recommander.
               </span>
             </span>
+            <span
+              aria-hidden
+              className={cn(
+                'grid size-6 shrink-0 place-items-center rounded-full border-2 transition',
+                to === 'cancelled'
+                  ? 'border-red-600 bg-red-600 text-white'
+                  : 'border-zinc-300 bg-white text-transparent',
+              )}
+            >
+              <Check className="size-3.5" strokeWidth={3} />
+            </span>
           </button>
         </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" disabled={setStatus.isPending} onClick={onClose}>
-            Retour
-          </Button>
-          <Button
-            variant={to === 'cancelled' ? 'danger' : 'primary'}
-            loading={setStatus.isPending}
-            disabled={!to}
-            onClick={() => void confirm()}
-          >
-            Confirmer
-          </Button>
-        </div>
+        {!to && (
+          <p className="text-center text-xs text-zinc-400">
+            Sélectionnez une action pour activer la confirmation.
+          </p>
+        )}
       </div>
     </Modal>
   );
@@ -252,13 +348,15 @@ export function OrdersTable({ data }: OrdersTableProps) {
               onClick={() => setStatusOrder(row)}
               title="Changer le statut"
               aria-label={`Changer le statut de la commande ${row.order_number}`}
-              className="group inline-flex items-center gap-1 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+              className="group inline-flex items-center gap-1.5 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
             >
               <OrderStatusBadge status={info.getValue()} />
-              <Pencil
+              <span
                 aria-hidden
-                className="size-3.5 text-zinc-400 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100"
-              />
+                className="grid size-5 place-items-center rounded-full border border-zinc-300 bg-white text-zinc-400 shadow-sm transition group-hover:-translate-y-px group-hover:border-zinc-900 group-hover:bg-zinc-900 group-hover:text-white group-hover:shadow group-focus-visible:border-zinc-900 group-focus-visible:bg-zinc-900 group-focus-visible:text-white"
+              >
+                <Pencil className="size-3" />
+              </span>
             </button>
           );
         },
@@ -280,11 +378,11 @@ export function OrdersTable({ data }: OrdersTableProps) {
           return (
             <Link
               to={`/admin/orders/${row.id}`}
-              title="Voir le détail"
+              title="Voir le détail de la commande"
               aria-label={`Voir la commande ${row.order_number}`}
-              className="rounded-md p-2 transition hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+              className="group inline-grid size-9 place-items-center rounded-full border border-zinc-300 bg-white text-zinc-500 shadow-sm transition hover:-translate-y-px hover:border-zinc-900 hover:bg-zinc-900 hover:text-white hover:shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
             >
-              <Eye className="size-4" aria-hidden />
+              <Eye className="size-4 transition group-hover:scale-110" aria-hidden />
             </Link>
           );
         },
