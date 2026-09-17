@@ -508,15 +508,65 @@ export function useAdminPayments() {
     staleTime: 15_000,
     queryFn: async (): Promise<AdminPaymentRow[]> => {
       const supabase = getSupabase();
+      // NOTE : `payments` a DEUX FK vers `profiles` (user_id + validated_by
+      // depuis 0007). Sans hint explicite, PostgREST renvoie 400
+      // "more than one relationship" → page en erreur. On force les bons liens.
       const { data, error } = await supabase
         .from('payments')
         .select(
-          '*, order:orders(order_number, event:events(title)), user:profiles(email,first_name,last_name,phone)',
+          '*, order:orders!payments_order_id_fkey(order_number, event:events!orders_event_id_fkey(title)), user:profiles!payments_user_id_fkey(email,first_name,last_name,phone)',
         )
         .order('created_at', { ascending: false })
         .limit(200);
-      if (error) throw error;
-      return (data ?? []) as AdminPaymentRow[];
+      if (!error) return (data ?? []) as AdminPaymentRow[];
+      // Fallback résilient : si l'embed échoue (vieux schéma, FK renommée…),
+      // on charge les paiements seuls puis on enrichit côté client.
+      console.warn('[admin-payments] embed complet impossible, fallback :', error.message);
+      const retry = await supabase
+        .from('payments')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (retry.error) throw retry.error;
+      const rows = (retry.data ?? []) as Payment[];
+      if (rows.length === 0) return [];
+      const orderIds = [...new Set(rows.map((r) => r.order_id))];
+      const userIds = [...new Set(rows.map((r) => r.user_id))];
+      const [ordersRes, usersRes] = await Promise.all([
+        supabase.from('orders').select('id,order_number,event_id').in('id', orderIds),
+        supabase.from('profiles').select('id,email,first_name,last_name,phone').in('id', userIds),
+      ]);
+      if (ordersRes.error) throw ordersRes.error;
+      if (usersRes.error) throw usersRes.error;
+      const orders = (ordersRes.data ?? []) as { id: string; order_number: string; event_id: string }[];
+      const users = (usersRes.data ?? []) as ({ id: string } & AdminPaymentRow['user'])[];
+      const eventIds = [...new Set(orders.map((o) => o.event_id))];
+      const { data: eventsData, error: evError } = await supabase
+        .from('events')
+        .select('id,title')
+        .in('id', eventIds);
+      if (evError) throw evError;
+      const eventsById = new Map(
+        ((eventsData ?? []) as { id: string; title: string }[]).map((e) => [e.id, e]),
+      );
+      const ordersById = new Map(orders.map((o) => [o.id, o]));
+      const usersById = new Map(users.map((u) => [u.id, u]));
+      return rows.map((p) => {
+        const o = ordersById.get(p.order_id);
+        const u = usersById.get(p.user_id);
+        return {
+          ...p,
+          order: o
+            ? {
+                order_number: o.order_number,
+                event: eventsById.get(o.event_id) ?? null,
+              }
+            : null,
+          user: u
+            ? { email: u.email, first_name: u.first_name, last_name: u.last_name, phone: u.phone }
+            : null,
+        } as AdminPaymentRow;
+      });
     },
   });
 }

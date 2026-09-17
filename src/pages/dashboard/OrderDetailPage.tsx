@@ -20,6 +20,7 @@ import {
 } from '../../components/ui/States';
 import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
 import { OrderStepper, OrderTimeline } from '../../components/orders/OrderStepper';
+import { PaymentProof } from '../../components/orders/PaymentProof';
 
 const PROVIDER_LABEL: Record<string, string> = {
   yas: 'YAS',
@@ -212,36 +213,38 @@ export function OrderDetailPage() {
           </CardHeader>
           <CardContent>
             {payment ? (
-              <dl className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-zinc-500">Méthode</dt>
-                  <dd className="font-medium">
-                    {PROVIDER_LABEL[payment.provider] ?? payment.provider}
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-zinc-500">Montant</dt>
-                  <dd className="font-semibold tabular-nums">{formatAr(payment.amount)}</dd>
-                </div>
-                {payment.phone_number && (
+              <div className="space-y-4">
+                <dl className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <dt className="text-zinc-500">Numéro</dt>
-                    <dd>{payment.phone_number}</dd>
+                    <dt className="text-zinc-500">Méthode</dt>
+                    <dd className="font-medium">
+                      {PROVIDER_LABEL[payment.provider] ?? payment.provider}
+                    </dd>
                   </div>
-                )}
-                {payment.provider_ref && (
                   <div className="flex justify-between">
-                    <dt className="text-zinc-500">Référence</dt>
-                    <dd className="font-mono text-xs">{payment.provider_ref}</dd>
+                    <dt className="text-zinc-500">Montant</dt>
+                    <dd className="font-semibold tabular-nums">{formatAr(payment.amount)}</dd>
                   </div>
-                )}
-                <div className="flex justify-between">
-                  <dt className="text-zinc-500">Statut</dt>
-                  <dd>
-                    <OrderStatusBadge status={payment.status} />
-                  </dd>
+                  {payment.phone_number && (
+                    <div className="flex justify-between">
+                      <dt className="text-zinc-500">Numéro</dt>
+                      <dd>{payment.phone_number}</dd>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <dt className="text-zinc-500">Statut</dt>
+                    <dd>
+                      <OrderStatusBadge status={payment.status} />
+                    </dd>
+                  </div>
+                </dl>
+                <div className="border-t border-zinc-100 pt-4">
+                  <PaymentProof
+                    providerRef={payment.provider_ref}
+                    receiptUrl={payment.receipt_url}
+                  />
                 </div>
-              </dl>
+              </div>
             ) : (
               <p className="text-sm text-zinc-500">Aucun paiement enregistré.</p>
             )}

@@ -9,14 +9,12 @@ import {
   Copy,
   Mail,
   MapPin,
-  ReceiptText,
   Ticket as TicketIcon,
   User,
 } from 'lucide-react';
 import { useAdminTickets } from '../../features/admin/hooks';
 import { useAdminSetOrderStatus, useOrderDetail } from '../../features/orders/hooks';
 import { useSendTicketEmail } from '../../features/auth/hooks';
-import { signReceiptUrl } from '../../services/storage';
 import { formatAr, formatDateTime } from '../../lib/utils';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -27,6 +25,7 @@ import {
 } from '../../components/ui/States';
 import { OrderDetailSkeleton } from '../../components/admin/AdminSkeletons';
 import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
+import { PaymentProof } from '../../components/orders/PaymentProof';
 import { TicketStatusBadge } from '../../components/admin/StatusBadges';
 import { cn } from '../../lib/utils';
 
@@ -133,19 +132,8 @@ export function AdminOrderDetailPage() {
   const setStatus = useAdminSetOrderStatus();
   const resendEmail = useSendTicketEmail();
   const { toast } = useToast();
-  const [receiptError, setReceiptError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<'paid' | 'cancelled' | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-
-  const openReceipt = async (path: string) => {
-    setReceiptError(null);
-    try {
-      const url = path.startsWith('http') ? path : await signReceiptUrl(path);
-      window.open(url, '_blank', 'noopener');
-    } catch {
-      setReceiptError('Reçu illisible.');
-    }
-  };
 
   if (isPending) return <OrderDetailSkeleton />;
   if (isError)
@@ -374,61 +362,46 @@ export function AdminOrderDetailPage() {
           <Card className="p-4 sm:p-5">
             <h2 className="font-bold">Paiement</h2>
             {payment ? (
-              <dl className="mt-3 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-zinc-500">Méthode</dt>
-                  <dd className="font-medium">
-                    {PROVIDER_LABEL[payment.provider] ?? payment.provider}
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-zinc-500">Montant</dt>
-                  <dd className="font-semibold tabular-nums">{formatAr(payment.amount)}</dd>
-                </div>
-                {payment.phone_number && (
+              <div className="mt-3 space-y-3">
+                <dl className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <dt className="text-zinc-500">Numéro</dt>
-                    <dd>{payment.phone_number}</dd>
-                  </div>
-                )}
-                {payment.provider_ref && (
-                  <div className="flex justify-between gap-2">
-                    <dt className="text-zinc-500">Référence</dt>
-                    <dd className="flex min-w-0 items-center justify-end gap-1">
-                      <span className="truncate font-mono text-xs">{payment.provider_ref}</span>
-                      <CopyButton value={payment.provider_ref} label="la référence de paiement" />
+                    <dt className="text-zinc-500">Méthode</dt>
+                    <dd className="font-medium">
+                      {PROVIDER_LABEL[payment.provider] ?? payment.provider}
                     </dd>
                   </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <dt className="text-zinc-500">Statut</dt>
-                  <dd>
-                    <OrderStatusBadge status={payment.status} />
-                  </dd>
+                  <div className="flex justify-between">
+                    <dt className="text-zinc-500">Montant</dt>
+                    <dd className="font-semibold tabular-nums">{formatAr(payment.amount)}</dd>
+                  </div>
+                  {payment.phone_number && (
+                    <div className="flex justify-between">
+                      <dt className="text-zinc-500">Numéro</dt>
+                      <dd>{payment.phone_number}</dd>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <dt className="text-zinc-500">Statut</dt>
+                    <dd>
+                      <OrderStatusBadge status={payment.status} />
+                    </dd>
+                  </div>
+                  {payment.rejection_reason && (
+                    <p className="rounded-lg bg-red-50 p-2 text-xs text-red-700">
+                      {payment.rejection_reason}
+                    </p>
+                  )}
+                </dl>
+                <div className="border-t border-zinc-100 pt-3">
+                  <PaymentProof
+                    providerRef={payment.provider_ref}
+                    receiptUrl={payment.receipt_url}
+                    compact
+                  />
                 </div>
-                {payment.rejection_reason && (
-                  <p className="rounded-lg bg-red-50 p-2 text-xs text-red-700">
-                    {payment.rejection_reason}
-                  </p>
-                )}
-                {payment.receipt_url && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => openReceipt(payment.receipt_url as string)}
-                  >
-                    <ReceiptText className="size-4" aria-hidden /> Voir la capture
-                  </Button>
-                )}
-              </dl>
+              </div>
             ) : (
               <p className="mt-2 text-sm text-zinc-500">Aucun paiement enregistré.</p>
-            )}
-            {receiptError && (
-              <p role="alert" className="mt-2 text-sm text-red-600">
-                {receiptError}
-              </p>
             )}
           </Card>
 

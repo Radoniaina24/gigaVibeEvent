@@ -890,3 +890,105 @@ export function OrderDetailSkeleton() {
     </div>
   );
 }
+
+/* ---------- Paiements admin : miroir de AdminPaymentsPage (KPI + TanStack Table) ---------- */
+export function PaymentsPageSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement des paiements" className="space-y-4">
+      {/* En-tête */}
+      <div aria-hidden>
+        <div className="skeleton h-8 w-44 max-w-full" />
+        <div className="skeleton mt-1.5 h-4 w-80 max-w-full" />
+      </div>
+
+      {/* KPI premium */}
+      <div aria-hidden className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="relative min-w-0 overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+          >
+            <div className="skeleton h-1 w-full rounded-none" />
+            <div className="flex items-start justify-between gap-3 p-4 pt-5 sm:p-5 sm:pt-6">
+              <div className="min-w-0 flex-1">
+                <div className="skeleton h-3 w-24" />
+                <div className="skeleton mt-2.5 h-7 w-32" />
+                <div className="skeleton mt-2 h-3 w-28 max-w-full" />
+              </div>
+              <div className="skeleton size-10 shrink-0 rounded-xl sm:size-11" />
+            </div>
+            {i === 0 && (
+              <div className="px-3 pb-2">
+                <div className="skeleton h-9 w-full" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Barre d'outils : recherche + 3 filtres + compteur */}
+      <div aria-hidden className="flex flex-wrap items-center gap-2">
+        <div className="skeleton h-9 w-full flex-1 rounded-lg sm:min-w-52 sm:max-w-xs" />
+        <div className="skeleton h-9 w-full rounded-lg sm:w-44" />
+        <div className="skeleton h-9 w-full rounded-lg sm:w-56" />
+        <div className="skeleton h-9 w-full rounded-lg sm:w-72" />
+        <div className="skeleton h-4 w-24" />
+      </div>
+
+      {/* Tableau */}
+      <div aria-hidden className="max-w-full overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+        <table className="w-full min-w-[960px] text-left">
+          <thead>
+            <tr className="border-b border-zinc-200 bg-zinc-50">
+              {['w-20', 'w-24', 'w-32', 'w-40', 'w-20', 'w-16', 'w-16', 'w-24', 'w-20'].map((w, i) => (
+                <th key={i} scope="col" className="px-4 py-3">
+                  <div className={`skeleton h-3 ${w}`} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {Array.from({ length: 8 }).map((_, r) => (
+              <tr key={r}>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-1">
+                    <div className="skeleton h-3 w-24" />
+                    <div className="skeleton size-7 shrink-0 rounded-md" />
+                  </div>
+                </td>
+                <td className="px-4 py-3"><div className="skeleton h-3 w-28" /></td>
+                <td className="px-4 py-3"><div className={`skeleton h-3 ${r % 2 === 0 ? 'w-36' : 'w-28'}`} /></td>
+                <td className="px-4 py-3">
+                  <div className="skeleton h-3 w-32" />
+                  <div className="skeleton mt-1.5 h-3 w-40" />
+                </td>
+                <td className="px-4 py-3"><div className="skeleton h-5 w-24 rounded-full" /></td>
+                <td className="px-4 py-3"><div className="skeleton h-4 w-16" /></td>
+                <td className="px-4 py-3"><div className="skeleton h-5 w-16 rounded-full" /></td>
+                <td className="px-4 py-3"><div className="skeleton h-3 w-20" /></td>
+                <td className="px-4 py-3"><div className="skeleton size-9 rounded-full" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination pro */}
+      <div aria-hidden className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="skeleton h-8 w-28 rounded-lg" />
+          <div className="skeleton h-4 w-36" />
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="skeleton size-8 rounded-lg" />
+          <div className="skeleton size-8 rounded-lg" />
+          <div className="skeleton size-8 rounded-lg" />
+          <div className="skeleton size-8 rounded-lg" />
+          <div className="skeleton size-8 rounded-lg" />
+          <div className="skeleton size-8 rounded-lg" />
+          <div className="skeleton size-8 rounded-lg" />
+        </div>
+      </div>
+    </div>
+  );
+}

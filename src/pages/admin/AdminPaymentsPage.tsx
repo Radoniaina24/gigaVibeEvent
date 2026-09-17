@@ -1,83 +1,85 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Check, ReceiptText, X } from 'lucide-react';
+import {
+  Banknote,
+  CalendarDays,
+  Check,
+  Clock3,
+  ListChecks,
+  Phone,
+  ReceiptText,
+  ShieldCheck,
+  User,
+  X,
+  XCircle,
+} from 'lucide-react';
 import {
   useAdminPayments,
   type AdminPaymentRow,
 } from '../../features/admin/hooks';
+import { PaymentsTable } from '../../features/admin/components/PaymentsTable';
+import { KpiCard } from '../../components/admin/StatsCard';
 import { useValidatePayment } from '../../features/orders/hooks';
 import { signReceiptUrl } from '../../services/storage';
 import {
   paymentRejectSchema,
   type PaymentRejectInput,
 } from '../../schemas/orders';
-import { DataTable } from '../../components/admin/DataTable';
-import { Pagination } from '../../components/admin/Pagination';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { useToast } from '../../components/ui/Toaster';
-import { Select } from '../../components/ui/Fields';
 import {
   EmptyState,
   ErrorState,
-  LoadingState,
 } from '../../components/ui/States';
+import { PaymentsPageSkeleton } from '../../components/admin/AdminSkeletons';
 import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
+import { PaymentMethodBadge } from '../../components/orders/PaymentMethodBadge';
+import { PaymentProof } from '../../components/orders/PaymentProof';
 import { formatAr, formatDateTime } from '../../lib/utils';
 
-const PAGE_SIZE = 15;
-const STATUSES = ['', 'pending', 'processing', 'paid', 'failed', 'cancelled', 'expired'];
-
-const STATUS_LABEL: Record<string, string> = {
-  '': 'Tous',
-  pending: 'En attente',
-  processing: 'En vérification',
-  paid: 'Payé',
-  failed: 'Refusé',
-  cancelled: 'Annulé',
-  expired: 'Expiré',
-};
-
-const METHOD_LABEL: Record<string, string> = {
-  yas: 'YAS',
-  orange_money: 'Orange Money',
-  airtel_money: 'Airtel Money',
-  card: 'Carte',
-  cash: 'Espèces',
-};
-
 export function AdminPaymentsPage() {
-  const { data, isPending, isError, refetch } = useAdminPayments();
+  const { data, isPending, isError, error, refetch } = useAdminPayments();
   const { toast } = useToast();
   const validate = useValidatePayment();
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
-  const [page, setPage] = useState(1);
   const [actingId, setActingId] = useState<string | null>(null);
   const [signingId, setSigningId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [review, setReview] = useState<AdminPaymentRow | null>(null);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return (data ?? []).filter((p) => {
-      if (status && p.status !== status) return false;
-      if (
-        q &&
-        !`${p.provider_ref ?? ''} ${p.order?.order_number ?? ''} ${p.user?.email ?? ''} ${p.order?.event?.title ?? ''}`
-          .toLowerCase()
-          .includes(q)
-      )
-        return false;
-      return true;
-    });
-  }, [data, search, status]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const rows = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const kpis = useMemo(() => {
+    const rows = data ?? [];
+    let paidCount = 0;
+    let paidAmount = 0;
+    let pendingCount = 0;
+    let pendingAmount = 0;
+    let failedCount = 0;
+    let totalAmount = 0;
+    for (const p of rows) {
+      totalAmount += p.amount;
+      if (p.status === 'paid') {
+        paidCount += 1;
+        paidAmount += p.amount;
+      } else if (p.status === 'pending' || p.status === 'processing') {
+        pendingCount += 1;
+        pendingAmount += p.amount;
+      } else if (p.status === 'failed') {
+        failedCount += 1;
+      }
+    }
+    // Mini-courbe 7 jours des montants validés.
+    const spark = Array.from({ length: 7 }, () => 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (const p of rows) {
+      if (p.status !== 'paid') continue;
+      const d = new Date(p.created_at);
+      const diff = Math.floor((today.getTime() - new Date(d.toDateString()).getTime()) / 86_400_000);
+      if (diff >= 0 && diff < 7) spark[6 - diff] += p.amount;
+    }
+    return { total: rows.length, totalAmount, paidCount, paidAmount, pendingCount, pendingAmount, failedCount, spark };
+  }, [data]);
 
   const handleValidate = async (orderId: string, approved: boolean, reason?: string) => {
     setActionError(null);
@@ -138,141 +140,59 @@ export function AdminPaymentsPage() {
         </p>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Input
-          label="Recherche"
-          type="search"
-          placeholder="Référence, N° commande, email, événement…"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-        />
-        <Select
-          label="Statut"
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setPage(1);
-          }}
-        >
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {STATUS_LABEL[s] ?? s}
-            </option>
-          ))}
-        </Select>
-      </div>
-
       {isPending ? (
-        <LoadingState label="Chargement des paiements…" />
+        <PaymentsPageSkeleton />
       ) : isError ? (
-        <ErrorState description="Impossible de charger les paiements." onRetry={() => refetch()} />
-      ) : filtered.length === 0 ? (
+        <ErrorState
+          description={
+            error instanceof Error && error.message
+              ? `Impossible de charger les paiements : ${error.message}`
+              : 'Impossible de charger les paiements.'
+          }
+          onRetry={() => refetch()}
+        />
+      ) : !data || data.length === 0 ? (
         <EmptyState title="Aucun paiement trouvé." />
       ) : (
         <>
-          <DataTable
-            caption="Liste des paiements"
-            keyOf={(p) => p.id}
-            rows={rows}
-            columns={[
-              {
-                key: 'ref',
-                header: 'Référence',
-                render: (p) => (
-                  <span>
-                    <span className="font-mono text-xs">{p.provider_ref ?? '—'}</span>
-                    {p.receipt_url && (
-                      <button
-                        type="button"
-                        title="Voir le reçu"
-                        disabled={signingId === p.id}
-                        onClick={() => openReceipt(p.id, p.receipt_url as string)}
-                        className="ml-1 rounded-md p-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50"
-                      >
-                        <ReceiptText className="size-4" aria-hidden />
-                      </button>
-                    )}
-                  </span>
-                ),
-              },
-              {
-                key: 'order',
-                header: 'Commande',
-                render: (p) => (
-                  <span className="font-mono text-xs">{p.order?.order_number ?? '—'}</span>
-                ),
-              },
-              {
-                key: 'event',
-                header: 'Événement',
-                render: (p) => (
-                  <span className="text-xs">{p.order?.event?.title ?? '—'}</span>
-                ),
-              },
-              {
-                key: 'user',
-                header: 'Client',
-                render: (p) => (
-                  <span className="text-xs">
-                    {[p.user?.first_name, p.user?.last_name].filter(Boolean).join(' ') ||
-                      p.user?.email ||
-                      '—'}
-                    {p.user?.email && (p.user.first_name || p.user.last_name) && (
-                      <span className="block text-zinc-500">{p.user.email}</span>
-                    )}
-                  </span>
-                ),
-              },
-              {
-                key: 'method',
-                header: 'Méthode',
-                render: (p) => <span>{METHOD_LABEL[p.provider] ?? p.provider}</span>,
-              },
-              {
-                key: 'amount',
-                header: 'Montant',
-                render: (p) => (
-                  <span className="font-semibold tabular-nums">{formatAr(p.amount)}</span>
-                ),
-              },
-              {
-                key: 'status',
-                header: 'Statut',
-                render: (p) => <OrderStatusBadge status={p.status} />,
-              },
-              {
-                key: 'date',
-                header: 'Date',
-                render: (p) => (
-                  <span className="whitespace-nowrap text-xs">{formatDateTime(p.created_at)}</span>
-                ),
-              },
-              {
-                key: 'actions',
-                header: 'Validation',
-                render: (p) =>
-                  p.status === 'pending' || p.status === 'processing' ? (
-                    <Button size="sm" onClick={() => setReview(p)}>
-                      Examiner
-                    </Button>
-                  ) : (
-                    <span className="text-xs text-zinc-400">—</span>
-                  ),
-              },
-            ]}
+          {/* KPI pro, responsive */}
+          <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+            <KpiCard
+              label="Encaissé validé"
+              value={formatAr(kpis.paidAmount)}
+              hint={`${kpis.paidCount} paiement${kpis.paidCount > 1 ? 's' : ''} validé${kpis.paidCount > 1 ? 's' : ''}`}
+              icon={Banknote}
+              tone="success"
+              spark={kpis.spark}
+            />
+            <KpiCard
+              label="À vérifier"
+              value={String(kpis.pendingCount)}
+              hint={kpis.pendingCount > 0 ? `${formatAr(kpis.pendingAmount)} en attente` : 'File vide, tout est traité'}
+              icon={Clock3}
+              tone="warning"
+            />
+            <KpiCard
+              label="Déclarations"
+              value={String(kpis.total)}
+              hint={`${formatAr(kpis.totalAmount)} déclarés au total`}
+              icon={ReceiptText}
+              tone="brand"
+            />
+            <KpiCard
+              label="Refusés"
+              value={String(kpis.failedCount)}
+              hint="Stock libéré pour les autres clients"
+              icon={XCircle}
+              tone="neutral"
+            />
+          </div>
+          <PaymentsTable
+            data={data}
+            signingId={signingId}
+            onOpenReceipt={(paymentId, path) => void openReceipt(paymentId, path)}
+            onReview={(row) => setReview(row)}
           />
-          <Pagination
-            page={safePage}
-            totalPages={totalPages}
-            onChange={setPage}
-            label="Pagination des paiements"
-          />
-          <p className="text-center text-xs text-zinc-500">
-            Les changements de statut sont tracés automatiquement (triggers + table audit_logs).
-          </p>
         </>
       )}
 
@@ -302,8 +222,6 @@ function PaymentReviewModal({
   onDecide: (orderId: string, approved: boolean, reason?: string) => void;
 }) {
   const [mode, setMode] = useState<'view' | 'approve' | 'reject'>('view');
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewError, setPreviewError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -313,24 +231,7 @@ function PaymentReviewModal({
 
   useEffect(() => {
     setMode('view');
-    setPreviewUrl(null);
-    setPreviewError(null);
     reset({ reason: '' });
-    if (!payment?.receipt_url || payment.receipt_url.startsWith('http')) {
-      setPreviewUrl(payment?.receipt_url ?? null);
-      return;
-    }
-    let cancelled = false;
-    signReceiptUrl(payment.receipt_url)
-      .then((url) => {
-        if (!cancelled) setPreviewUrl(url);
-      })
-      .catch(() => {
-        if (!cancelled) setPreviewError('Capture illisible.');
-      });
-    return () => {
-      cancelled = true;
-    };
   }, [payment, reset]);
 
   const clientName =
@@ -343,77 +244,131 @@ function PaymentReviewModal({
       open={payment !== null}
       onClose={onClose}
       title="Vérification du paiement"
-      subtitle={payment ? `Commande ${payment.order?.order_number ?? '—'}` : undefined}
-      size="lg"
+      subtitle={payment ? `Commande ${payment.order?.order_number ?? '—'} · ${payment.order?.event?.title ?? ''}` : undefined}
+      icon={<ShieldCheck className="size-5" aria-hidden />}
+      size="xl"
     >
       {!payment ? null : (
-        <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-zinc-200 p-3 text-sm">
-              <p className="text-xs font-semibold uppercase text-zinc-500">Client</p>
-              <p className="mt-1 font-medium">{clientName}</p>
-              <p className="text-xs text-zinc-500">{payment.user?.email}</p>
-              {payment.user?.phone && (
-                <p className="text-xs text-zinc-500">{payment.user.phone}</p>
-              )}
+        <div className="relative space-y-4" aria-busy={acting}>
+          {/* Voile de traitement : bloque les doubles clics, feedback pro */}
+          {acting && (
+            <div
+              role="status"
+              aria-label="Validation en cours"
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-white/75 backdrop-blur-[2px]"
+            >
+              <span
+                aria-hidden
+                className="size-9 animate-spin rounded-full border-[3px] border-zinc-200 border-t-zinc-900"
+              />
+              <p className="text-sm font-bold text-zinc-800">Traitement en cours…</p>
+              <div aria-hidden className="w-48 max-w-full space-y-2">
+                <div className="skeleton h-2.5 w-full" />
+                <div className="skeleton mx-auto h-2.5 w-2/3" />
+              </div>
             </div>
-            <div className="rounded-xl border border-zinc-200 p-3 text-sm">
-              <p className="text-xs font-semibold uppercase text-zinc-500">Commande</p>
-              <p className="mt-1 font-medium">{payment.order?.event?.title ?? '—'}</p>
-              <p className="mt-1 text-xs">
-                <span className="tabular-nums font-bold">{formatAr(payment.amount)}</span>
-                {' · '}
-                {METHOD_LABEL[payment.provider] ?? payment.provider}
+          )}
+          {/* Bandeau résumé */}
+          <div className="flex flex-col gap-4 rounded-2xl bg-night-950 p-4 text-white sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">
+                Montant déclaré
               </p>
-              <p className="mt-1 font-mono text-xs text-zinc-500">
-                Réf : {payment.provider_ref ?? '—'}
+              <p className="mt-1 font-display text-3xl font-bold tabular-nums leading-none sm:text-4xl">
+                {formatAr(payment.amount)}
               </p>
-              <p className="text-xs text-zinc-500">
-                Déclaré le {formatDateTime(payment.created_at)}
+              <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-400">
+                <span className="inline-flex items-center gap-1">
+                  <CalendarDays className="size-3.5" aria-hidden />
+                  Déclaré le {formatDateTime(payment.created_at)}
+                </span>
+                {payment.phone_number && (
+                  <span className="inline-flex items-center gap-1">
+                    <Phone className="size-3.5" aria-hidden />
+                    N° émetteur : {payment.phone_number}
+                  </span>
+                )}
               </p>
             </div>
-            <div className="rounded-xl border border-zinc-200 p-3 text-sm">
-              <p className="text-xs font-semibold uppercase text-zinc-500">Statut</p>
-              <p className="mt-1">
-                <OrderStatusBadge status={payment.status} />
-              </p>
-              {payment.phone_number && (
-                <p className="mt-2 text-xs text-zinc-500">
-                  N° émetteur : {payment.phone_number}
-                </p>
-              )}
+            <div className="flex shrink-0 flex-row items-center gap-2 sm:flex-col sm:items-end">
+              <PaymentMethodBadge method={payment.provider} />
+              <OrderStatusBadge status={payment.status} />
             </div>
           </div>
 
-          <div>
-            <p className="text-sm font-semibold">Preuve de paiement</p>
-            {previewError && (
-              <p role="alert" className="mt-2 text-sm text-red-600">
-                {previewError}
-              </p>
-            )}
-            {previewUrl ? (
-              <a href={previewUrl} target="_blank" rel="noopener" title="Ouvrir en grand">
-                <img
-                  src={previewUrl}
-                  alt="Capture du reçu de paiement (cliquer pour zoomer)"
-                  className="mt-2 max-h-96 w-full rounded-xl border border-zinc-200 object-contain bg-zinc-50"
-                />
-              </a>
-            ) : (
-              !previewError && (
-                <p className="mt-2 text-sm text-zinc-500">
-                  Aucune capture fournie — vérifiez la référence auprès de l'opérateur.
+          {/* Contenu : preuve + infos */}
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+            {/* Preuve : référence + photo (zoom intégré) */}
+            <section
+              aria-label="Référence et preuve de paiement"
+              className="min-w-0 rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5"
+            >
+              <h3 className="flex items-center gap-2 text-sm font-bold">
+                <ReceiptText className="size-4 text-brand-600" aria-hidden />
+                Référence & photo preuve
+              </h3>
+              <PaymentProof
+                key={payment.id}
+                providerRef={payment.provider_ref}
+                receiptUrl={payment.receipt_url}
+                title={`Preuve · ${payment.order?.order_number ?? ''}`}
+                className="mt-3"
+              />
+            </section>
+
+            {/* Colonne infos */}
+            <div className="min-w-0 space-y-4">
+              <section
+                aria-label="Client"
+                className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5"
+              >
+                <h3 className="flex items-center gap-2 text-sm font-bold">
+                  <User className="size-4 text-brand-600" aria-hidden />
+                  Client
+                </h3>
+                <p className="mt-2 truncate text-sm font-semibold" title={clientName}>
+                  {clientName}
                 </p>
-              )
-            )}
+                <p className="truncate text-xs text-zinc-500" title={payment.user?.email ?? ''}>
+                  {payment.user?.email}
+                </p>
+                {payment.user?.phone && (
+                  <p className="mt-0.5 text-xs tabular-nums text-zinc-500">{payment.user.phone}</p>
+                )}
+              </section>
+
+              <section
+                aria-label="Points de contrôle"
+                className="rounded-2xl border border-brand-200 bg-brand-50/60 p-4 sm:p-5"
+              >
+                <h3 className="flex items-center gap-2 text-sm font-bold">
+                  <ListChecks className="size-4 text-brand-700" aria-hidden />
+                  Points de contrôle
+                </h3>
+                <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-zinc-600">
+                  <li className="flex gap-1.5">
+                    <Check className="mt-0.5 size-3.5 shrink-0 text-green-600" aria-hidden />
+                    Référence lisible, au format de l’opérateur
+                  </li>
+                  <li className="flex gap-1.5">
+                    <Check className="mt-0.5 size-3.5 shrink-0 text-green-600" aria-hidden />
+                    Capture nette : montant, date et destinataire visibles
+                  </li>
+                  <li className="flex gap-1.5">
+                    <Check className="mt-0.5 size-3.5 shrink-0 text-green-600" aria-hidden />
+                    Montant et N° émetteur cohérents avec la commande
+                  </li>
+                </ul>
+              </section>
+            </div>
           </div>
 
           {mode === 'view' && (
-            <div className="flex flex-wrap gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
               <Button
                 loading={acting}
                 onClick={() => setMode('approve')}
+                className="w-full"
               >
                 <Check className="size-4" aria-hidden /> Valider le paiement
               </Button>
@@ -421,6 +376,7 @@ function PaymentReviewModal({
                 variant="secondary"
                 loading={acting}
                 onClick={() => setMode('reject')}
+                className="w-full"
               >
                 <X className="size-4" aria-hidden /> Refuser
               </Button>
@@ -436,7 +392,7 @@ function PaymentReviewModal({
                 Cette action générera automatiquement le ou les billets associés à
                 cette commande. Irréversible.
               </p>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row">
                 <Button loading={acting} onClick={() => onDecide(payment.order_id, true)}>
                   Confirmer la validation
                 </Button>
@@ -469,7 +425,7 @@ function PaymentReviewModal({
                   {errors.reason.message}
                 </p>
               )}
-              <div className="flex gap-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row">
                 <Button type="submit" variant="danger" loading={acting}>
                   Confirmer le refus
                 </Button>
