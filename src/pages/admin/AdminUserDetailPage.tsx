@@ -7,10 +7,10 @@ import {
 } from '../../features/admin/hooks';
 import { Badge, Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { UserDetailSkeleton } from '../../components/admin/AdminSkeletons';
 import {
   EmptyState,
   ErrorState,
-  LoadingState,
 } from '../../components/ui/States';
 import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
 import { formatAr, formatDate, formatDateTime } from '../../lib/utils';
@@ -22,7 +22,7 @@ export function AdminUserDetailPage() {
   const tickets = useAdminTickets();
 
   if (users.isPending || orders.isPending || tickets.isPending) {
-    return <LoadingState label="Chargement de l'utilisateur…" />;
+    return <UserDetailSkeleton />;
   }
   if (users.isError || orders.isError || tickets.isError) {
     return (

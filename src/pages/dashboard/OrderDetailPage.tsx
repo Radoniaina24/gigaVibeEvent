@@ -16,8 +16,8 @@ import { Button } from '../../components/ui/Button';
 import {
   EmptyState,
   ErrorState,
-  LoadingState,
 } from '../../components/ui/States';
+import { UserOrderDetailSkeleton } from '../../components/dashboard/DashboardSkeletons';
 import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
 import { OrderStepper, OrderTimeline } from '../../components/orders/OrderStepper';
 import { PaymentProof } from '../../components/orders/PaymentProof';
@@ -52,7 +52,7 @@ export function OrderDetailPage() {
     }
   };
 
-  if (isPending) return <LoadingState label="Chargement de la commande…" />;
+  if (isPending) return <UserOrderDetailSkeleton />;
   if (isError)
     return (
       <ErrorState

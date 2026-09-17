@@ -26,7 +26,8 @@ import { Input } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/Toaster';
 import { Card } from '../../components/ui/Card';
 import { Select, Textarea } from '../../components/ui/Fields';
-import { ErrorState, LoadingState } from '../../components/ui/States';
+import { ErrorState } from '../../components/ui/States';
+import { PartnerEventFormSkeleton } from './PartnerSkeletons';
 
 const EDITABLE = ['draft', 'pending_review', 'changes_requested', 'cancelled'];
 const SUBMITTABLE = ['draft', 'changes_requested'];
@@ -224,7 +225,7 @@ export function PartnerEventFormPage() {
     }
   };
 
-  if (!isNew && isPending) return <LoadingState label="Chargement de l'événement…" />;
+  if (!isNew && isPending) return <PartnerEventFormSkeleton />;
   if (!isNew && (isError || !existing))
     return <ErrorState description="Événement introuvable." onRetry={() => refetch()} />;
 

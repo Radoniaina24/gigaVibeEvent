@@ -16,6 +16,8 @@ import {
   ArrowUp,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   ChevronsUpDown,
   Eye,
   Search,
@@ -145,15 +147,18 @@ export function UsersTable({ data, updating, onRoleChange, onToggleActive }: Use
         cell: (info) => {
           const row = info.row.original;
           const ActiveIcon = row.is_active ? UserX : UserCheck;
+          const toggleClass = row.is_active
+            ? 'border-red-200 text-red-600 hover:border-red-600 hover:bg-red-600 hover:text-white focus-visible:outline-red-600'
+            : 'border-emerald-200 text-emerald-600 hover:border-emerald-600 hover:bg-emerald-600 hover:text-white focus-visible:outline-emerald-600';
           return (
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1.5">
               <Link
                 to={`/admin/users/${row.id}`}
                 title="Voir"
                 aria-label={`Voir ${row.email}`}
-                className="rounded-md p-2 transition hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                className="group inline-grid size-9 place-items-center rounded-full border border-zinc-300 bg-white text-zinc-500 shadow-sm transition hover:-translate-y-px hover:border-zinc-900 hover:bg-zinc-900 hover:text-white hover:shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
               >
-                <Eye className="size-4" aria-hidden />
+                <Eye className="size-4 transition group-hover:scale-110" aria-hidden />
               </Link>
               <button
                 type="button"
@@ -161,9 +166,9 @@ export function UsersTable({ data, updating, onRoleChange, onToggleActive }: Use
                 aria-label={`${row.is_active ? 'Désactiver' : 'Réactiver'} ${row.email}`}
                 disabled={updating}
                 onClick={() => onToggleActive(row)}
-                className="rounded-md p-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:opacity-40 enabled:hover:bg-zinc-100"
+                className={`group inline-grid size-9 place-items-center rounded-full border bg-white shadow-sm transition hover:-translate-y-px hover:shadow focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm ${toggleClass}`}
               >
-                <ActiveIcon className="size-4" aria-hidden />
+                <ActiveIcon className="size-4 transition group-hover:scale-110" aria-hidden />
               </button>
             </span>
           );
@@ -199,6 +204,29 @@ export function UsersTable({ data, updating, onRoleChange, onToggleActive }: Use
   const pageCount = table.getPageCount();
   const canPrev = table.getCanPreviousPage();
   const canNext = table.getCanNextPage();
+  const currentPage = pagination.pageIndex + 1;
+
+  /** Numéros affichés : 1 … (p-1) p (p+1) … N */
+  const pageItems: (number | '…')[] = (() => {
+    const items: (number | '…')[] = [];
+    for (let p = 1; p <= pageCount; p++) {
+      if (p === 1 || p === pageCount || Math.abs(p - currentPage) <= 1) {
+        items.push(p);
+      } else if (items[items.length - 1] !== '…') {
+        items.push('…');
+      }
+    }
+    return items;
+  })();
+
+  const rangeStart = filteredCount === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1;
+  const rangeEnd = Math.min(filteredCount, (pagination.pageIndex + 1) * pagination.pageSize);
+
+  const navBtn = (enabled: boolean) =>
+    cn(
+      'grid size-8 place-items-center rounded-lg border border-zinc-300 bg-white text-zinc-600 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+      enabled ? 'hover:bg-zinc-100 hover:text-zinc-900' : 'cursor-not-allowed opacity-40',
+    );
 
   return (
     <div className="space-y-3">
@@ -321,46 +349,89 @@ export function UsersTable({ data, updating, onRoleChange, onToggleActive }: Use
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <span className="flex items-center gap-2 text-xs text-zinc-500">
-          Lignes par page
-          <MiniSelect
-            ariaLabel="Lignes par page"
-            value={String(pagination.pageSize)}
-            onChange={(v) => setPagination((p) => ({ ...p, pageSize: Number(v), pageIndex: 0 }))}
-            options={PAGE_SIZES.map((s) => ({ value: String(s), label: String(s) }))}
-          />
-        </span>
-        <p className="text-xs tabular-nums text-zinc-500" aria-live="polite">
-          Page {pageCount === 0 ? 0 : pagination.pageIndex + 1} sur {pageCount}
-        </p>
-        <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => table.previousPage()}
-            disabled={!canPrev}
-            aria-label="Page précédente"
-            className={cn(
-              'inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-300 bg-white px-2.5 text-sm transition',
-              canPrev ? 'hover:bg-zinc-100' : 'cursor-not-allowed opacity-40',
-            )}
-          >
-            <ChevronLeft className="size-4" aria-hidden /> Préc.
-          </button>
-          <button
-            type="button"
-            onClick={() => table.nextPage()}
-            disabled={!canNext}
-            aria-label="Page suivante"
-            className={cn(
-              'inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-300 bg-white px-2.5 text-sm transition',
-              canNext ? 'hover:bg-zinc-100' : 'cursor-not-allowed opacity-40',
-            )}
-          >
-            Suiv. <ChevronRight className="size-4" aria-hidden />
-          </button>
+      {/* Pagination pro */}
+      <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="flex items-center gap-2 text-xs text-zinc-500">
+            Lignes par page
+            <MiniSelect
+              ariaLabel="Lignes par page"
+              value={String(pagination.pageSize)}
+              onChange={(v) => setPagination((p) => ({ ...p, pageSize: Number(v), pageIndex: 0 }))}
+              options={PAGE_SIZES.map((s) => ({ value: String(s), label: String(s) }))}
+            />
+          </span>
+          <p className="text-xs tabular-nums text-zinc-500" aria-live="polite">
+            {rangeStart}–{rangeEnd} sur {filteredCount} résultat{filteredCount > 1 ? 's' : ''}
+          </p>
         </div>
+        {pageCount > 1 && (
+          <nav aria-label="Pagination des utilisateurs" className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => table.setPageIndex(0)}
+              disabled={!canPrev}
+              aria-label="Première page"
+              title="Première page"
+              className={navBtn(canPrev)}
+            >
+              <ChevronsLeft className="size-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => table.previousPage()}
+              disabled={!canPrev}
+              aria-label="Page précédente"
+              title="Page précédente"
+              className={navBtn(canPrev)}
+            >
+              <ChevronLeft className="size-4" aria-hidden />
+            </button>
+            {pageItems.map((p, i) =>
+              p === '…' ? (
+                <span key={`gap-${i}`} className="px-1 text-sm text-zinc-400" aria-hidden>
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => table.setPageIndex(p - 1)}
+                  aria-label={`Page ${p}`}
+                  aria-current={p === currentPage ? 'page' : undefined}
+                  className={cn(
+                    'grid size-8 place-items-center rounded-lg text-sm font-medium tabular-nums transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+                    p === currentPage
+                      ? 'bg-zinc-900 font-bold text-white shadow-sm'
+                      : 'border border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900',
+                  )}
+                >
+                  {p}
+                </button>
+              ),
+            )}
+            <button
+              type="button"
+              onClick={() => table.nextPage()}
+              disabled={!canNext}
+              aria-label="Page suivante"
+              title="Page suivante"
+              className={navBtn(canNext)}
+            >
+              <ChevronRight className="size-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => table.setPageIndex(pageCount - 1)}
+              disabled={!canNext}
+              aria-label="Dernière page"
+              title="Dernière page"
+              className={navBtn(canNext)}
+            >
+              <ChevronsRight className="size-4" aria-hidden />
+            </button>
+          </nav>
+        )}
       </div>
     </div>
   );

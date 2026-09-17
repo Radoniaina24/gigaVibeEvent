@@ -19,12 +19,12 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select, Textarea } from '../../components/ui/Fields';
 import { DataTable } from '../../components/admin/DataTable';
+import { PartnersTableSkeleton } from '../../components/admin/AdminSkeletons';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
 import {
   EmptyState,
   ErrorState,
-  LoadingState,
 } from '../../components/ui/States';
 
 const EMPTY: PartnerInput = {
@@ -356,7 +356,7 @@ export function AdminPartnersPage() {
       )}
 
       {isPending ? (
-        <LoadingState label="Chargement des partenaires…" />
+        <PartnersTableSkeleton />
       ) : isError ? (
         <ErrorState description="Impossible de charger les partenaires." onRetry={() => refetch()} />
       ) : !data.length ? (

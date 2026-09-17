@@ -993,3 +993,365 @@ export function PaymentsPageSkeleton() {
     </div>
   );
 }
+
+/* ---------- Utilisateurs admin : miroir de UsersTable ---------- */
+export function UsersTableSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement des utilisateurs" className="space-y-3">
+      <div aria-hidden className="flex flex-wrap items-center gap-2">
+        <div className="skeleton h-9 w-full flex-1 rounded-lg sm:min-w-52 sm:max-w-xs" />
+        <div className="skeleton h-9 w-full rounded-lg sm:w-44" />
+        <div className="skeleton h-4 w-24" />
+      </div>
+      <div aria-hidden className="max-w-full overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+        <table className="w-full min-w-[640px] text-left">
+          <thead>
+            <tr className="border-b border-zinc-200 bg-zinc-50">
+              {['w-24', 'w-16', 'w-16', 'w-20', 'w-20', 'w-16'].map((w, i) => (
+                <th key={i} scope="col" className="px-4 py-3">
+                  <div className={`skeleton h-3 ${w}`} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {Array.from({ length: 8 }).map((_, r) => (
+              <tr key={r}>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="skeleton size-8 shrink-0 rounded-full" />
+                    <div className="min-w-0 flex-1">
+                      <div className="skeleton h-3 w-28" />
+                      <div className="skeleton mt-1.5 h-3 w-40 max-w-full" />
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3"><div className="skeleton h-8 w-36 rounded-lg" /></td>
+                <td className="px-4 py-3"><div className="skeleton h-5 w-16 rounded-full" /></td>
+                <td className="px-4 py-3"><div className="skeleton h-4 w-10" /></td>
+                <td className="px-4 py-3"><div className="skeleton h-3 w-20" /></td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-1.5">
+                    <div className="skeleton size-9 rounded-full" />
+                    <div className="skeleton size-9 rounded-full" />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div aria-hidden className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="skeleton h-8 w-28 rounded-lg" />
+          <div className="skeleton h-4 w-36" />
+        </div>
+        <div className="flex items-center gap-1">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="skeleton size-8 rounded-lg" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Détail utilisateur admin : miroir de AdminUserDetailPage ---------- */
+export function UserDetailSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement de l'utilisateur" className="space-y-6">
+      <div aria-hidden className="skeleton h-4 w-32" />
+      <div aria-hidden className="flex flex-wrap items-center gap-2">
+        <div className="skeleton h-8 w-56 max-w-full" />
+        <div className="skeleton h-5 w-16 rounded-full" />
+        <div className="skeleton h-5 w-20 rounded-full" />
+      </div>
+      <div aria-hidden className="grid gap-4 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+            <div className="skeleton h-4 w-24" />
+            <div className="skeleton mt-2 h-4 w-40 max-w-full" />
+            <div className="skeleton mt-1.5 h-7 w-16" />
+          </div>
+        ))}
+      </div>
+      <div aria-hidden className="space-y-2">
+        <div className="skeleton h-5 w-48" />
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-3"
+          >
+            <div className="flex-1">
+              <div className="skeleton h-4 w-44 max-w-full" />
+              <div className="skeleton mt-1.5 h-3 w-72 max-w-full" />
+            </div>
+            <div className="skeleton h-5 w-20 shrink-0 rounded-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Partenaires admin : miroir du tableau partenaires ---------- */
+export function PartnersTableSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div role="status" aria-label="Chargement des partenaires" className="space-y-3">
+      <div aria-hidden className="max-w-full overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+        <table className="w-full min-w-[640px] text-left">
+          <thead>
+            <tr className="border-b border-zinc-200 bg-zinc-50">
+              {['w-24', 'w-20', 'w-16', 'w-16', 'w-16'].map((w, i) => (
+                <th key={i} scope="col" className="px-4 py-3">
+                  <div className={`skeleton h-3 ${w}`} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {Array.from({ length: count }).map((_, r) => (
+              <tr key={r}>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="skeleton size-9 shrink-0 rounded-lg" />
+                    <div>
+                      <div className="skeleton h-4 w-36" />
+                      <div className="skeleton mt-1.5 h-3 w-48 max-w-full" />
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3"><div className="skeleton h-4 w-10" /></td>
+                <td className="px-4 py-3"><div className="skeleton h-4 w-10" /></td>
+                <td className="px-4 py-3"><div className="skeleton h-5 w-16 rounded-full" /></td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-1.5">
+                    <div className="skeleton size-9 rounded-full" />
+                    <div className="skeleton size-9 rounded-full" />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Billets admin : miroir de AdminTicketsPage (stats + table) ---------- */
+export function TicketsPageSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement des billets" className="space-y-4 sm:space-y-6">
+      <div aria-hidden>
+        <div className="skeleton h-8 w-48 max-w-full" />
+        <div className="skeleton mt-1.5 h-4 w-80 max-w-full" />
+      </div>
+      <div aria-hidden className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="min-w-0 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+            <div className="flex items-start justify-between gap-3 p-4 sm:p-5">
+              <div className="min-w-0 flex-1">
+                <div className="skeleton h-4 w-24" />
+                <div className="skeleton mt-2 h-7 w-16" />
+                <div className="skeleton mt-2 h-3 w-28 max-w-full" />
+              </div>
+              <div className="skeleton size-10 shrink-0 rounded-xl sm:size-11" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div aria-hidden className="flex flex-wrap items-center gap-2">
+        <div className="skeleton h-9 w-full flex-1 rounded-lg sm:min-w-52 sm:max-w-xs" />
+        <div className="skeleton h-9 w-full rounded-lg sm:w-44" />
+        <div className="skeleton h-9 w-full rounded-lg sm:w-72" />
+        <div className="skeleton h-4 w-24" />
+      </div>
+      <div aria-hidden className="max-w-full overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+        <table className="w-full min-w-[860px] text-left">
+          <thead>
+            <tr className="border-b border-zinc-200 bg-zinc-50">
+              {['w-20', 'w-24', 'w-28', 'w-16', 'w-16', 'w-20'].map((w, i) => (
+                <th key={i} scope="col" className="px-4 py-3">
+                  <div className={`skeleton h-3 ${w}`} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {Array.from({ length: 8 }).map((_, r) => (
+              <tr key={r}>
+                <td className="px-4 py-3">
+                  <div className="skeleton h-3 w-28" />
+                  <div className="skeleton mt-1.5 h-3 w-24" />
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="skeleton size-8 shrink-0 rounded-full" />
+                    <div>
+                      <div className="skeleton h-3 w-28" />
+                      <div className="skeleton mt-1.5 h-3 w-36" />
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="skeleton h-3 w-32" />
+                  <div className="skeleton mt-1.5 h-5 w-20 rounded-full" />
+                </td>
+                <td className="px-4 py-3"><div className="skeleton h-5 w-16 rounded-full" /></td>
+                <td className="px-4 py-3"><div className="skeleton h-3 w-20" /></td>
+                <td className="px-4 py-3"><div className="skeleton size-9 rounded-full" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div aria-hidden className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="skeleton h-8 w-28 rounded-lg" />
+          <div className="skeleton h-4 w-36" />
+        </div>
+        <div className="flex items-center gap-1">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="skeleton size-8 rounded-lg" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Catégories admin : miroir de CategoriesTable ---------- */
+export function CategoriesTableSkeleton({ count = 5 }: { count?: number }) {
+  return (
+    <div role="status" aria-label="Chargement des catégories" className="space-y-3">
+      <div aria-hidden className="flex flex-wrap items-center gap-2">
+        <div className="skeleton h-9 w-full flex-1 rounded-lg sm:min-w-52 sm:max-w-xs" />
+        <div className="skeleton h-4 w-32" />
+      </div>
+      <div aria-hidden className="max-w-full overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+        <table className="w-full min-w-[640px] text-left">
+          <thead>
+            <tr className="border-b border-zinc-200 bg-zinc-50">
+              {['w-16', 'w-24', 'w-20', 'w-16'].map((w, i) => (
+                <th key={i} scope="col" className="px-4 py-3">
+                  <div className={`skeleton h-3 ${w}`} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {Array.from({ length: count }).map((_, r) => (
+              <tr key={r}>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="skeleton size-8 shrink-0 rounded-lg" />
+                    <div>
+                      <div className="skeleton h-4 w-32" />
+                      <div className="skeleton mt-1.5 h-3 w-48 max-w-full" />
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3"><div className="skeleton h-3 w-36" /></td>
+                <td className="px-4 py-3"><div className="skeleton h-4 w-10" /></td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-1.5">
+                    <div className="skeleton size-9 rounded-full" />
+                    <div className="skeleton size-9 rounded-full" />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div aria-hidden className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="skeleton h-8 w-28 rounded-lg" />
+          <div className="skeleton h-4 w-36" />
+        </div>
+        <div className="flex items-center gap-1">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="skeleton size-8 rounded-lg" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Validations admin : miroir de AdminValidationsPage (KPI + table) ---------- */
+export function ValidationsPageSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement de la file de modération" className="space-y-4">
+      <div aria-hidden className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="relative min-w-0 overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+          >
+            <div className="skeleton h-1 w-full rounded-none" />
+            <div className="flex items-start justify-between gap-3 p-4 pt-5 sm:p-5 sm:pt-6">
+              <div className="min-w-0 flex-1">
+                <div className="skeleton h-3 w-24" />
+                <div className="skeleton mt-2.5 h-7 w-16" />
+                <div className="skeleton mt-2 h-3 w-32 max-w-full" />
+              </div>
+              <div className="skeleton size-10 shrink-0 rounded-xl sm:size-11" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div aria-hidden className="flex flex-wrap items-center gap-2">
+        <div className="skeleton h-9 w-full flex-1 rounded-lg sm:min-w-52 sm:max-w-xs" />
+        <div className="skeleton h-9 w-full rounded-lg sm:w-44" />
+        <div className="skeleton h-4 w-24" />
+      </div>
+      <div aria-hidden className="max-w-full overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+        <table className="w-full min-w-[880px] text-left">
+          <thead>
+            <tr className="border-b border-zinc-200 bg-zinc-50">
+              {['w-28', 'w-16', 'w-14', 'w-20', 'w-40'].map((w, i) => (
+                <th key={i} scope="col" className="px-4 py-3">
+                  <div className={`skeleton h-3 ${w}`} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {Array.from({ length: 6 }).map((_, r) => (
+              <tr key={r}>
+                <td className="px-4 py-3">
+                  <div className="skeleton h-4 w-44 max-w-full" />
+                  <div className="skeleton mt-1.5 h-3 w-64 max-w-full" />
+                </td>
+                <td className="px-4 py-3"><div className="skeleton h-3 w-20" /></td>
+                <td className="px-4 py-3"><div className="skeleton h-4 w-12" /></td>
+                <td className="px-4 py-3"><div className="skeleton h-5 w-20 rounded-full" /></td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="skeleton size-9 rounded-full" />
+                    <div className="skeleton size-9 rounded-full" />
+                    <div className="skeleton h-8 w-24 rounded-lg" />
+                    <div className="skeleton h-8 w-20 rounded-lg" />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div aria-hidden className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="skeleton h-8 w-28 rounded-lg" />
+          <div className="skeleton h-4 w-36" />
+        </div>
+        <div className="flex items-center gap-1">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="skeleton size-8 rounded-lg" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

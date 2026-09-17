@@ -7,11 +7,11 @@ import {
 } from '../../features/admin/hooks';
 import { TicketsTable } from '../../features/admin/components/TicketsTable';
 import { StatsCard } from '../../components/admin/StatsCard';
+import { TicketsPageSkeleton } from '../../components/admin/AdminSkeletons';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import {
   EmptyState,
   ErrorState,
-  LoadingState,
 } from '../../components/ui/States';
 
 export function AdminTicketsPage() {
@@ -59,7 +59,7 @@ export function AdminTicketsPage() {
       </div>
 
       {isPending ? (
-        <LoadingState label="Chargement des billets…" />
+        <TicketsPageSkeleton />
       ) : isError ? (
         <ErrorState description="Impossible de charger les billets." onRetry={() => refetch()} />
       ) : !data || data.length === 0 ? (

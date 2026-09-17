@@ -59,3 +59,35 @@ export function PartnerRowsSkeleton({ count = 4 }: { count?: number }) {
     </div>
   );
 }
+
+/* ---------- Formulaire événement : miroir de PartnerEventFormPage (édition) ---------- */
+export function PartnerEventFormSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement de l'événement" className="max-w-3xl space-y-6">
+      <div aria-hidden className="skeleton h-4 w-36" />
+      <div aria-hidden className="flex flex-wrap items-center justify-between gap-2">
+        <div className="skeleton h-8 w-72 max-w-full" />
+        <div className="skeleton h-5 w-24 rounded-full" />
+      </div>
+      {Array.from({ length: 3 }).map((_, c) => (
+        <div
+          key={c}
+          aria-hidden
+          className="space-y-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
+        >
+          <div className="skeleton h-5 w-48" />
+          <div className="skeleton h-10 w-full rounded-lg" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="skeleton h-10 w-full rounded-lg" />
+            <div className="skeleton h-10 w-full rounded-lg" />
+          </div>
+          <div className="skeleton h-24 w-full rounded-lg" />
+        </div>
+      ))}
+      <div aria-hidden className="flex gap-2">
+        <div className="skeleton h-10 w-32 rounded-lg" />
+        <div className="skeleton h-10 w-32 rounded-lg" />
+      </div>
+    </div>
+  );
+}

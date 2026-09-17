@@ -11,12 +11,12 @@ import type { CategoryInput } from '../../schemas';
 import type { Category } from '../../types/database';
 import { Button } from '../../components/ui/Button';
 import { CategoriesTable } from '../../features/admin/components/CategoriesTable';
+import { CategoriesTableSkeleton } from '../../components/admin/AdminSkeletons';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../components/ui/Toaster';
 import {
   EmptyState,
   ErrorState,
-  LoadingState,
 } from '../../components/ui/States';
 
 export function AdminCategoriesPage() {
@@ -113,7 +113,7 @@ export function AdminCategoriesPage() {
       )}
 
       {isPending ? (
-        <LoadingState label="Chargement des catégories…" />
+        <CategoriesTableSkeleton />
       ) : isError ? (
         <ErrorState description="Impossible de charger les catégories." onRetry={() => refetch()} />
       ) : !data.length ? (

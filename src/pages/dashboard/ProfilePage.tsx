@@ -14,7 +14,8 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/Toaster';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
-import { LoadingState, ErrorState } from '../../components/ui/States';
+import { ProfileSkeleton } from '../../components/dashboard/DashboardSkeletons';
+import { ErrorState } from '../../components/ui/States';
 
 function initials(first: string, last: string, email: string | undefined): string {
   const a = first.trim()[0] ?? '';
@@ -46,7 +47,7 @@ export function ProfilePage() {
     }
   }, [data, reset]);
 
-  if (isPending) return <LoadingState label="Chargement du profil…" />;
+  if (isPending) return <ProfileSkeleton />;
   if (isError || !data)
     return (
       <ErrorState

@@ -11,11 +11,11 @@ import { inviteUserSchema, type InviteUserInput } from '../../schemas/auth';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { UsersTable } from '../../features/admin/components/UsersTable';
+import { UsersTableSkeleton } from '../../components/admin/AdminSkeletons';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import {
   EmptyState,
   ErrorState,
-  LoadingState,
 } from '../../components/ui/States';
 import type { UserRole } from '../../types/database';
 
@@ -79,7 +79,7 @@ export function AdminUsersPage() {
       )}
 
       {isPending ? (
-        <LoadingState label="Chargement des utilisateurs…" />
+        <UsersTableSkeleton />
       ) : isError ? (
         <ErrorState description="Impossible de charger les utilisateurs." onRetry={() => refetch()} />
       ) : !data?.length ? (
