@@ -926,12 +926,13 @@ export function PaymentsPageSkeleton() {
         ))}
       </div>
 
-      {/* Barre d'outils : recherche + 3 filtres + compteur */}
+      {/* Barre d'outils : recherche + 4 filtres + compteur */}
       <div aria-hidden className="flex flex-wrap items-center gap-2">
         <div className="skeleton h-9 w-full flex-1 rounded-lg sm:min-w-52 sm:max-w-xs" />
         <div className="skeleton h-9 w-full rounded-lg sm:w-44" />
         <div className="skeleton h-9 w-full rounded-lg sm:w-56" />
         <div className="skeleton h-9 w-full rounded-lg sm:w-72" />
+        <div className="skeleton h-9 w-full rounded-lg sm:w-52" />
         <div className="skeleton h-4 w-24" />
       </div>
 

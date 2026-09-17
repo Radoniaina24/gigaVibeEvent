@@ -26,6 +26,7 @@ import type { AdminPaymentRow } from '../hooks';
 import { OrderStatusBadge } from '../../../components/orders/OrderStatusBadge';
 import { PaymentMethodBadge } from '../../../components/orders/PaymentMethodBadge';
 import { MiniSelect } from '../../../components/ui/MiniSelect';
+import { DateRangeFilter, EMPTY_RANGE, type DateRangeValue } from '../../../components/ui/DateRangeFilter';
 import { cn, formatAr, formatShortDateTime } from '../../../lib/utils';
 
 const columnHelper = createColumnHelper<AdminPaymentRow>();
@@ -85,6 +86,7 @@ export function PaymentsTable({ data, signingId, onOpenReceipt, onReview, onFilt
   const statusFilter = (columnFilters.find((f) => f.id === 'status')?.value as string) ?? '';
   const methodFilter = (columnFilters.find((f) => f.id === 'provider')?.value as string) ?? '';
   const eventFilter = (columnFilters.find((f) => f.id === 'event')?.value as string) ?? '';
+  const dateFilter = (columnFilters.find((f) => f.id === 'created_at')?.value as DateRangeValue) ?? EMPTY_RANGE;
 
   /** Événements présents dans les paiements (titres uniques), triés. */
   const eventOptions = useMemo(() => {
@@ -96,10 +98,16 @@ export function PaymentsTable({ data, signingId, onOpenReceipt, onReview, onFilt
     return [...titles].sort((a, b) => a.localeCompare(b, 'fr'));
   }, [data]);
 
-  const setFilterValue = (id: string, value: string) =>
+  const setFilterValue = (id: string, value: string | DateRangeValue) =>
     setColumnFilters((prev) => [
       ...prev.filter((f) => f.id !== id),
-      ...(value ? [{ id, value }] : []),
+      ...(typeof value === 'string'
+        ? value
+          ? [{ id, value }]
+          : []
+        : value.from || value.to
+          ? [{ id, value }]
+          : []),
     ]);
 
   useEffect(() => {
@@ -190,6 +198,14 @@ export function PaymentsTable({ data, signingId, onOpenReceipt, onReview, onFilt
       }),
       columnHelper.accessor('created_at', {
         header: 'Date',
+        filterFn: (row, _columnId, filterValue: DateRangeValue) => {
+          if (!filterValue?.from && !filterValue?.to) return true;
+          // Jour calendaire UTC de la déclaration (comparaison lexicographique AAAA-MM-JJ).
+          const day = row.original.created_at.slice(0, 10);
+          if (filterValue.from && day < filterValue.from) return false;
+          if (filterValue.to && day > filterValue.to) return false;
+          return true;
+        },
         cell: (info) => (
           <span className="whitespace-nowrap text-xs tabular-nums">
             {formatShortDateTime(info.getValue())}
@@ -330,6 +346,11 @@ export function PaymentsTable({ data, signingId, onOpenReceipt, onReview, onFilt
             ...eventOptions.map((t) => ({ value: t, label: t })),
           ]}
           className="h-9 w-full justify-between sm:w-auto sm:min-w-72 sm:max-w-96 [&>span]:min-w-0 [&>span]:truncate"
+        />
+        <DateRangeFilter
+          ariaLabel="Filtrer par période"
+          value={dateFilter}
+          onChange={(v) => setFilterValue('created_at', v)}
         />
         <p aria-live="polite" className="text-xs tabular-nums text-zinc-500">
           {filteredCount} résultat{filteredCount > 1 ? 's' : ''}
