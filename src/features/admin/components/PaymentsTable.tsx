@@ -26,7 +26,7 @@ import type { AdminPaymentRow } from '../hooks';
 import { OrderStatusBadge } from '../../../components/orders/OrderStatusBadge';
 import { PaymentMethodBadge } from '../../../components/orders/PaymentMethodBadge';
 import { MiniSelect } from '../../../components/ui/MiniSelect';
-import { DateRangeFilter, EMPTY_RANGE, type DateRangeValue } from '../../../components/ui/DateRangeFilter';
+import { DateRangeFilter, EMPTY_RANGE, localTodayKey, type DateRangeValue } from '../../../components/ui/DateRangeFilter';
 import { cn, formatAr, formatShortDateTime } from '../../../lib/utils';
 
 const columnHelper = createColumnHelper<AdminPaymentRow>();
@@ -350,7 +350,9 @@ export function PaymentsTable({ data, signingId, onOpenReceipt, onReview, onFilt
         <DateRangeFilter
           ariaLabel="Filtrer par période"
           value={dateFilter}
+          max={localTodayKey()}
           onChange={(v) => setFilterValue('created_at', v)}
+          className="sm:min-w-52"
         />
         <p aria-live="polite" className="text-xs tabular-nums text-zinc-500">
           {filteredCount} résultat{filteredCount > 1 ? 's' : ''}

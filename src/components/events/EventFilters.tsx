@@ -1,11 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useMemo, useState } from 'react';
 import {
-  CalendarDays,
   Check,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   X,
 } from 'lucide-react';
 import type { Category } from '../../types/database';
@@ -13,6 +9,7 @@ import {
   eventFiltersSchema,
   type EventFiltersInput,
 } from '../../schemas/events';
+import { DateRangeFilter } from '../ui/DateRangeFilter';
 import { cn, formatAr } from '../../lib/utils';
 
 const PRICE_MAX = 200_000;
@@ -58,27 +55,6 @@ function monthRange(): { from: string; to: string } {
 }
 
 const sectionTitle = 'text-sm font-bold text-zinc-900';
-
-const WEEKDAYS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'];
-
-function parseISODate(v: string): Date | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
-  const [y, m, d] = v.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  if (Number.isNaN(dt.getTime())) return null;
-  if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
-  return dt;
-}
-
-function formatShortFr(iso: string): string {
-  const dt = parseISODate(iso);
-  if (!dt) return '';
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(dt);
-}
 
 /* ---------- Lignes façon Amazon : checkbox / radio ---------- */
 function CheckRow({
@@ -164,275 +140,6 @@ function RadioRow({
   );
 }
 
-/* ---------- Champ date custom (calendrier pro, non natif) ---------- */
-function DateField({
-  id,
-  label,
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  min?: string;
-  max?: string;
-  onChange: (iso: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  const selected = parseISODate(value);
-  const base = selected ?? (min ? parseISODate(min) : null) ?? new Date();
-  const [view, setView] = useState({ y: base.getFullYear(), m: base.getMonth() });
-
-  /* Suit les presets externes (ex. "Ce week-end") */
-  useEffect(() => {
-    const dt = parseISODate(value);
-    if (dt) setView({ y: dt.getFullYear(), m: dt.getMonth() });
-  }, [value]);
-
-  /* Popover façon shadcn : mesure + fermetures */
-  const measure = () => {
-    const el = triggerRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const W = 300;
-    const spaceBelow = window.innerHeight - r.bottom - 8;
-    const up = spaceBelow < 360 && r.top > spaceBelow;
-    const left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8));
-    setPos(up
-      ? { bottom: window.innerHeight - r.top + 8, left }
-      : { top: r.bottom + 8, left });
-  };
-
-  const closeMenu = (focusTrigger: boolean) => {
-    setOpen(false);
-    setPos(null);
-    if (focusTrigger) triggerRef.current?.focus();
-  };
-
-  const openMenu = () => {
-    measure();
-    setOpen(true);
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (triggerRef.current?.contains(t) || contentRef.current?.contains(t)) return;
-      closeMenu(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeMenu(true);
-    };
-    const onScroll = (e: Event) => {
-      if (contentRef.current?.contains(e.target as Node)) return;
-      closeMenu(false);
-    };
-    const onResize = () => closeMenu(false);
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    document.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onResize);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('resize', onResize);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open ]);
-
-  const todayISO = toISODate(new Date());
-  const daysInMonth = new Date(view.y, view.m + 1, 0).getDate();
-  const offset = (new Date(view.y, view.m, 1).getDay() + 6) % 7; // lundi = 0
-  const monthLabel = new Intl.DateTimeFormat('fr-FR', {
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(view.y, view.m, 1));
-
-  const outOfRange = (iso: string) =>
-    (min && iso < min) || (max && iso > max) ? true : false;
-
-  const pick = (day: number) => {
-    const iso = toISODate(new Date(view.y, view.m, day));
-    if (outOfRange(iso)) return;
-    onChange(iso);
-    closeMenu(true);
-  };
-
-  const goMonth = (dir: 1 | -1) =>
-    setView((v) => {
-      const m = v.m + dir;
-      return { y: v.y + Math.floor(m / 12), m: ((m % 12) + 12) % 12 };
-    });
-
-  const todayAllowed = !outOfRange(todayISO);
-
-  return (
-    <div>
-      <span id={`${id}-label`} className="mb-1 block text-xs text-zinc-500">
-        {label}
-      </span>
-      <button
-        ref={triggerRef}
-        type="button"
-        id={id}
-        aria-labelledby={`${id}-label ${id}-value`}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => (open ? closeMenu(true) : openMenu())}
-        onKeyDown={(e) => {
-          if (['ArrowDown', 'Enter', ' '].includes(e.key)) {
-            e.preventDefault();
-            if (!open) openMenu();
-          }
-        }}
-        className={cn(
-          'flex h-10 w-full items-center justify-between gap-1 rounded-lg border bg-white px-2 text-left text-[13px] shadow-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
-          open
-            ? 'border-brand-600 ring-2 ring-brand-600/15'
-            : value
-              ? 'border-zinc-400 hover:border-zinc-500'
-              : 'border-zinc-300 hover:border-zinc-400',
-        )}
-      >
-        <span
-          id={`${id}-value`}
-          className={cn(
-            'min-w-0 flex-1 truncate tabular-nums',
-            value ? 'font-semibold text-zinc-900' : 'text-zinc-400',
-          )}
-        >
-          {value ? formatShortFr(value) : 'JJ/MM/AAAA'}
-        </span>
-        {value ? (
-          <span
-            role="button"
-            tabIndex={0}
-            aria-label={`Effacer la date ${label}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange('');
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                onChange('');
-              }
-            }}
-            className="shrink-0 rounded-full p-0.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
-          >
-            <X className="size-3.5" aria-hidden />
-          </span>
-        ) : (
-          <CalendarDays className="size-4 shrink-0 text-zinc-400" aria-hidden />
-        )}
-      </button>
-
-      {open && pos && createPortal(
-        <div
-          ref={contentRef}
-          role="dialog"
-          aria-label={`Choisir la date ${label}`}
-          style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, width: 300, zIndex: 70 }}
-          className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-[0_24px_64px_-16px_rgb(0_0_0/0.35)]">
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => goMonth(-1)}
-              aria-label="Mois précédent"
-              className="rounded-lg p-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
-            >
-              <ChevronLeft className="size-4" aria-hidden />
-            </button>
-            <p className="text-[13px] font-bold capitalize tabular-nums" aria-live="polite">{monthLabel}</p>
-            <button
-              type="button"
-              onClick={() => goMonth(1)}
-              aria-label="Mois suivant"
-              className="rounded-lg p-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
-            >
-              <ChevronRight className="size-4" aria-hidden />
-            </button>
-          </div>
-          <div aria-hidden className="mt-2 grid grid-cols-7 gap-0.5 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-            {WEEKDAYS.map((d) => (
-              <span key={d} className="py-1">{d}</span>
-            ))}
-          </div>
-          <div className="mt-0.5 grid grid-cols-7 gap-0.5">
-            {Array.from({ length: offset }).map((_, i) => (
-              <span key={`blank-${i}`} aria-hidden />
-            ))}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1;
-              const iso = toISODate(new Date(view.y, view.m, day));
-              const isSelected = value === iso;
-              const isToday = todayISO === iso;
-              const disabled = outOfRange(iso);
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => pick(day)}
-                  aria-label={formatShortFr(iso)}
-                  aria-pressed={isSelected}
-                  aria-current={isToday && !isSelected ? 'date' : undefined}
-                  className={cn(
-                    'flex h-8 items-center justify-center rounded-lg text-[13px] tabular-nums transition',
-                    isSelected
-                      ? 'bg-zinc-900 font-bold text-white shadow-sm'
-                      : disabled
-                        ? 'cursor-not-allowed text-zinc-300'
-                        : isToday
-                          ? 'font-bold text-brand-700 ring-1 ring-inset ring-brand-600 hover:bg-brand-50'
-                          : 'text-zinc-700 hover:bg-zinc-100',
-                  )}
-                >
-                  {day}
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-2 flex items-center justify-between border-t border-zinc-100 pt-2">
-            <button
-              type="button"
-              onClick={() => {
-                onChange('');
-                closeMenu(true);
-              }}
-              disabled={!value}
-              className="rounded-lg px-2 py-1.5 text-xs font-semibold text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Effacer
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (!todayAllowed) return;
-                onChange(todayISO);
-                closeMenu(true);
-              }}
-              disabled={!todayAllowed}
-              className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Aujourd'hui
-            </button>
-          </div>
-        </div>,
-        document.body,
-      )}
-    </div>
-  );
-}
 
 /**
  * Sidebar de filtres façon Amazon (colonne gauche).
@@ -564,20 +271,11 @@ export function EventFilters({
             ))}
           </ul>
           <p className="mb-1.5 mt-3 px-1 text-xs font-semibold text-zinc-500">Période personnalisée</p>
-          <div className="grid grid-cols-2 gap-2 px-1">
-            <DateField
-              id={`${idPrefix}-from`}
-              label="Du"
-              value={filters.from}
-              max={filters.to || undefined}
-              onChange={(iso) => set({ from: iso })}
-            />
-            <DateField
-              id={`${idPrefix}-to`}
-              label="Au"
-              value={filters.to}
-              min={filters.from || undefined}
-              onChange={(iso) => set({ to: iso })}
+          <div className="px-1">
+            <DateRangeFilter
+              ariaLabel="Filtrer par période personnalisée"
+              value={{ from: filters.from || null, to: filters.to || null }}
+              onChange={(v) => set({ from: v.from ?? '', to: v.to ?? '' })}
             />
           </div>
         </fieldset>

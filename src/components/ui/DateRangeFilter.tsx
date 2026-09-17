@@ -12,11 +12,18 @@ export interface DateRangeValue {
 
 export const EMPTY_RANGE: DateRangeValue = { from: null, to: null };
 
+/** Jour local AAAA-MM-JJ (pour borner le calendrier, ex. à aujourd'hui). */
+export function localTodayKey(): string {
+  return todayKey();
+}
+
 interface DateRangeFilterProps {
   value: DateRangeValue;
   onChange: (value: DateRangeValue) => void;
   /** Libellé accessible du contrôle. */
   ariaLabel: string;
+  /** Jour max sélectionnable (AAAA-MM-JJ). Absent = aucune limite (ex. événements futurs). */
+  max?: string | null;
   className?: string;
 }
 
@@ -151,7 +158,7 @@ function DateInputBox({
  * vers vues mois/années), footer Effacer / OK.
  * Bornes inclusives, jours calendaires AAAA-MM-JJ.
  */
-export function DateRangeFilter({ value, onChange, ariaLabel, className }: DateRangeFilterProps) {
+export function DateRangeFilter({ value, onChange, ariaLabel, max = null, className }: DateRangeFilterProps) {
   const [open, setOpen] = useState(false);
   const [temp, setTemp] = useState<DateRangeValue>(value);
   const [fromInput, setFromInput] = useState(value.from ? formatFrDate(value.from) : '');
@@ -169,7 +176,6 @@ export function DateRangeFilter({ value, onChange, ariaLabel, className }: DateR
   const triggerRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const max = todayKey();
   const du = value.from ? formatFrDate(value.from) : '';
   const au = value.to ? formatFrDate(value.to) : '';
   const triggerLabel = du && au ? `${du} ~ ${au}` : du ? du : au ? au : 'jj/mm/aaaa ~ jj/mm/aaaa';
@@ -227,7 +233,7 @@ export function DateRangeFilter({ value, onChange, ariaLabel, className }: DateR
 
   /** Clic calendrier « du » (efface « au » si elle devient invalide). */
   const pickFrom = (iso: string) => {
-    if (iso > max) return;
+    if (max && iso > max) return;
     const next: DateRangeValue =
       temp.to && iso > temp.to ? { from: iso, to: null } : { from: iso, to: temp.to };
     setTemp(next);
@@ -236,7 +242,7 @@ export function DateRangeFilter({ value, onChange, ariaLabel, className }: DateR
 
   /** Clic calendrier « au » (échange si antérieure à « du »). */
   const pickTo = (iso: string) => {
-    if (iso > max) return;
+    if (max && iso > max) return;
     const next: DateRangeValue =
       temp.from && iso < temp.from ? { from: iso, to: temp.from } : { from: temp.from, to: iso };
     setTemp(next);
@@ -248,7 +254,7 @@ export function DateRangeFilter({ value, onChange, ariaLabel, className }: DateR
     const formatted = autoSlashDate(raw, fromInput);
     setFromInput(formatted);
     const iso = parseFrDateStrict(formatted);
-    if (iso && iso <= max) {
+    if (iso && (!max || iso <= max)) {
       const next: DateRangeValue =
         temp.to && iso > temp.to ? { from: iso, to: null } : { from: iso, to: temp.to };
       setTemp(next);
@@ -260,7 +266,7 @@ export function DateRangeFilter({ value, onChange, ariaLabel, className }: DateR
     const formatted = autoSlashDate(raw, toInput);
     setToInput(formatted);
     const iso = parseFrDateStrict(formatted);
-    if (iso && iso <= max) {
+    if (iso && (!max || iso <= max)) {
       const next: DateRangeValue =
         temp.from && iso < temp.from ? { from: iso, to: temp.from } : { from: temp.from, to: iso };
       setTemp(next);
@@ -308,7 +314,7 @@ export function DateRangeFilter({ value, onChange, ariaLabel, className }: DateR
   }, [open ]);
 
   return (
-    <div className={cn('relative min-w-0 sm:w-auto sm:min-w-64', className)}>
+    <div className={cn('relative min-w-0 w-full max-w-full sm:w-auto', className)}>
       <CalendarDays
         aria-hidden
         className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-[13px] -translate-y-1/2 text-red-500"
@@ -399,18 +405,19 @@ function MonthPanel({
   view: { y: number; m: number };
   onViewChange: (v: { y: number; m: number }) => void;
   temp: DateRangeValue;
-  max: string;
+  max: string | null;
   onPick: (iso: string) => void;
 }) {
   const [mode, setMode] = useState<'days' | 'months' | 'years'>('days');
   const now = new Date();
+  const today = todayKey();
   const currentYear = now.getFullYear();
   const startDecade = Math.floor(view.y / 10) * 10;
 
   const navBtn =
     'grid h-7 w-7 shrink-0 place-items-center rounded-md border border-zinc-200 bg-transparent text-zinc-500 opacity-50 transition hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:opacity-30';
 
-  const atMaxMonth = view.y === now.getFullYear() && view.m === now.getMonth();
+  const atMaxMonth = max !== null && view.y === now.getFullYear() && view.m === now.getMonth();
 
   const shiftView = (delta: number) => {
     const d = new Date(view.y, view.m + delta, 1);
@@ -421,7 +428,7 @@ function MonthPanel({
   const cells = Array.from({ length: 42 }, (_, i) => {
     const date = new Date(view.y, view.m, 1 - lead + i);
     const key = toKey(date);
-    return { date, key, inView: date.getMonth() === view.m, disabled: key > max };
+    return { date, key, inView: date.getMonth() === view.m, disabled: max !== null && key > max };
   });
 
   const isEndpoint = (key: string) => key === temp.from || key === temp.to;
@@ -574,7 +581,7 @@ function MonthPanel({
                               : 'rounded-full hover:bg-zinc-100',
                           !inView && !endpoint && 'text-zinc-400 opacity-50',
                           inView && !endpoint && !band && 'text-zinc-700',
-                          key === max && !endpoint && 'font-medium text-zinc-900 ring-1 ring-inset ring-emerald-500',
+                          key === today && !endpoint && 'font-medium text-zinc-900 ring-1 ring-inset ring-emerald-500',
                           disabled && 'cursor-not-allowed opacity-30 hover:bg-transparent',
                         )}
                       >
