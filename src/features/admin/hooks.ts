@@ -904,6 +904,43 @@ export function useAdminPartners() {
   });
 }
 
+export interface AdminPartnerDetail extends Partner {
+  events_count: number;
+  members: Pick<Profile, 'id' | 'email' | 'first_name' | 'last_name' | 'role'>[];
+  events: { id: string; title: string; status: string }[];
+}
+
+/** Détail d'un partenaire pour la page d'édition dédiée. */
+export function useAdminPartner(id: string | undefined) {
+  return useQuery({
+    queryKey: ['admin', 'partners', id ?? ''],
+    enabled: Boolean(id),
+    queryFn: async (): Promise<AdminPartnerDetail | null> => {
+      if (!id) return null;
+      const supabase = getSupabase();
+      const [
+        { data: partner, error: pErr },
+        { data: events, error: eErr },
+        { data: profiles, error: prErr },
+      ] = await Promise.all([
+        supabase.from('partners').select('*').eq('id', id).maybeSingle(),
+        supabase.from('events').select('id,title,status').eq('partner_id', id).order('created_at', { ascending: false }).limit(50),
+        supabase.from('profiles').select('id,email,first_name,last_name,role').eq('partner_id', id),
+      ]);
+      if (pErr) throw pErr;
+      if (eErr) throw eErr;
+      if (prErr) throw prErr;
+      if (!partner) return null;
+      return {
+        ...(partner as Partner),
+        events_count: ((events ?? []) as unknown[]).length,
+        members: ((profiles ?? []) as AdminPartnerDetail['members']),
+        events: ((events ?? []) as AdminPartnerDetail['events']),
+      };
+    },
+  });
+}
+
 function toPartnerRow(input: PartnerInput) {
   const opt = (v: string | undefined) => (v && v.trim() !== '' ? v : null);
   return {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Check,
+  Globe,
   Lock,
   Server,
   Settings,
@@ -19,6 +20,7 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Textarea } from '../../components/ui/Fields';
 import { OperatorLogo } from '../../components/orders/OperatorLogo';
 import { PaymentMethodBadge } from '../../components/orders/PaymentMethodBadge';
 import { cn } from '../../lib/utils';
@@ -268,8 +270,172 @@ function PaymentMethodsCard() {
   );
 }
 
-const VALIDATION_OPTIONS = [
-  {
+/** Site & billetterie : devise, expiration, instructions, maintenance. */
+function SiteSettingsCard() {
+  const settings = usePlatformSettings();
+  const updateSetting = useUpdatePlatformSetting();
+  const [draft, setDraft] = useState<{
+    currency: string;
+    expiry: string;
+    instructions: string;
+    maintenance: boolean;
+    maintenanceMessage: string;
+  } | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ tone: 'ok' | 'ko'; message: string } | null>(null);
+
+  useEffect(() => {
+    if (settings.data && draft === null) {
+      setDraft({
+        currency: settings.data.currency,
+        expiry: String(settings.data.orderExpiryMinutes),
+        instructions: settings.data.checkoutInstructions,
+        maintenance: settings.data.maintenanceMode,
+        maintenanceMessage: settings.data.maintenanceMessage,
+      });
+    }
+  }, [settings.data, draft]);
+
+  const patch = (p: Partial<NonNullable<typeof draft>>) => {
+    setDraft((d) => (d ? { ...d, ...p } : d));
+    setDirty(true);
+    setFeedback(null);
+  };
+
+  const save = async () => {
+    if (!draft) return;
+    const currency = draft.currency.trim().toUpperCase();
+    const expiry = Math.min(1440, Math.max(5, Number(draft.expiry) || 30));
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      setFeedback({ tone: 'ko', message: 'Devise invalide : code ISO à 3 lettres (ex. MGA).' });
+      return;
+    }
+    setSaving(true);
+    setFeedback(null);
+    try {
+      const entries: [string, string][] = [
+        ['currency', JSON.stringify(currency)],
+        ['order_expiry_minutes', String(expiry)],
+        ['checkout_instructions', JSON.stringify(draft.instructions.trim())],
+        ['maintenance_mode', JSON.stringify(draft.maintenance)],
+        ['maintenance_message', JSON.stringify(draft.maintenanceMessage.trim() || 'Site en maintenance.')],
+      ];
+      for (const [key, value] of entries) {
+        await updateSetting.mutateAsync({ key, value });
+      }
+      setDirty(false);
+      setFeedback({ tone: 'ok', message: 'Réglages du site enregistrés.' });
+    } catch (err) {
+      setFeedback({
+        tone: 'ko',
+        message: err instanceof Error ? err.message : 'Enregistrement impossible.',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="p-4 sm:p-5">
+      <SectionHeader
+        icon={Globe}
+        title="Site & billetterie"
+        description="Devise affichée, durée de réservation, message du tunnel d'achat et maintenance."
+        tone="bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/30"
+      />
+      {settings.isPending || !draft ? (
+        <div role="status" aria-label="Chargement des réglages" className="mt-4 space-y-3">
+          <div aria-hidden className="grid gap-2 sm:grid-cols-2">
+            <div className="skeleton h-10 w-full rounded-lg" />
+            <div className="skeleton h-10 w-full rounded-lg" />
+          </div>
+          <div aria-hidden className="skeleton h-24 w-full rounded-lg" />
+          <div aria-hidden className="skeleton h-14 w-full rounded-2xl" />
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Input
+              label="Devise (code ISO)"
+              placeholder="MGA"
+              maxLength={3}
+              value={draft.currency}
+              onChange={(e) => patch({ currency: e.target.value.toUpperCase() })}
+            />
+            <Input
+              label="Expiration commande (minutes)"
+              type="number"
+              min={5}
+              max={1440}
+              value={draft.expiry}
+              onChange={(e) => patch({ expiry: e.target.value })}
+            />
+          </div>
+          <Textarea
+            label="Instructions affichées dans le tunnel d'achat (vide = masqué)"
+            rows={3}
+            placeholder="Ex. : Envoyez le montant exact au numéro marchand, puis déclarez la référence…"
+            value={draft.instructions}
+            onChange={(e) => patch({ instructions: e.target.value })}
+          />
+          <div
+            className={cn(
+              'rounded-2xl border p-4 transition',
+              draft.maintenance ? 'border-amber-300 bg-amber-50/70' : 'border-zinc-200 bg-white',
+            )}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-bold">Mode maintenance</p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Le site public est masqué (sauf /login). Les admins passent toujours.
+                </p>
+              </div>
+              <Switch
+                checked={draft.maintenance}
+                onChange={(v) => patch({ maintenance: v })}
+                label="Activer le mode maintenance"
+              />
+            </div>
+            {draft.maintenance && (
+              <Textarea
+                label="Message de maintenance"
+                rows={2}
+                value={draft.maintenanceMessage}
+                onChange={(e) => patch({ maintenanceMessage: e.target.value })}
+              />
+            )}
+          </div>
+          <div className="flex flex-col gap-2 rounded-2xl bg-zinc-950 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-zinc-400">
+              {dirty ? 'Modifications non enregistrées.' : 'Configuration à jour.'}
+            </p>
+            <Button size="sm" loading={saving} disabled={!dirty} onClick={save} className="shrink-0">
+              Enregistrer
+            </Button>
+          </div>
+          {feedback && (
+            <p
+              role={feedback.tone === 'ko' ? 'alert' : 'status'}
+              className={cn(
+                'flex items-center gap-2 rounded-xl border p-3 text-sm font-medium',
+                feedback.tone === 'ok'
+                  ? 'border-green-200 bg-green-50 text-green-800'
+                  : 'border-red-200 bg-red-50 text-red-700',
+              )}
+            >
+              {feedback.tone === 'ok' && <Check className="size-4 shrink-0" aria-hidden />}
+              {feedback.message}
+            </p>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+const VALIDATION_OPTIONS = [  {
     value: 'gve',
     title: 'Giga Vibe Event',
     description: 'Contrôle centralisé par le backoffice admin avant génération des billets.',
@@ -328,7 +494,7 @@ export function AdminSettingsPage() {
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Paramètres</h1>
           <p className="mt-0.5 text-sm text-zinc-500">
-            Validation des paiements, moyens Mobile Money et état de la configuration.
+            Validation des paiements, site & billetterie, moyens Mobile Money et configuration.
           </p>
         </div>
       </div>
@@ -429,6 +595,8 @@ export function AdminSettingsPage() {
       </Card>
 
       <PaymentMethodsCard />
+
+      <SiteSettingsCard />
 
       <Card className="p-4 sm:p-5">
         <SectionHeader

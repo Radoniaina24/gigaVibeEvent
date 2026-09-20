@@ -76,7 +76,13 @@ export const partnerSchema = z.object({
   phone: z.string().max(30).optional().or(z.literal('')),
   email: z.string().email('Email invalide').max(160).optional().or(z.literal('')),
   address: z.string().max(300).optional().or(z.literal('')),
-  logo_url: z.string().url('URL invalide').optional().or(z.literal('')),
+  logo_url: z
+    .union([
+      z.string().url('URL invalide'),
+      z.string().regex(/^\//, 'URL invalide (https://… ou /logos/…)'),
+      z.literal(''),
+    ])
+    .optional(),
   contract_info: z.string().max(2000).optional().or(z.literal('')),
   status: z.enum(['active', 'pending', 'suspended', 'disabled']),
 });

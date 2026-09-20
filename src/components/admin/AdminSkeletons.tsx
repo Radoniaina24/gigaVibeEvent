@@ -1280,6 +1280,118 @@ export function CategoriesTableSkeleton({ count = 5 }: { count?: number }) {
   );
 }
 
+/* ---------- Formulaire partenaire (édition) : miroir du dossier AdminPartnerFormPage ---------- */
+export function PartnerFormSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement du partenaire" className="w-full space-y-5">
+      {/* Fil d'Ariane + actions */}
+      <div aria-hidden className="flex flex-wrap items-center justify-between gap-3">
+        <div className="skeleton h-5 w-64 max-w-full" />
+        <div className="flex gap-2">
+          <div className="skeleton h-10 w-20 rounded-xl" />
+          <div className="skeleton h-10 w-44 rounded-xl" />
+        </div>
+      </div>
+
+      {/* Hero dossier */}
+      <div aria-hidden className="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm">
+        <div className="skeleton h-32 w-full rounded-none bg-night-950" />
+        <div className="flex flex-col gap-4 px-5 py-5 sm:px-7 md:flex-row md:items-center">
+          <div className="-mt-12 size-20 shrink-0 rounded-3xl border-4 border-white bg-zinc-200 shadow-lg md:-mt-14 md:size-24" />
+          <div className="min-w-0 flex-1">
+            <div className="skeleton h-7 w-64 max-w-full" />
+            <div className="skeleton mt-2 h-4 w-80 max-w-full" />
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              <div className="skeleton h-6 w-40 rounded-full" />
+              <div className="skeleton h-6 w-40 rounded-full" />
+              <div className="skeleton h-6 w-24 rounded-full" />
+            </div>
+          </div>
+          <div className="skeleton h-14 w-52 shrink-0 rounded-2xl" />
+        </div>
+      </div>
+
+      <div aria-hidden className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-w-0 space-y-5">
+          {[0, 1, 2].map((card) => (
+            <div key={card} className="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm">
+              <div className="flex items-start justify-between gap-3 border-b border-zinc-100 px-5 pb-4 pt-5 md:px-6">
+                <div className="flex items-start gap-3">
+                  <div className="skeleton size-10 shrink-0 rounded-2xl" />
+                  <div>
+                    <div className="skeleton h-4 w-44" />
+                    <div className="skeleton mt-1.5 h-3 w-64 max-w-full" />
+                  </div>
+                </div>
+                <div className="skeleton mt-1 h-6 w-20 shrink-0 rounded-full" />
+              </div>
+              <div className="space-y-4 px-5 py-5 md:px-6">
+                {card === 1 ? (
+                  <div className="flex flex-col gap-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50/70 p-4 sm:flex-row sm:items-center">
+                    <div className="skeleton size-16 shrink-0 rounded-2xl" />
+                    <div className="min-w-0 flex-1">
+                      <div className="skeleton h-4 w-40" />
+                      <div className="skeleton mt-1.5 h-3 w-64 max-w-full" />
+                    </div>
+                    <div className="skeleton h-9 w-28 shrink-0 rounded-xl" />
+                  </div>
+                ) : card === 2 ? (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {[0, 1, 2, 3].map((s) => (
+                      <div key={s} className="skeleton h-16 rounded-2xl" />
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <div className="skeleton h-10 w-full rounded-lg" />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <FormFieldSkeleton />
+                      <FormFieldSkeleton />
+                    </div>
+                  </>
+                )}
+                <FormFieldSkeleton boxClass={card === 2 ? 'h-28' : undefined} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <aside className="min-w-0 space-y-4">
+          <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between gap-2">
+              <div className="skeleton h-4 w-36" />
+              <div className="skeleton h-6 w-14 rounded-full" />
+            </div>
+            <div className="skeleton mt-3 h-2 w-full rounded-full" />
+            <div className="mt-3 space-y-1.5">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="skeleton size-4 rounded-full" />
+                  <div className="skeleton h-3 w-32" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-3xl border border-zinc-200 bg-white shadow-sm">
+            <div className="border-b border-zinc-100 px-5 py-3.5">
+              <div className="skeleton h-4 w-20" />
+            </div>
+            <div className="space-y-2.5 px-5 py-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between gap-2">
+                  <div className="skeleton h-3 w-24" />
+                  <div className="skeleton h-3 w-20" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="skeleton h-12 w-full rounded-2xl" />
+        </aside>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Validations admin : miroir de AdminValidationsPage (KPI + table) ---------- */
 export function ValidationsPageSkeleton() {
   return (

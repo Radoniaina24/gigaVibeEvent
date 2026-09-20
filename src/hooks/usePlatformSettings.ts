@@ -22,6 +22,15 @@ export interface PlatformSettings {
   serviceFeePercent: number;
   /** Config YAS / Orange / Airtel (migration 0010). */
   paymentMethods: PaymentMethodConfig[];
+  /** Devise d'affichage, code ISO (migration 0018, défaut MGA). */
+  currency: string;
+  /** Durée de réservation d'une commande en minutes (migration 0018). */
+  orderExpiryMinutes: number;
+  /** Message libre affiché dans le tunnel d'achat (vide = masqué). */
+  checkoutInstructions: string;
+  /** Page de maintenance publique (les admins passent toujours). */
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
 }
 
 const DEFAULTS: PlatformSettings = {
@@ -31,6 +40,11 @@ const DEFAULTS: PlatformSettings = {
   commissionPerEvent: 0,
   serviceFeePercent: 0,
   paymentMethods: [],
+  currency: 'MGA',
+  orderExpiryMinutes: 30,
+  checkoutInstructions: '',
+  maintenanceMode: false,
+  maintenanceMessage: 'Site en maintenance. Revenez dans quelques instants.',
 };
 
 const METHOD_IDS: ConfigPaymentMethodId[] = ['yas', 'orange_money', 'airtel_money'];
@@ -92,6 +106,11 @@ export function usePlatformSettings() {
           name: asText(map.get(`payment_${short[id]}_name`), 'Giga Vibe Event'),
           enabled: asBool(map.get(`payment_${short[id]}_enabled`), true),
         })),
+        currency: (asText(map.get('currency'), 'MGA') || 'MGA').toUpperCase().slice(0, 3),
+        orderExpiryMinutes: Math.min(1440, Math.max(5, Number(str('order_expiry_minutes', '30')) || 30)),
+        checkoutInstructions: asText(map.get('checkout_instructions'), ''),
+        maintenanceMode: asBool(map.get('maintenance_mode'), false),
+        maintenanceMessage: asText(map.get('maintenance_message'), DEFAULTS.maintenanceMessage),
       };
     },
   });

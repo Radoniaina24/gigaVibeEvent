@@ -40,6 +40,7 @@ const AdminStatisticsPage = lazy(() =>
   import('../../pages/admin/AdminStatisticsPage').then((m) => ({ default: m.AdminStatisticsPage })),
 );
 import { AdminPartnersPage } from '../../pages/admin/AdminPartnersPage';
+import { AdminPartnerFormPage } from '../../pages/admin/AdminPartnerFormPage';
 import { AdminValidationsPage } from '../../pages/admin/AdminValidationsPage';
 import { PartnerLayout } from '../../components/layout/PartnerLayout';
 import { PartnerDashboardPage } from '../../pages/partner/PartnerDashboardPage';
@@ -122,6 +123,8 @@ const router = createBrowserRouter([
           { path: '/admin/users', element: <AdminUsersPage /> },
           { path: '/admin/users/:id', element: <AdminUserDetailPage /> },
           { path: '/admin/partners', element: <AdminPartnersPage /> },
+          { path: '/admin/partners/new', element: <AdminPartnerFormPage /> },
+          { path: '/admin/partners/:id/edit', element: <AdminPartnerFormPage /> },
           { path: '/admin/validations', element: <AdminValidationsPage /> },
           {
             path: '/admin/statistics',

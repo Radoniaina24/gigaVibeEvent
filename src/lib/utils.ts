@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { getCurrencySuffix } from './currency';
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(...inputs));
@@ -8,7 +9,7 @@ export function cn(...inputs: ClassValue[]): string {
 export function formatAr(amount: number): string {
   return new Intl.NumberFormat('fr-MG', {
     maximumFractionDigits: 0,
-  }).format(amount) + ' Ar';
+  }).format(amount) + ' ' + getCurrencySuffix();
 }
 
 export function formatDateTime(iso: string, locale = 'fr-FR'): string {

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, BadgeCheck, CheckCircle2, Clock, ShieldCheck, Ticket, XCircle } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, CheckCircle2, Clock, Megaphone, ShieldCheck, Ticket, XCircle } from 'lucide-react';
 import { env } from '../../app/config/env';
 import { useAuth } from '../../features/auth/AuthContext';
+import { usePlatformSettings } from '../../hooks/usePlatformSettings';
 import {
   useCancelOrder,
   useCreateOrder,
@@ -70,6 +71,8 @@ export function CheckoutPage() {
   const cancelOrder = useCancelOrder();
   const declarePayment = useDeclarePayment();
   const ticketEmail = useSendTicketEmail();
+  const { data: platformSettings } = usePlatformSettings();
+  const checkoutInstructions = platformSettings?.checkoutInstructions.trim() || null;
   const [ticketEmailState, setTicketEmailState] = useState<'idle' | 'sent' | 'failed'>('idle');
 
   const onValidityChange = useCallback((valid: boolean) => {
@@ -214,6 +217,15 @@ export function CheckoutPage() {
       </div>
 
       <CheckoutSteps step={step} />
+
+      {checkoutInstructions && (
+        <div role="note" className="flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4">
+          <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-xl bg-sky-600 text-white">
+            <Megaphone className="size-4" aria-hidden />
+          </span>
+          <p className="whitespace-pre-line text-sm leading-relaxed text-sky-900">{checkoutInstructions}</p>
+        </div>
+      )}
 
       {step === 0 && (
         <div className="grid w-full items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
