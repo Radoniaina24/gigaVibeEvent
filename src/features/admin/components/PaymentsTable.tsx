@@ -23,13 +23,14 @@ import {
   Search,
 } from 'lucide-react';
 import type { AdminPaymentRow } from '../hooks';
+import type { PartnerPaymentRow } from '../../partner/hooks';
 import { OrderStatusBadge } from '../../../components/orders/OrderStatusBadge';
 import { PaymentMethodBadge } from '../../../components/orders/PaymentMethodBadge';
 import { MiniSelect } from '../../../components/ui/MiniSelect';
 import { DateRangeFilter, EMPTY_RANGE, localTodayKey, type DateRangeValue } from '../../../components/ui/DateRangeFilter';
 import { cn, formatAr, formatShortDateTime } from '../../../lib/utils';
 
-const columnHelper = createColumnHelper<AdminPaymentRow>();
+const columnHelper = createColumnHelper<AdminPaymentRow | PartnerPaymentRow>();
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Tous les statuts' },
@@ -58,19 +59,21 @@ function SortIcon({ sorted }: { sorted: false | 'asc' | 'desc' }) {
   return <ChevronsUpDown className="size-3.5 opacity-50" aria-hidden />;
 }
 
-function clientLabel(row: AdminPaymentRow): string {
+function clientLabel(row: AdminPaymentRow | PartnerPaymentRow): string {
   if (!row.user) return '—';
-  const name = [row.user.first_name, row.user.last_name].filter(Boolean).join(' ');
-  return `${name || row.user.email} · ${row.user.email}`;
+  const u = row.user as AdminPaymentRow['user'];
+  const name = [u?.first_name, u?.last_name].filter(Boolean).join(' ');
+  return `${name || u?.email} · ${u?.email}`;
 }
 
 interface PaymentsTableProps {
-  data: AdminPaymentRow[];
+  data: (AdminPaymentRow | PartnerPaymentRow)[];
   signingId: string | null;
   onOpenReceipt: (paymentId: string, path: string) => void;
-  onReview: (row: AdminPaymentRow) => void;
+  /** Absent = colonne Validation neutralisée (lecture seule). */
+  onReview?: (row: AdminPaymentRow | PartnerPaymentRow) => void;
   /** Remonte les lignes visibles après filtres (pour synchroniser les KPI). */
-  onFilteredChange?: (rows: AdminPaymentRow[]) => void;
+  onFilteredChange?: (rows: (AdminPaymentRow | PartnerPaymentRow)[]) => void;
 }
 
 /**
@@ -165,11 +168,12 @@ export function PaymentsTable({ data, signingId, onOpenReceipt, onReview, onFilt
         cell: (info) => {
           const row = info.row.original;
           if (!row.user) return <span className="text-xs">—</span>;
-          const name = [row.user.first_name, row.user.last_name].filter(Boolean).join(' ');
+          const u = row.user as AdminPaymentRow['user'];
+          const name = [u?.first_name, u?.last_name].filter(Boolean).join(' ');
           return (
             <span className="block max-w-64 truncate text-xs" title={clientLabel(row)}>
-              {name || row.user.email}
-              {name && <span className="block truncate text-zinc-500">{row.user.email}</span>}
+              {name || u?.email}
+              {name && <span className="block truncate text-zinc-500">{u?.email}</span>}
             </span>
           );
         },
@@ -219,7 +223,7 @@ export function PaymentsTable({ data, signingId, onOpenReceipt, onReview, onFilt
         cell: (info) => {
           const row = info.row.original;
           const actionable = row.status === 'pending' || row.status === 'processing';
-          if (!actionable) return <span className="text-xs text-zinc-400">—</span>;
+          if (!actionable || !onReview) return <span className="text-xs text-zinc-400">—</span>;
           return (
             <button
               type="button"

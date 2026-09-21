@@ -23,15 +23,17 @@ import {
   ExternalLink,
   Pencil,
   Search,
+  Send,
   Trash2,
 } from 'lucide-react';
 import type { AdminEventRow } from '../hooks';
+import type { PartnerEventRow } from '../../partner/hooks';
 import { EventStatusBadge } from '../../../components/admin/StatusBadges';
 import { MiniSelect } from '../../../components/ui/MiniSelect';
 import { formatDate } from '../../../lib/utils';
 import { cn } from '../../../lib/utils';
 
-const columnHelper = createColumnHelper<AdminEventRow>();
+const columnHelper = createColumnHelper<AdminEventRow | PartnerEventRow>();
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Tous les statuts' },
@@ -46,15 +48,22 @@ const STATUS_OPTIONS = [
 ] as const;
 
 interface EventsTableProps {
-  data: AdminEventRow[];
-  actionPending: boolean;
-  onDuplicate: (id: string) => void;
-  onDelete: (event: AdminEventRow) => void;
+  data: (AdminEventRow | PartnerEventRow)[];
+  /** Base des liens d'édition (défaut : backoffice admin). */
+  editBasePath?: string;
+  actionPending?: boolean;
+  onDuplicate?: (id: string) => void;
+  onDelete?: (event: AdminEventRow | PartnerEventRow) => void;
+  /** Si fourni : bouton « Soumettre » pour les brouillons / modifs demandées. */
+  onSubmit?: (id: string) => void;
+  submittingId?: string | null;
 }
 
 const PAGE_SIZES = [8, 10, 15, 25] as const;
 
-function stockOf(e: AdminEventRow): { sold: number; total: number } {
+const SUBMITTABLE = ['draft', 'changes_requested'];
+
+function stockOf(e: AdminEventRow | PartnerEventRow): { sold: number; total: number } {
   return {
     sold: e.ticket_types.reduce((s, t) => s + t.sold, 0),
     total: e.ticket_types.reduce((s, t) => s + t.quantity, 0),
@@ -71,7 +80,15 @@ function SortIcon({ sorted }: { sorted: false | 'asc' | 'desc' }) {
  * Tableau événements propulsé par TanStack Table :
  * recherche, filtre statut (shadcn), tri, pagination (shadcn).
  */
-export function EventsTable({ data, actionPending, onDuplicate, onDelete }: EventsTableProps) {
+export function EventsTable({
+  data,
+  editBasePath = '/admin/events',
+  actionPending = false,
+  onDuplicate,
+  onDelete,
+  onSubmit,
+  submittingId = null,
+}: EventsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'starts_at', desc: true }]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -166,6 +183,7 @@ export function EventsTable({ data, actionPending, onDuplicate, onDelete }: Even
           const pictoDanger =
             'group inline-grid size-9 place-items-center rounded-full border border-red-200 bg-white text-red-600 shadow-sm transition hover:-translate-y-px hover:border-red-600 hover:bg-red-600 hover:text-white hover:shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600';
           const pictoIcon = 'size-4 transition group-hover:scale-110';
+          const submittable = onSubmit && SUBMITTABLE.includes(row.status);
           return (
             <span className="flex items-center gap-1.5">
               <Link
@@ -177,38 +195,54 @@ export function EventsTable({ data, actionPending, onDuplicate, onDelete }: Even
                 <ExternalLink className={pictoIcon} aria-hidden />
               </Link>
               <Link
-                to={`/admin/events/${row.id}/edit`}
+                to={`${editBasePath}/${row.id}/edit`}
                 title="Modifier"
                 aria-label={`Modifier ${row.title}`}
                 className={picto}
               >
                 <Pencil className={pictoIcon} aria-hidden />
               </Link>
-              <button
-                type="button"
-                title="Dupliquer"
-                aria-label={`Dupliquer ${row.title}`}
-                disabled={actionPending}
-                onClick={() => onDuplicate(row.id)}
-                className={picto}
-              >
-                <Copy className={pictoIcon} aria-hidden />
-              </button>
-              <button
-                type="button"
-                title="Supprimer"
-                aria-label={`Supprimer ${row.title}`}
-                onClick={() => onDelete(row)}
-                className={pictoDanger}
-              >
-                <Trash2 className={pictoIcon} aria-hidden />
-              </button>
+              {submittable && (
+                <button
+                  type="button"
+                  title="Envoyer à Giga Vibe Event pour validation"
+                  disabled={actionPending || submittingId === row.id}
+                  onClick={() => onSubmit(row.id)}
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 shadow-sm transition hover:-translate-y-px hover:border-zinc-900 hover:bg-zinc-900 hover:text-white hover:shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Send className={pictoIcon} aria-hidden />
+                  {submittingId === row.id ? 'Envoi…' : 'Soumettre'}
+                </button>
+              )}
+              {onDuplicate && (
+                <button
+                  type="button"
+                  title="Dupliquer"
+                  aria-label={`Dupliquer ${row.title}`}
+                  disabled={actionPending}
+                  onClick={() => onDuplicate(row.id)}
+                  className={picto}
+                >
+                  <Copy className={pictoIcon} aria-hidden />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  title="Supprimer"
+                  aria-label={`Supprimer ${row.title}`}
+                  onClick={() => onDelete(row)}
+                  className={pictoDanger}
+                >
+                  <Trash2 className={pictoIcon} aria-hidden />
+                </button>
+              )}
             </span>
           );
         },
       }),
     ],
-    [onDuplicate, onDelete, actionPending],
+    [editBasePath, onDuplicate, onDelete, onSubmit, submittingId, actionPending],
   );
 
   const table = useReactTable({
@@ -310,7 +344,7 @@ export function EventsTable({ data, actionPending, onDuplicate, onDelete }: Even
             ])
           }
           options={STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
-          className="h-9 w-full justify-between sm:w-auto sm:min-w-44"
+          className="h-9 w-full justify-between sm:w-auto sm:min-w-64"
         />
         <p aria-live="polite" className="text-xs tabular-nums text-zinc-500">
           {filteredCount} résultat{filteredCount > 1 ? 's' : ''}

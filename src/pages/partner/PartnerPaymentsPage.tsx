@@ -1,47 +1,84 @@
 import { useMemo, useState } from 'react';
-import { Check, ReceiptText, X } from 'lucide-react';
-import { usePartnerPayments } from '../../features/partner/hooks';
+import {
+  Banknote,
+  Clock3,
+  ReceiptText,
+  XCircle,
+} from 'lucide-react';
+import {
+  usePartnerPayments,
+  type PartnerPaymentRow,
+} from '../../features/partner/hooks';
+import { PaymentsTable } from '../../features/admin/components/PaymentsTable';
+import { KpiCard } from '../../components/admin/StatsCard';
 import { useValidatePayment } from '../../features/orders/hooks';
 import { usePlatformSettings } from '../../hooks/usePlatformSettings';
 import { signReceiptUrl } from '../../services/storage';
-import { DataTable } from '../../components/admin/DataTable';
-import { Pagination } from '../../components/admin/Pagination';
-import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toaster';
-import { EmptyState, ErrorState } from '../../components/ui/States';
-import { PartnerRowsSkeleton } from './PartnerSkeletons';
-import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
-import { formatAr, formatDateTime } from '../../lib/utils';
+import {
+  EmptyState,
+  ErrorState,
+} from '../../components/ui/States';
+import { PaymentsPageSkeleton } from '../../components/admin/AdminSkeletons';
+import { PaymentReviewModal } from '../../components/orders/PaymentReviewModal';
+import { formatAr } from '../../lib/utils';
 
-const PAGE_SIZE = 15;
-
-/** Paiements des clients à vérifier (mode partenaire §17, sinon lecture seule). */
+/** Paiements des clients : vérification manuelle (mode partenaire §17) ou suivi seul. */
 export function PartnerPaymentsPage() {
-  const { data, isPending, isError, refetch } = usePartnerPayments();
+  const { data, isPending, isError, error, refetch } = usePartnerPayments();
   const { toast } = useToast();
   const settings = usePlatformSettings();
   const validate = useValidatePayment();
-  const [page, setPage] = useState(1);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [signingId, setSigningId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [review, setReview] = useState<PartnerPaymentRow | null>(null);
+  /** Lignes visibles après filtres du tableau (KPI synchronisés). */
+  const [visiblePayments, setVisiblePayments] = useState<PartnerPaymentRow[] | null>(null);
 
   const canValidate = settings.data?.paymentValidation === 'partner';
 
-  const pending = useMemo(
-    () =>
-      (data ?? []).filter((p) => p.status === 'pending' || p.status === 'processing'),
-    [data],
-  );
+  const kpiSource = visiblePayments ?? data ?? [];
+  const isFiltered = visiblePayments !== null && visiblePayments.length !== (data?.length ?? 0);
 
-  const totalPages = Math.max(1, Math.ceil(pending.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const rows = pending.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const kpis = useMemo(() => {
+    const rows = kpiSource;
+    let paidCount = 0;
+    let paidAmount = 0;
+    let pendingCount = 0;
+    let pendingAmount = 0;
+    let failedCount = 0;
+    let totalAmount = 0;
+    for (const p of rows) {
+      totalAmount += p.amount;
+      if (p.status === 'paid') {
+        paidCount += 1;
+        paidAmount += p.amount;
+      } else if (p.status === 'pending' || p.status === 'processing') {
+        pendingCount += 1;
+        pendingAmount += p.amount;
+      } else if (p.status === 'failed') {
+        failedCount += 1;
+      }
+    }
+    // Mini-courbe 7 jours des montants validés.
+    const spark = Array.from({ length: 7 }, () => 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (const p of rows) {
+      if (p.status !== 'paid') continue;
+      const d = new Date(p.created_at);
+      const diff = Math.floor((today.getTime() - new Date(d.toDateString()).getTime()) / 86_400_000);
+      if (diff >= 0 && diff < 7) spark[6 - diff] += p.amount;
+    }
+    return { total: rows.length, totalAmount, paidCount, paidAmount, pendingCount, pendingAmount, failedCount, spark };
+  }, [kpiSource]);
 
-  const handleValidate = async (orderId: string, approved: boolean) => {
+  const handleValidate = async (orderId: string, approved: boolean, reason?: string) => {
     setActionError(null);
     setActingId(orderId);
     try {
-      const res = await validate.mutateAsync({ order_id: orderId, approved });
+      const res = await validate.mutateAsync({ order_id: orderId, approved, reason });
       if (approved) {
         if (res.email === 'sent') {
           toast.success(
@@ -57,6 +94,7 @@ export function PartnerPaymentsPage() {
       } else {
         toast.info('Paiement refusé', 'Stock libéré pour les autres clients.');
       }
+      setReview(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Validation impossible.';
       setActionError(message);
@@ -66,13 +104,17 @@ export function PartnerPaymentsPage() {
     }
   };
 
-  const openReceipt = async (path: string) => {
+  const openReceipt = async (paymentId: string, path: string) => {
     setActionError(null);
+    setSigningId(paymentId);
     try {
       const url = path.startsWith('http') ? path : await signReceiptUrl(path);
       window.open(url, '_blank', 'noopener');
     } catch {
       setActionError('Reçu illisible.');
+      toast.error('Reçu illisible', 'Impossible d’ouvrir le justificatif.');
+    } finally {
+      setSigningId(null);
     }
   };
 
@@ -96,108 +138,71 @@ export function PartnerPaymentsPage() {
       )}
 
       {isPending ? (
-        <PartnerRowsSkeleton count={5} />
+        <PaymentsPageSkeleton />
       ) : isError ? (
-        <ErrorState description="Impossible de charger les paiements." onRetry={() => refetch()} />
-      ) : pending.length === 0 ? (
+        <ErrorState
+          description={
+            error instanceof Error && error.message
+              ? `Impossible de charger les paiements : ${error.message}`
+              : 'Impossible de charger les paiements.'
+          }
+          onRetry={() => refetch()}
+        />
+      ) : !data || data.length === 0 ? (
         <EmptyState
-          title="Aucun paiement en attente."
+          title="Aucun paiement reçu."
           description="Les déclarations de transfert de vos clients apparaîtront ici."
         />
       ) : (
         <>
-          <DataTable
-            caption="Paiements en attente de validation"
-            keyOf={(p) => p.id}
-            rows={rows}
-            columns={[
-              {
-                key: 'ref',
-                header: 'Référence',
-                render: (p) => (
-                  <span>
-                    <span className="font-mono text-xs">{p.provider_ref ?? '—'}</span>
-                    {p.receipt_url && (
-                      <button
-                        type="button"
-                        title="Voir le reçu"
-                        onClick={() => openReceipt(p.receipt_url as string)}
-                        className="ml-1 rounded-md p-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
-                      >
-                        <ReceiptText className="size-4" aria-hidden />
-                      </button>
-                    )}
-                  </span>
-                ),
-              },
-              {
-                key: 'event',
-                header: 'Événement',
-                render: (p) => <span className="text-xs">{p.order?.event?.title ?? '—'}</span>,
-              },
-              {
-                key: 'client',
-                header: 'Client',
-                render: (p) => <span className="text-xs">{p.user?.email ?? '—'}</span>,
-              },
-              {
-                key: 'amount',
-                header: 'Montant',
-                render: (p) => (
-                  <span className="font-semibold tabular-nums">{formatAr(p.amount)}</span>
-                ),
-              },
-              {
-                key: 'phone',
-                header: 'N° utilisé',
-                render: (p) => <span className="text-xs">{p.phone_number ?? '—'}</span>,
-              },
-              {
-                key: 'date',
-                header: 'Déclaré le',
-                render: (p) => (
-                  <span className="whitespace-nowrap text-xs">{formatDateTime(p.created_at)}</span>
-                ),
-              },
-              {
-                key: 'status',
-                header: 'Statut',
-                render: (p) => <OrderStatusBadge status={p.status} />,
-              },
-              ...(canValidate
-                ? [
-                    {
-                      key: 'actions' as const,
-                      header: 'Validation',
-                      render: (p: (typeof rows)[number]) => (
-                        <span className="flex gap-1">
-                          <Button
-                            size="sm"
-                            loading={actingId === p.order_id}
-                            onClick={() => handleValidate(p.order_id, true)}
-                            title="Valider : génère les billets"
-                          >
-                            <Check className="size-4" aria-hidden /> Valider
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            loading={actingId === p.order_id}
-                            onClick={() => handleValidate(p.order_id, false)}
-                            title="Refuser : libère le stock"
-                          >
-                            <X className="size-4" aria-hidden />
-                          </Button>
-                        </span>
-                      ),
-                    },
-                  ]
-                : []),
-            ]}
+          {/* KPI pro, responsive — synchronisés avec les filtres du tableau */}
+          <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+            <KpiCard
+              label={isFiltered ? 'Encaissé validé (filtre)' : 'Encaissé validé'}
+              value={formatAr(kpis.paidAmount)}
+              hint={`${kpis.paidCount} paiement${kpis.paidCount > 1 ? 's' : ''} validé${kpis.paidCount > 1 ? 's' : ''}${isFiltered ? ' · sélection filtrée' : ''}`}
+              icon={Banknote}
+              tone="success"
+              spark={kpis.spark}
+            />
+            <KpiCard
+              label={isFiltered ? 'À vérifier (filtre)' : 'À vérifier'}
+              value={String(kpis.pendingCount)}
+              hint={kpis.pendingCount > 0 ? `${formatAr(kpis.pendingAmount)} en attente${isFiltered ? ' · sélection filtrée' : ''}` : 'File vide, tout est traité'}
+              icon={Clock3}
+              tone="warning"
+            />
+            <KpiCard
+              label={isFiltered ? 'Déclarations (filtre)' : 'Déclarations'}
+              value={String(kpis.total)}
+              hint={`${formatAr(kpis.totalAmount)} déclarés${isFiltered ? ' · sélection filtrée' : ' au total'}`}
+              icon={ReceiptText}
+              tone="brand"
+            />
+            <KpiCard
+              label={isFiltered ? 'Refusés (filtre)' : 'Refusés'}
+              value={String(kpis.failedCount)}
+              hint="Stock libéré pour les autres clients"
+              icon={XCircle}
+              tone="neutral"
+            />
+          </div>
+          <PaymentsTable
+            data={data}
+            signingId={signingId}
+            onOpenReceipt={(paymentId, path) => void openReceipt(paymentId, path)}
+            onReview={canValidate ? (row) => setReview(row as PartnerPaymentRow) : undefined}
+            onFilteredChange={(rows) => setVisiblePayments(rows as PartnerPaymentRow[])}
           />
-          <Pagination page={safePage} totalPages={totalPages} onChange={setPage} label="Pagination des paiements" />
         </>
       )}
+
+      <PaymentReviewModal
+        payment={review}
+        acting={actingId === review?.order_id && validate.isPending}
+        onClose={() => setReview(null)}
+        onDecide={handleValidate}
+      />
     </div>
   );
 }

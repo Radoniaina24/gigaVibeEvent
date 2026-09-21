@@ -24,7 +24,19 @@ export async function logAudit(
       entity_id: entity_id ?? null,
       metadata: metadata ?? null,
     });
-    if (error) throw error;
+    if (error) {
+      // 42501 = policy RLS manquante (migration 0003/0019 non appliquée sur la
+      // base distante) ou profil non admin. L'action métier a déjà réussi :
+      // on ne bloque rien, on donne un message actionnable au lieu de l'objet brut.
+      if ((error as { code?: string }).code === '42501') {
+        console.warn(
+          '[audit] INSERT refusé par RLS (code 42501). Appliquez supabase/migrations/0019_audit_insert_fix.sql ' +
+            'sur la base distante et vérifiez que votre profil est admin actif (role=admin, is_active=true).',
+        );
+        return;
+      }
+      throw error;
+    }
   } catch (err) {
     console.warn('[audit] écriture impossible :', err);
   }

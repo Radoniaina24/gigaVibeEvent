@@ -299,8 +299,8 @@ export function AdminPartnerFormPage() {
       refetch();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Création impossible.';
-      const friendly = /not found|404|Failed to fetch/i.test(msg)
-        ? 'Edge Function « create-partner-user » non déployée. Voir supabase/functions/create-partner-user/README.'
+      const friendly = /not found|404|Failed to fetch|Failed to send.*request|CORS|preflight/i.test(msg)
+        ? 'Edge Function « create-partner-user » inaccessible (non déployée ou CORS). Redéployez avec verify_jwt=false : supabase functions deploy create-partner-user.'
         : msg;
       setServerError(friendly);
       toast.error('Création impossible', friendly);

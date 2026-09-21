@@ -39,7 +39,11 @@ verify_jwt = true
 
 [functions.create-partner-user]
 enabled = true
-verify_jwt = true
+# verify_jwt = false OBLIGATOIRE : la gateway Supabase rejette le preflight
+# OPTIONS (sans JWT) avant d'atteindre la fonction -> le navigateur affiche
+# "CORS preflight doesn't pass access control check". L'auth admin est
+# vérifiée manuellement dans index.ts (getUser + profiles.role = admin).
+verify_jwt = false
 
 [functions.create-payment-intent]
 enabled = true

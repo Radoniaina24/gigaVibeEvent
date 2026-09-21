@@ -1,87 +1,104 @@
-import { Link, NavLink, Outlet } from 'react-router-dom';
-import { CalendarDays, LayoutDashboard, Wallet } from 'lucide-react';
-import { Footer, Header } from './Header';
-import { useAuth } from '../../features/auth/AuthContext';
-import { useMyPartner } from '../../features/partner/hooks';
-import { cn } from '../../lib/utils';
+import { useEffect, useRef, useState } from 'react';
+import { Link, Outlet, useLocation } from 'react-router-dom';
+import { X } from 'lucide-react';
+import { PartnerSidebar, partnerSectionLabel } from './PartnerSidebar';
+import { PartnerTopbar } from './PartnerTopbar';
 
-const links = [
-  { to: '/partner', label: 'Aperçu', icon: LayoutDashboard, end: true },
-  { to: '/partner/events', label: 'Mes événements', icon: CalendarDays },
-  { to: '/partner/payments', label: 'Paiements reçus', icon: Wallet },
-];
-
-/** Shell « Mon espace organisateur » (§3 du CDC v2). */
+/**
+ * Coquille de l'espace organisateur, alignée sur le backoffice admin
+ * façon TailAdmin : sidebar sombre fixe, topbar dédiée (menu mobile,
+ * fil d'Ariane, cloche paiements, compte) et contenu fluide pleine largeur.
+ * Le tiroir mobile réutilise la même sidebar.
+ */
 export function PartnerLayout() {
-  const { profile } = useAuth();
-  const partner = useMyPartner();
-  const partnerName =
-    partner.data?.name ??
-    [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') ??
-    'Mon espace';
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      window.localStorage.getItem('gve-partner-sidebar') === 'collapsed',
+  );
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const { pathname } = useLocation();
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      try {
+        window.localStorage.setItem('gve-partner-sidebar', prev ? 'expanded' : 'collapsed');
+      } catch {
+        /* stockage indisponible : repli mémoire */
+      }
+      return !prev;
+    });
+  };
+
+  // Ferme le tiroir à chaque navigation.
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
+
+  // Verrouille le scroll + Escape + focus initial.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    closeBtnRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDrawerOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [drawerOpen]);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header />
-      <div className="mx-auto grid w-full max-w-6xl min-w-0 flex-1 gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6 md:py-8 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <aside aria-label="Menu organisateur" className="lg:sticky lg:top-24 lg:self-start">
-          <div className="mb-3 hidden items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm lg:flex">
-            {partner.data?.logo_url ? (
-              <img
-                src={partner.data.logo_url}
-                alt={`Logo ${partner.data.name}`}
-                className="size-10 shrink-0 rounded-full border border-zinc-200 object-cover"
-              />
-            ) : (
-              <span
-                aria-hidden
-                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-sm font-bold text-white"
-              >
-                {partnerName.slice(0, 2).toUpperCase()}
-              </span>
-            )}
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold leading-tight">{partnerName}</p>
-              <p className="text-xs text-zinc-500">Espace organisateur</p>
-            </div>
-          </div>
-
-          <nav
-            aria-label="Navigation organisateur"
-            className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:flex-col lg:overflow-visible lg:rounded-xl lg:border lg:border-zinc-200 lg:bg-white lg:p-1.5 lg:shadow-sm"
-          >
-            {links.map((l) => (
-              <NavLink
-                key={l.to}
-                to={l.to}
-                end={l.end}
-                className={({ isActive }) =>
-                  cn(
-                    'flex shrink-0 snap-start items-center gap-2.5 whitespace-nowrap rounded-md px-3.5 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 lg:px-3',
-                    isActive
-                      ? 'bg-zinc-900 font-medium text-white lg:bg-zinc-100 lg:text-zinc-900'
-                      : 'border border-zinc-200 bg-white text-zinc-500 hover:text-zinc-900 lg:border-0 lg:bg-transparent',
-                  )
-                }
-              >
-                <l.icon className="size-4 shrink-0" aria-hidden />
-                {l.label}
-              </NavLink>
-            ))}
-          </nav>
-
-          <div className="mt-3 hidden rounded-xl border border-zinc-200 bg-white p-4 text-sm shadow-sm lg:block">
-            <p className="font-medium">Billetterie officielle</p>
-            <p className="mt-0.5 text-xs text-zinc-500">
-              Vos événements sont vendus sous identité Giga Vibe Event.
-            </p>
+    <div className="min-h-screen w-full bg-zinc-100">
+      {/* Sidebar desktop fixe (masquable pour pleine largeur) */}
+      {!sidebarCollapsed && (
+        <aside aria-label="Menu organisateur" className="hidden lg:block">
+          <div className="fixed inset-y-0 left-0 w-[260px]">
+            <PartnerSidebar />
           </div>
         </aside>
-        <main className="w-full min-w-0">
+      )}
+
+      {/* Colonne contenu */}
+      <div className={sidebarCollapsed ? 'min-w-0' : 'min-w-0 lg:pl-[260px]'}>
+        <PartnerTopbar
+          title={partnerSectionLabel(pathname)}
+          onMenu={() => setDrawerOpen(true)}
+          sidebarCollapsed={sidebarCollapsed}
+          onToggleSidebar={toggleSidebar}
+        />
+        <main className="w-full min-w-0 px-4 py-4 sm:px-6 sm:py-6">
           <Outlet />
         </main>
       </div>
-      <Footer />
+
+      {/* Tiroir latéral mobile */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu organisateur">
+          <div
+            className="overlay-in absolute inset-0 bg-night-950/60"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <div
+            id="partner-drawer"
+            className="drawer-in-left absolute inset-y-0 left-0 w-[280px] max-w-[85vw] overflow-hidden rounded-r-2xl shadow-2xl"
+          >
+            <button
+              ref={closeBtnRef}
+              type="button"
+              onClick={() => setDrawerOpen(false)}
+              aria-label="Fermer le menu"
+              className="absolute right-3 top-4 z-10 grid size-9 place-items-center rounded-lg text-zinc-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
+            >
+              <X aria-hidden className="size-5" />
+            </button>
+            <PartnerSidebar onNavigate={() => setDrawerOpen(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -108,7 +125,7 @@ export function PartnerStatusBanner({ status }: { status: string }) {
     text: 'Contactez Giga Vibe Event.',
   };
   return (
-    <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+    <div role="status" className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
       <p className="text-sm font-bold text-amber-900">{m.title}</p>
       <p className="mt-0.5 text-sm text-amber-800">{m.text}</p>
       <Link to="/contact" className="mt-2 inline-block text-sm font-semibold text-amber-900 hover:underline">
