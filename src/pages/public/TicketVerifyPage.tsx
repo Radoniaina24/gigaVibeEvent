@@ -48,7 +48,7 @@ const LOOKUP_LABEL: Record<string, string> = {
  */
 export function TicketVerifyPage() {
   const [params, setParams] = useSearchParams();
-  const { user, profile } = useAuth();
+  const { user, hasRole } = useAuth();
   const raw = params.get('code') ?? '';
   const code = ticketCodeFromQrValue(raw);
   const [manual, setManual] = useState('');
@@ -87,7 +87,7 @@ export function TicketVerifyPage() {
     };
   }, [code]);
 
-  const staff = user && profile && ['admin', 'controller', 'partner'].includes(profile.role);
+  const staff = Boolean(user) && hasRole(['admin', 'controller', 'partner']);
 
   const handleCheckin = async () => {
     setChecking(true);

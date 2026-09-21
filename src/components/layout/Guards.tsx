@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../features/auth/AuthContext';
+import type { UserRole } from '../../types/database';
 import { LoadingState } from '../ui/States';
 
 /** Exige une session. Sinon -> /login?next=... */
@@ -35,7 +36,24 @@ export function RequireVerifiedEmail() {
   return <Outlet />;
 }
 
-/** Exige le rôle admin (vérifié via profiles.role, pas seulement le frontend). */
+/** Garde générique multi-rôles (pro) : admin bypass toujours. */
+export function RequireRoles({ roles }: { roles: UserRole[] }) {
+  const { user, isLoading, profile, roles: myRoles, isAdmin } = useAuth();
+  const location = useLocation();
+  if (isLoading) return <LoadingState label="Vérification des droits…" />;
+  if (!user) {
+    return (
+      <Navigate to={`/login?next=${encodeURIComponent(location.pathname)}`} replace />
+    );
+  }
+  if (!profile) return <Navigate to="/dashboard" replace />;
+  if (isAdmin) return <Outlet />;
+  const ok = roles.some((r) => myRoles.includes(r) || profile.role === r);
+  if (!ok) return <Navigate to="/dashboard" replace />;
+  return <Outlet />;
+}
+
+/** Exige le rôle admin (vérifié via user_roles + profiles.role, pas seulement le frontend). */
 export function AdminRoute() {
   const { user, isAdmin, isLoading, profile } = useAuth();
   const location = useLocation();
@@ -52,9 +70,9 @@ export function AdminRoute() {
   return <Outlet />;
 }
 
-/** Exige le rôle partenaire (espace organisateur, étape 2 du CDC v2). */
+/** Exige le rôle partenaire (multi-rôles : partner OU admin). */
 export function PartnerRoute() {
-  const { user, isPartner, isAdmin, isLoading, profile } = useAuth();
+  const { user, isPartner, isLoading, profile } = useAuth();
   const location = useLocation();
   if (isLoading) return <LoadingState label="Vérification des droits…" />;
   if (!user) {
@@ -62,7 +80,23 @@ export function PartnerRoute() {
       <Navigate to={`/login?next=${encodeURIComponent(location.pathname)}`} replace />
     );
   }
-  if (!profile || (!isPartner && !isAdmin)) {
+  if (!profile || !isPartner) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Outlet />;
+}
+
+/** Exige staff contrôle : controller, partner ou admin (scan billets). */
+export function ControllerRoute() {
+  const { user, isLoading, profile, hasRole } = useAuth();
+  const location = useLocation();
+  if (isLoading) return <LoadingState label="Vérification des droits…" />;
+  if (!user) {
+    return (
+      <Navigate to={`/login?next=${encodeURIComponent(location.pathname)}`} replace />
+    );
+  }
+  if (!profile || !hasRole(['admin', 'controller', 'partner'])) {
     return <Navigate to="/dashboard" replace />;
   }
   return <Outlet />;

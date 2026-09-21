@@ -97,6 +97,24 @@ serve(async (req: Request) => {
       })
       .eq('id', created.user.id);
 
+    // Multi-rôles (0020) : source de vérité user_roles (ignore si table absente).
+    try {
+      await admin.from('user_roles').insert({
+        user_id: created.user.id,
+        role: invitation.role,
+        partner_id: invitation.partner_id,
+        assigned_at: new Date().toISOString(),
+      });
+      if (invitation.role !== 'user') {
+        await admin.from('user_roles').insert({
+          user_id: created.user.id,
+          role: 'user',
+        });
+      }
+    } catch {
+      // migration non appliquée : profiles.role reste la source de vérité.
+    }
+
     await admin
       .from('user_invitations')
       .update({ accepted_at: new Date().toISOString() })

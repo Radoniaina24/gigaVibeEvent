@@ -89,7 +89,7 @@ export async function logEmail(
   }
 }
 
-/** Vérifie le JWT appelant et exige le rôle admin (profiles.role). */
+/** Vérifie le JWT appelant et exige le rôle admin (user_roles + fallback profiles.role). */
 export async function requireAdmin(
   req: Request,
   env: ServerEnv,
@@ -105,10 +105,29 @@ export async function requireAdmin(
     .eq('id', user.id)
     .maybeSingle();
   const p = profile as { role?: string; is_active?: boolean } | null;
-  if (!p || p.role !== 'admin' || p.is_active !== true) {
-    throw Object.assign(new Error('Réservé aux administrateurs.'), { status: 403 });
+  if (p?.is_active === true && p?.role === 'admin') {
+    return { userId: user.id, email: user.email ?? '' };
   }
-  return { userId: user.id, email: user.email ?? '' };
+  // Multi-rôles (migration 0020) : user_roles.admin actif.
+  try {
+    const { data: rows } = await caller
+      .from('user_roles')
+      .select('role,is_active,expires_at')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .eq('is_active', true)
+      .limit(1);
+    const list = (rows ?? []) as { expires_at?: string | null }[];
+    if (list.length > 0) {
+      const exp = list[0]?.expires_at;
+      if (!exp || new Date(exp).getTime() > Date.now()) {
+        if (p?.is_active !== false) return { userId: user.id, email: user.email ?? '' };
+      }
+    }
+  } catch {
+    // table non migrée : on retombe sur le check legacy ci-dessous.
+  }
+  throw Object.assign(new Error('Réservé aux administrateurs.'), { status: 403 });
 }
 
 export function httpStatus(err: unknown): number {

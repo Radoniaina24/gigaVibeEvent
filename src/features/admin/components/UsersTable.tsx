@@ -101,24 +101,36 @@ export function UsersTable({ data, updating, onRoleChange, onToggleActive }: Use
         },
       }),
       columnHelper.accessor('role', {
-        header: 'Rôle',
+        header: 'Rôles',
         filterFn: (row, _columnId, filterValue) => {
           if (!filterValue) return true;
-          return row.original.role === filterValue;
+          const roles = row.original.roles ?? [row.original.role];
+          return roles.includes(filterValue as UserRole);
         },
         cell: (info) => {
           const row = info.row.original;
+          const roles = row.roles ?? [row.role];
           return (
-            <MiniSelect
-              ariaLabel={`Rôle de ${row.email}`}
-              value={row.role}
-              onChange={(v) => {
-                if (v !== row.role) onRoleChange(row, v as UserRole);
-              }}
-              options={ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }))}
-              disabled={updating}
-              className="min-w-36 justify-between"
-            />
+            <span className="flex flex-wrap items-center gap-1.5">
+              <MiniSelect
+                ariaLabel={`Rôle principal de ${row.email}`}
+                value={row.role}
+                onChange={(v) => {
+                  if (v !== row.role) onRoleChange(row, v as UserRole);
+                }}
+                options={ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }))}
+                disabled={updating}
+                className="min-w-36 justify-between"
+              />
+              {roles.length > 1 && (
+                <span
+                  title={roles.join(', ')}
+                  className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700"
+                >
+                  +{roles.length - 1}
+                </span>
+              )}
+            </span>
           );
         },
       }),

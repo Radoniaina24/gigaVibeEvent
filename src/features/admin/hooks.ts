@@ -413,6 +413,9 @@ export function useDeleteCategory() {
 
 export interface AdminUserRow extends Profile {
   orders_count: number;
+  /** Rôles effectifs (user_roles). Fallback = [role] si table non migrée. */
+  roles: import('../../types/database').UserRole[];
+  partner_ids: string[];
 }
 
 export function useAdminUsers() {
@@ -421,10 +424,11 @@ export function useAdminUsers() {
     staleTime: 30_000,
     queryFn: async (): Promise<AdminUserRow[]> => {
       const supabase = getSupabase();
-      const [{ data: profiles, error: pErr }, { data: orders, error: oErr }] =
+      const [{ data: profiles, error: pErr }, { data: orders, error: oErr }, rolesRes] =
         await Promise.all([
           supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(200),
           supabase.from('orders').select('user_id'),
+          supabase.from('user_roles').select('user_id,role,partner_id,is_active,expires_at').limit(1000),
         ]);
       if (pErr) throw pErr;
       if (oErr) throw oErr;
@@ -432,10 +436,33 @@ export function useAdminUsers() {
       for (const o of (orders ?? []) as { user_id: string }[]) {
         counts.set(o.user_id, (counts.get(o.user_id) ?? 0) + 1);
       }
-      return ((profiles ?? []) as Profile[]).map((p) => ({
-        ...p,
-        orders_count: counts.get(p.id) ?? 0,
-      }));
+      const rolesByUser = new Map<string, { roles: import('../../types/database').UserRole[]; partner_ids: string[] }>();
+      const now = Date.now();
+      for (const r of ((rolesRes as { data?: unknown[] }).data ?? []) as {
+        user_id: string;
+        role: import('../../types/database').UserRole;
+        partner_id: string | null;
+        is_active: boolean;
+        expires_at: string | null;
+      }[]) {
+        if (!r.is_active) continue;
+        if (r.expires_at && new Date(r.expires_at).getTime() <= now) continue;
+        const cur = rolesByUser.get(r.user_id) ?? { roles: [], partner_ids: [] };
+        if (!cur.roles.includes(r.role)) cur.roles.push(r.role);
+        if (r.partner_id && !cur.partner_ids.includes(r.partner_id)) cur.partner_ids.push(r.partner_id);
+        rolesByUser.set(r.user_id, cur);
+      }
+      return ((profiles ?? []) as Profile[]).map((p) => {
+        const extra = rolesByUser.get(p.id);
+        const roles = extra && extra.roles.length > 0 ? extra.roles : [p.role];
+        const partner_ids =
+          extra && extra.partner_ids.length > 0
+            ? extra.partner_ids
+            : p.partner_id
+              ? [p.partner_id]
+              : [];
+        return { ...p, orders_count: counts.get(p.id) ?? 0, roles, partner_ids };
+      });
     },
   });
 }
@@ -462,8 +489,83 @@ export function useUpdateAdminUser() {
         .select()
         .single();
       if (error) throw error;
+      // Sync multi-rôles : garantit que le rôle principal existe dans user_roles.
+      // Les autres rôles sont conservés (cumulatif, pro).
+      // Note : pas de upsert onConflict (index partiels 0020) -> select + insert/update.
+      try {
+        const { data: existing } = await supabase
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', id)
+          .eq('role', input.role)
+          .is('partner_id', null)
+          .maybeSingle();
+        if (!existing) {
+          await supabase
+            .from('user_roles')
+            .insert({ user_id: id, role: input.role, is_active: true });
+        } else {
+          await supabase
+            .from('user_roles')
+            .update({ is_active: true })
+            .eq('user_id', id)
+            .eq('role', input.role)
+            .is('partner_id', null);
+        }
+        if (!input.is_active) {
+          await supabase.from('user_roles').update({ is_active: false }).eq('user_id', id);
+        }
+      } catch {
+        // Table user_roles pas encore migrée : le trigger 0020 la remplira.
+      }
       await logAudit('user.updated', 'profiles', id, { ...input });
       return data as Profile;
+    },
+    onSuccess: () => invalidateAdmin(qc),
+  });
+}
+
+/** Ajoute/retire un rôle secondaire sans écraser les autres (multi-rôles pro). */
+export function useSetUserRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      role,
+      enabled,
+      partner_id,
+    }: {
+      id: string;
+      role: import('../../types/database').UserRole;
+      enabled: boolean;
+      partner_id?: string | null;
+    }): Promise<void> => {
+      const supabase = getSupabase();
+      if (enabled) {
+        const pid = partner_id ?? null;
+        let query = supabase.from('user_roles').select('id').eq('user_id', id).eq('role', role);
+        query = pid === null ? query.is('partner_id', null) : query.eq('partner_id', pid);
+        const { data: existing } = await query.maybeSingle();
+        if (!existing) {
+          const { error } = await supabase
+            .from('user_roles')
+            .insert({ user_id: id, role, partner_id: pid, is_active: true });
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('user_roles')
+            .update({ is_active: true })
+            .eq('user_id', id)
+            .eq('role', role);
+          if (error) throw error;
+        }
+      } else {
+        const q = supabase.from('user_roles').delete().eq('user_id', id).eq('role', role);
+        const { error } =
+          partner_id === undefined ? await q : await q.eq('partner_id', partner_id);
+        if (error) throw error;
+      }
+      await logAudit('user.role_changed', 'profiles', id, { role, enabled, partner_id });
     },
     onSuccess: () => invalidateAdmin(qc),
   });
@@ -1046,6 +1148,7 @@ export function useLinkPartnerAccount() {
       if (!found) {
         throw new Error('Aucun compte avec cet email. Créez d’abord son accès.');
       }
+      const userId = (found as { id: string }).id;
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -1053,8 +1156,24 @@ export function useLinkPartnerAccount() {
           partner_id: partnerId,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', (found as { id: string }).id);
+        .eq('id', userId);
       if (error) throw error;
+      try {
+        const { data: existing } = await supabase
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('role', 'partner')
+          .eq('partner_id', partnerId)
+          .maybeSingle();
+        if (!existing) {
+          await supabase
+            .from('user_roles')
+            .insert({ user_id: userId, role: 'partner', partner_id: partnerId, is_active: true });
+        }
+      } catch {
+        // migration 0020 pas encore appliquée : trigger la synchronisera.
+      }
       await logAudit('partner.account_linked', 'partners', partnerId, { email });
     },
     onSuccess: () => invalidateAdmin(qc),

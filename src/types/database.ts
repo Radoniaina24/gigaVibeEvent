@@ -5,6 +5,43 @@
  */
 
 export type UserRole = 'user' | 'partner' | 'controller' | 'admin';
+
+export const ALL_ROLES: UserRole[] = ['user', 'partner', 'controller', 'admin'];
+
+/** Priorité d'affichage / rôle principal : admin > partner > controller > user. */
+export const ROLE_PRIORITY: Record<UserRole, number> = {
+  user: 1,
+  controller: 2,
+  partner: 3,
+  admin: 4,
+};
+
+export function primaryRole(roles: UserRole[]): UserRole {
+  let best: UserRole = 'user';
+  for (const r of roles) {
+    if ((ROLE_PRIORITY[r] ?? 0) > (ROLE_PRIORITY[best] ?? 0)) best = r;
+  }
+  return best;
+}
+
+/** Ligne de la table public.user_roles (migration 0020, multi-rôles). */
+export interface UserRoleRow {
+  id: string;
+  user_id: string;
+  role: UserRole;
+  partner_id: string | null;
+  is_active: boolean;
+  expires_at: string | null;
+  assigned_by: string | null;
+  assigned_at: string;
+}
+
+/** Profil + rôles effectifs (source de vérité = user_roles). */
+export interface ProfileWithRoles {
+  profile: Profile;
+  roles: UserRole[];
+  partnerIds: string[];
+}
 export type PartnerStatus = 'active' | 'pending' | 'suspended' | 'disabled';
 export type EventStatus =
   | 'draft'
@@ -196,6 +233,7 @@ export interface Database {
   public: {
     Tables: {
       profiles: { Row: Profile; Insert: Partial<Profile>; Update: Partial<Profile>; Relationships: [] };
+      user_roles: { Row: UserRoleRow; Insert: Partial<UserRoleRow>; Update: Partial<UserRoleRow>; Relationships: [] };
       categories: { Row: Category; Insert: Partial<Category>; Update: Partial<Category>; Relationships: [] };
       events: { Row: Event; Insert: Partial<Event>; Update: Partial<Event>; Relationships: [] };
       ticket_types: { Row: TicketType; Insert: Partial<TicketType>; Update: Partial<TicketType>; Relationships: [] };

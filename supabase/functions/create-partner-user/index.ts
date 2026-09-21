@@ -13,28 +13,17 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.44.4';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
+import { handleOptions, json } from '../_shared/cors.ts';
 
 serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (req.method !== 'POST') return json({ error: 'Méthode non autorisée.' }, 405);
+  if (req.method === 'OPTIONS') return handleOptions(req);
+  if (req.method !== 'POST') return json(req, { error: 'Méthode non autorisée.' }, 405);
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!supabaseUrl || !anonKey || !serviceKey) {
-    return json({ error: 'Configuration serveur incomplète.' }, 500);
+    return json(req, { error: 'Configuration serveur incomplète.' }, 500);
   }
 
   // 1. Appelant = admin ?
@@ -44,15 +33,30 @@ serve(async (req: Request) => {
   const {
     data: { user },
   } = await caller.auth.getUser();
-  if (!user) return json({ error: 'Non authentifié.' }, 401);
+  if (!user) return json(req, { error: 'Non authentifié.' }, 401);
   const { data: profile } = await caller
     .from('profiles')
     .select('role,is_active')
     .eq('id', user.id)
     .maybeSingle();
   const p = profile as { role?: string; is_active?: boolean } | null;
-  if (!p || p.role !== 'admin' || p.is_active !== true) {
-    return json({ error: 'Réservé aux administrateurs.' }, 403);
+  let isAdmin = p?.role === 'admin' && p?.is_active === true;
+  if (!isAdmin) {
+    try {
+      const { data: adminRoles } = await caller
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .eq('is_active', true)
+        .limit(1);
+      isAdmin = ((adminRoles ?? []) as unknown[]).length > 0 && p?.is_active !== false;
+    } catch {
+      isAdmin = false;
+    }
+  }
+  if (!isAdmin) {
+    return json(req, { error: 'Réservé aux administrateurs.' }, 403);
   }
 
   // 2. Payload
@@ -60,18 +64,18 @@ serve(async (req: Request) => {
   try {
     body = await req.json();
   } catch {
-    return json({ error: 'Corps JSON invalide.' }, 400);
+    return json(req, { error: 'Corps JSON invalide.' }, 400);
   }
   const email = (body.email ?? '').trim().toLowerCase();
   const password = body.password ?? '';
   const partnerId = body.partner_id ?? '';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return json({ error: 'Email invalide.' }, 400);
+    return json(req, { error: 'Email invalide.' }, 400);
   }
   if (password.length < 8) {
-    return json({ error: 'Mot de passe : 8 caractères minimum.' }, 400);
+    return json(req, { error: 'Mot de passe : 8 caractères minimum.' }, 400);
   }
-  if (!partnerId) return json({ error: 'partner_id requis.' }, 400);
+  if (!partnerId) return json(req, { error: 'partner_id requis.' }, 400);
 
   const admin = createClient(supabaseUrl, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -84,7 +88,7 @@ serve(async (req: Request) => {
     .eq('id', partnerId)
     .maybeSingle();
   if (partnerError || !partner) {
-    return json({ error: 'Partenaire introuvable.' }, 404);
+    return json(req, { error: 'Partenaire introuvable.' }, 404);
   }
 
   // 3. Création du compte (email confirmé d'office)
@@ -95,7 +99,7 @@ serve(async (req: Request) => {
     user_metadata: { created_by: 'gve-backoffice' },
   });
   if (createError || !created.user) {
-    return json({ error: createError?.message ?? 'Création impossible.' }, 400);
+    return json(req, { error: createError?.message ?? 'Création impossible.' }, 400);
   }
 
   // 4. Rattachement (le trigger a déjà créé le profil)
@@ -108,8 +112,16 @@ serve(async (req: Request) => {
     })
     .eq('id', created.user.id);
   if (linkError) {
-    return json({ error: 'Compte créé mais rattachement impossible.' }, 500);
+    return json(req, { error: 'Compte créé mais rattachement impossible.' }, 500);
+  }
+  try {
+    await admin.from('user_roles').insert([
+      { user_id: created.user.id, role: 'user' },
+      { user_id: created.user.id, role: 'partner', partner_id: partnerId },
+    ]);
+  } catch {
+    // migration 0020 non appliquée : profiles reste la source de vérité.
   }
 
-  return json({ ok: true, user_id: created.user.id, email });
+  return json(req, { ok: true, user_id: created.user.id, email });
 });

@@ -71,7 +71,9 @@ export function AdminUserDetailPage() {
         <h1 className="text-2xl font-bold">
           {[user.first_name, user.last_name].filter(Boolean).join(' ') || user.email}
         </h1>
-        <Badge tone={user.role === 'admin' ? 'info' : 'neutral'}>{user.role}</Badge>
+        {(user.roles ?? [user.role]).map((r) => (
+          <Badge key={r} tone={r === 'admin' ? 'info' : 'neutral'}>{r}</Badge>
+        ))}
         <Badge tone={user.is_active ? 'success' : 'danger'}>
           {user.is_active ? 'Actif' : 'Désactivé'}
         </Badge>
