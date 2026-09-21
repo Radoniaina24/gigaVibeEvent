@@ -1,110 +1,87 @@
 import { Link, NavLink } from 'react-router-dom';
 import {
-  BarChart3,
-  CalendarDays,
-  ExternalLink,
   Handshake,
-  Inbox,
   LayoutDashboard,
   LogOut,
   Receipt,
-  Settings,
   ShieldCheck,
-  Tags,
   Ticket,
-  Users,
-  Wallet,
+  User,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 import { cn } from '../../lib/utils';
+import { ROLE_LABEL } from './AdminSidebar';
 
-export interface AdminLink {
+export interface DashboardLink {
   to: string;
   label: string;
   icon: typeof LayoutDashboard;
   end?: boolean;
 }
 
-export interface AdminGroup {
+export interface DashboardGroup {
   title: string;
-  links: AdminLink[];
+  links: DashboardLink[];
 }
 
-export const ADMIN_GROUPS: AdminGroup[] = [
+export const DASHBOARD_GROUPS: DashboardGroup[] = [
   {
-    title: 'Pilotage',
+    title: 'Mon compte',
     links: [
-      { to: '/admin', label: 'Vue d’ensemble', icon: LayoutDashboard, end: true },
-      { to: '/admin/statistics', label: 'Statistiques', icon: BarChart3 },
-    ],
-  },
-  {
-    title: 'Ventes',
-    links: [
-      { to: '/admin/orders', label: 'Commandes', icon: Receipt },
-      { to: '/admin/payments', label: 'Paiements', icon: Wallet },
-      { to: '/admin/tickets', label: 'Billets', icon: Ticket },
-    ],
-  },
-  {
-    title: 'Partenaires',
-    links: [
-      { to: '/admin/partners', label: 'Partenaires', icon: Handshake },
-      { to: '/admin/validations', label: 'Validations', icon: Inbox },
-    ],
-  },
-  {
-    title: 'Catalogue',
-    links: [
-      { to: '/admin/events', label: 'Événements', icon: CalendarDays },
-      { to: '/admin/categories', label: 'Catégories', icon: Tags },
-    ],
-  },
-  {
-    title: 'Système',
-    links: [
-      { to: '/admin/users', label: 'Utilisateurs', icon: Users },
-      { to: '/admin/settings', label: 'Paramètres', icon: Settings },
+      { to: '/dashboard', label: 'Aperçu', icon: LayoutDashboard, end: true },
+      { to: '/dashboard/orders', label: 'Commandes', icon: Receipt },
+      { to: '/dashboard/tickets', label: 'Billets', icon: Ticket },
+      { to: '/dashboard/profile', label: 'Profil', icon: User },
     ],
   },
 ];
 
-const ALL_LINKS = ADMIN_GROUPS.flatMap((g) => g.links);
+const SPACES_LINKS: DashboardLink[] = [
+  { to: '/partner', label: 'Espace organisateur', icon: Handshake },
+  { to: '/admin', label: 'Administration', icon: ShieldCheck },
+];
+
+const ALL_LINKS = [...DASHBOARD_GROUPS.flatMap((g) => g.links), ...SPACES_LINKS];
 
 /** Libellé de la section courante (titre de la topbar). */
-export function adminSectionLabel(pathname: string): string {
+export function dashboardSectionLabel(pathname: string): string {
   const exact = ALL_LINKS.find((l) => l.end && pathname === l.to);
   if (exact) return exact.label;
   const match = ALL_LINKS.filter(
     (l) => !l.end && (pathname === l.to || pathname.startsWith(`${l.to}/`)),
   ).sort((a, b) => b.to.length - a.to.length)[0];
-  return match?.label ?? 'Backoffice';
+  return match?.label ?? 'Mon compte';
 }
 
-export const ROLE_LABEL: Record<string, string> = {
-  admin: 'Administrateur',
-  partner: 'Partenaire',
-  controller: 'Contrôleur',
-  user: 'Membre',
-};
-
-function initials(first: string | null, last: string | null, email: string): string {
-  const a = (first ?? '').trim().charAt(0);
-  const b = (last ?? '').trim().charAt(0);
-  return ((a + b) || email.slice(0, 2)).toUpperCase();
+function initials(name: string, email: string | undefined): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (email?.slice(0, 2) ?? '??').toUpperCase();
 }
 
 /**
- * Barre latérale sombre du backoffice (style TailAdmin) : marque GVE,
- * navigation groupée avec état actif doré, carte compte + déconnexion.
+ * Barre latérale sombre du compte (même design que le backoffice) : marque
+ * GVE, navigation groupée avec état actif doré, accès espaces (organisateur
+ * / admin selon les rôles), carte compte + déconnexion.
  * Réutilisée telle quelle dans le tiroir mobile.
  */
-export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
-  const { profile, signOut } = useAuth();
-  const name =
+export function DashboardSidebar({ onNavigate }: { onNavigate?: () => void }) {
+  const { user, profile, role, isPartner, isAdmin, signOut } = useAuth();
+  const displayName =
     [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') ||
-    profile?.email ||
-    'Administrateur';
+    user?.email ||
+    'Mon compte';
+
+  const spaces = [
+    ...(isPartner ? [SPACES_LINKS[0]] : []),
+    ...(isAdmin ? [SPACES_LINKS[1]] : []),
+  ];
+  const groups: DashboardGroup[] = [
+    ...DASHBOARD_GROUPS,
+    ...(spaces.length > 0 ? [{ title: 'Espaces', links: spaces }] : []),
+  ];
 
   return (
     <div className="flex h-full flex-col bg-night-950 text-zinc-300">
@@ -120,14 +97,14 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
             Giga Vibe Event
           </p>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-gold-400">
-            Backoffice
+            Mon compte
           </p>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav aria-label="Menu administrateur" className="flex-1 space-y-5 overflow-y-auto px-3">
-        {ADMIN_GROUPS.map((g) => (
+      <nav aria-label="Navigation du compte" className="flex-1 space-y-5 overflow-y-auto px-3">
+        {groups.map((g) => (
           <div key={g.title}>
             <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
               {g.title}
@@ -176,19 +153,19 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
         <div className="flex items-center gap-2.5 rounded-lg bg-white/5 px-3 py-2.5">
           <span
             aria-hidden
-            className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-600 to-brand-800 text-xs font-bold text-white"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-600 to-brand-800 text-xs font-bold text-white"
           >
-            {initials(profile?.first_name ?? null, profile?.last_name ?? null, profile?.email ?? '??')}
+            {initials(displayName, user?.email)}
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium leading-tight text-white">
-              {name}
+              {displayName}
             </span>
             <span className="block text-xs text-zinc-500">
-              {ROLE_LABEL[profile?.role ?? ''] ?? profile?.role ?? ''}
+              {ROLE_LABEL[role ?? ''] ?? role ?? ''}
             </span>
           </span>
-          <ShieldCheck aria-hidden className="size-4 shrink-0 text-gold-400" />
+          <User aria-hidden className="size-4 shrink-0 text-gold-400" />
         </div>
         <div className="flex gap-2">
           <Link
