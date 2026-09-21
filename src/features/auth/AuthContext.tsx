@@ -14,8 +14,8 @@ import {
   primaryRole,
   type Profile,
   type UserRole,
-  type UserRoleRow,
 } from '../../types/database';
+import { resolveRoles } from './roles';
 
 interface AuthContextValue {
   user: User | null;
@@ -63,17 +63,6 @@ export function isEmailVerified(u: User | null): boolean {
   );
 }
 
-function toRoles(rows: Pick<UserRoleRow, 'role' | 'partner_id' | 'is_active' | 'expires_at'>[] | null | undefined, fallback?: UserRole | null): { roles: UserRole[]; partnerIds: string[] } {
-  const active = (rows ?? []).filter(
-    (r) => r.is_active && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()),
-  );
-  const roles = [...new Set(active.map((r) => r.role))] as UserRole[];
-  const partnerIds = [...new Set(active.map((r) => r.partner_id).filter((v): v is string => Boolean(v)))];
-  if (roles.length === 0 && fallback) return { roles: [fallback], partnerIds: [] };
-  if (roles.length === 0) return { roles: [], partnerIds };
-  return { roles, partnerIds };
-}
-
 async function fetchProfileAndRoles(
   userId: string,
 ): Promise<{ profile: Profile | null; roles: UserRole[]; partnerIds: string[] }> {
@@ -86,8 +75,8 @@ async function fetchProfileAndRoles(
   const profile = p as Profile;
   // Si la table user_roles n'existe pas encore (migration non appliquée),
   // fallback gracieux sur profiles.role.
-  const { roles, partnerIds } = toRoles(
-    (r ?? null) as Pick<UserRoleRow, 'role' | 'partner_id' | 'is_active' | 'expires_at'>[] | null,
+  const { roles, partnerIds } = resolveRoles(
+    (r ?? null) as Parameters<typeof resolveRoles>[0],
     profile.role,
   );
   const mergedPartnerIds =
