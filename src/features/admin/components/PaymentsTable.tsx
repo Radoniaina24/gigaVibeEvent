@@ -257,7 +257,13 @@ export function PaymentsTable({ data, signingId, onOpenReceipt, onReview, onFilt
       const q = String(filterValue).trim().toLowerCase();
       if (!q) return true;
       const r = row.original;
-      return `${r.provider_ref ?? ''} ${r.order?.order_number ?? ''} ${r.user?.email ?? ''} ${r.user?.first_name ?? ''} ${r.user?.last_name ?? ''} ${r.order?.event?.title ?? ''}`
+      // PartnerPaymentRow['user'] ne porte que `email` : vue normalisée.
+      const u = r.user as {
+        email?: string | null;
+        first_name?: string | null;
+        last_name?: string | null;
+      } | null;
+      return `${r.provider_ref ?? ''} ${r.order?.order_number ?? ''} ${u?.email ?? ''} ${u?.first_name ?? ''} ${u?.last_name ?? ''} ${r.order?.event?.title ?? ''}`
         .toLowerCase()
         .includes(q);
     },

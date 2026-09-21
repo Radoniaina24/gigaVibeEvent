@@ -9,6 +9,7 @@ import {
   useAdminPayments,
   type AdminPaymentRow,
 } from '../../features/admin/hooks';
+import type { PartnerPaymentRow } from '../../features/partner/hooks';
 import { PaymentsTable } from '../../features/admin/components/PaymentsTable';
 import { KpiCard } from '../../components/admin/StatsCard';
 import { useValidatePayment } from '../../features/orders/hooks';
@@ -29,9 +30,10 @@ export function AdminPaymentsPage() {
   const [actingId, setActingId] = useState<string | null>(null);
   const [signingId, setSigningId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [review, setReview] = useState<AdminPaymentRow | null>(null);
+  /** Union : PaymentsTable est typé AdminPaymentRow | PartnerPaymentRow. */
+  const [review, setReview] = useState<AdminPaymentRow | PartnerPaymentRow | null>(null);
   /** Lignes visibles après filtres du tableau (KPI synchronisés). */
-  const [visiblePayments, setVisiblePayments] = useState<AdminPaymentRow[] | null>(null);
+  const [visiblePayments, setVisiblePayments] = useState<(AdminPaymentRow | PartnerPaymentRow)[] | null>(null);
 
   const kpiSource = visiblePayments ?? data ?? [];
   const isFiltered = visiblePayments !== null && visiblePayments.length !== (data?.length ?? 0);

@@ -55,11 +55,16 @@ export function PaymentReviewModal({
     reset({ reason: '' });
   }, [payment, reset]);
 
-  const user = payment?.user ?? null;
+  // Vue normalisée : PartnerPaymentRow['user'] ne porte que `email`
+  // (ni first_name, ni last_name, ni phone) — tous les champs sont optionnels ici.
+  const user = (payment?.user ?? null) as {
+    email?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    phone?: string | null;
+  } | null;
   const clientName =
-    [user && 'first_name' in user ? user.first_name : null, user && 'last_name' in user ? user.last_name : null]
-      .filter(Boolean)
-      .join(' ') ||
+    [user?.first_name, user?.last_name].filter(Boolean).join(' ') ||
     user?.email ||
     '—';
 
@@ -156,7 +161,7 @@ export function PaymentReviewModal({
                 <p className="truncate text-xs text-zinc-500" title={user?.email ?? ''}>
                   {user?.email}
                 </p>
-                {user && 'phone' in user && user.phone && (
+                {user?.phone && (
                   <p className="mt-0.5 text-xs tabular-nums text-zinc-500">{user.phone}</p>
                 )}
               </section>
