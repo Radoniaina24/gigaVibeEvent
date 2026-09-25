@@ -18,23 +18,29 @@ import {
   ArrowUp,
   Ban,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   ChevronsUpDown,
   ExternalLink,
+  Eye,
   Pencil,
   RotateCcw,
   Search,
   X,
 } from 'lucide-react';
-import type { ModerationDecision, PendingEventRow } from '../hooks';
+import type { PendingEventRow } from '../hooks';
+import { useEventValidationHistory } from '../hooks';
+import type { ModerationDecision } from '../moderation';
+import { moderationNoteRequired } from '../moderation';
 import { EventStatusBadge } from '../../../components/admin/StatusBadges';
+import { ValidationHistoryTimeline } from '../../../components/admin/ValidationHistory';
 import { MiniSelect } from '../../../components/ui/MiniSelect';
 import { Button } from '../../../components/ui/Button';
 import { Textarea } from '../../../components/ui/Fields';
-import { cn, formatDate } from '../../../lib/utils';
+import { cn, formatAr, formatDate } from '../../../lib/utils';
 
 const columnHelper = createColumnHelper<PendingEventRow>();
 
@@ -58,25 +64,123 @@ interface ValidationsTableProps {
   data: PendingEventRow[];
   actingId: string | null;
   noteFor: string | null;
+  noteDecision: ModerationDecision | null;
   note: string;
   onNoteChange: (value: string) => void;
-  onNoteOpen: (id: string) => void;
+  onNoteOpen: (id: string, decision: ModerationDecision) => void;
   onNoteClose: () => void;
   onDecide: (id: string, decision: ModerationDecision, note?: string) => void;
   /** Remonte les lignes visibles après filtres (pour synchroniser les KPI). */
   onFilteredChange?: (rows: PendingEventRow[]) => void;
 }
 
+/** Panneau de vérification complète : images, description, dates, lieu, tarifs, catégorie, organisateur. */
+function VerificationPanel({ row }: { row: PendingEventRow }) {
+  const history = useEventValidationHistory(row.id);
+  const tickets = row.ticket_types ?? [];
+  return (
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="min-w-0 space-y-3">
+        {row.image_url ? (
+          <img
+            src={row.image_url}
+            alt={`Affiche ${row.title}`}
+            className="aspect-[21/9] w-full rounded-xl border border-zinc-200 object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <p className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-3 text-xs text-zinc-500">
+            Aucune affiche fournie — à demander à l’organisateur si besoin.
+          </p>
+        )}
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Description</p>
+          <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-zinc-700">
+            {row.description?.trim() ? row.description : '— Aucune description —'}
+          </p>
+        </div>
+        <dl className="grid grid-cols-2 gap-2 text-xs">
+          <div className="rounded-lg bg-zinc-50 p-2.5">
+            <dt className="font-bold uppercase tracking-wider text-zinc-400 text-[10px]">Dates</dt>
+            <dd className="mt-0.5 tabular-nums text-zinc-700">
+              {formatDate(row.starts_at)}
+              {row.ends_at ? ` → ${formatDate(row.ends_at)}` : ''}
+            </dd>
+          </div>
+          <div className="rounded-lg bg-zinc-50 p-2.5">
+            <dt className="font-bold uppercase tracking-wider text-zinc-400 text-[10px]">Lieu</dt>
+            <dd className="mt-0.5 text-zinc-700">
+              {row.venue}, {row.city}
+              {row.address ? ` · ${row.address}` : ''}
+            </dd>
+          </div>
+          <div className="rounded-lg bg-zinc-50 p-2.5">
+            <dt className="font-bold uppercase tracking-wider text-zinc-400 text-[10px]">Catégorie</dt>
+            <dd className="mt-0.5 text-zinc-700">{row.category?.name ?? '— Aucune —'}</dd>
+          </div>
+          <div className="rounded-lg bg-zinc-50 p-2.5">
+            <dt className="font-bold uppercase tracking-wider text-zinc-400 text-[10px]">Organisateur</dt>
+            <dd className="mt-0.5 text-zinc-700">
+              {row.organizer ?? '—'} · {row.partner?.name ?? 'Giga Vibe Event'}
+            </dd>
+          </div>
+        </dl>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+            Tarifs ({tickets.length})
+          </p>
+          {tickets.length === 0 ? (
+            <p className="mt-1 text-xs text-zinc-500">Aucun tarif défini.</p>
+          ) : (
+            <ul className="mt-1.5 space-y-1.5">
+              {tickets.map((t) => (
+                <li
+                  key={t.id}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-zinc-100 bg-white px-2.5 py-1.5 text-xs"
+                >
+                  <span className="min-w-0 truncate font-medium text-zinc-800">{t.name}</span>
+                  <span className="shrink-0 tabular-nums text-zinc-500">
+                    {formatAr(t.price)} · {t.sold}/{t.quantity}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {row.review_note && (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs leading-relaxed text-amber-900">
+            <strong>Dernier motif envoyé :</strong> « {row.review_note} »
+          </p>
+        )}
+      </div>
+      <div className="min-w-0 rounded-xl border border-zinc-200 bg-white p-3">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+          Historique des validations
+        </p>
+        <div className="mt-2">
+          {history.isPending ? (
+            <p className="text-xs text-zinc-500">Chargement…</p>
+          ) : history.isError ? (
+            <p className="text-xs text-red-600">Historique illisible.</p>
+          ) : (
+            <ValidationHistoryTimeline history={history.data ?? []} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
- * File de modération propulsée par TanStack Table :
- * recherche, filtre statut, tri, pagination pro. Les actions de modération
- * (approuver / modifs / refuser / republier / suspendre) restent
- * contextuelles au statut, avec éditeur de note intégré (ligne dépliée).
+ * File de modération : recherche, filtre statut, tri, pagination.
+ * Vérification complète dépliable + motif obligatoire (refus/modifs/suspension)
+ * + historique des validations.
  */
 export function ValidationsTable({
   data,
   actingId,
   noteFor,
+  noteDecision,
   note,
   onNoteChange,
   onNoteOpen,
@@ -88,14 +192,17 @@ export function ValidationsTable({
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 8 });
+  const [detailFor, setDetailFor] = useState<string | null>(null);
 
   const statusFilter = (columnFilters.find((f) => f.id === 'status')?.value as string) ?? '';
 
-  // La note ouverte déplie sa ligne ; la refermer replie.
-  const expanded: ExpandedState = useMemo(
-    () => (noteFor ? { [noteFor]: true } : {}),
-    [noteFor],
-  );
+  // Ligne dépliée = détail de vérification OU éditeur de motif.
+  const expanded: ExpandedState = useMemo(() => {
+    const ids: Record<string, boolean> = {};
+    if (detailFor) ids[detailFor] = true;
+    if (noteFor) ids[noteFor] = true;
+    return ids;
+  }, [detailFor, noteFor]);
 
   useEffect(() => {
     setPagination((p) => ({ ...p, pageIndex: 0 }));
@@ -150,8 +257,26 @@ export function ValidationsTable({
         cell: (info) => {
           const row = info.row.original;
           const busy = actingId === row.id;
+          const open = detailFor === row.id || noteFor === row.id;
           return (
             <span className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                title={open ? 'Masquer la vérification' : 'Vérifier (détails + historique)'}
+                aria-label={`${open ? 'Masquer' : 'Vérifier'} ${row.title}`}
+                aria-expanded={open}
+                onClick={() => {
+                  onNoteClose();
+                  setDetailFor((d) => (d === row.id ? null : row.id));
+                }}
+                className={picto}
+              >
+                {open ? (
+                  <ChevronDown className="size-4" aria-hidden />
+                ) : (
+                  <Eye className="size-4 transition group-hover:scale-110" aria-hidden />
+                )}
+              </button>
               <Link
                 to={`/events/${row.slug}`}
                 title="Voir la page publique"
@@ -170,26 +295,37 @@ export function ValidationsTable({
               </Link>
               {row.status === 'pending_review' && (
                 <>
-                  <Button size="sm" loading={busy} onClick={() => onDecide(row.id, 'approve')}>
+                  <Button size="sm" loading={busy && !noteFor} onClick={() => onDecide(row.id, 'approve')}>
                     <Check className="size-4" aria-hidden /> Approuver
                   </Button>
                   <Button
                     size="sm"
                     variant="secondary"
                     disabled={busy}
-                    onClick={() => (noteFor === row.id ? onNoteClose() : onNoteOpen(row.id))}
+                    onClick={() => {
+                      setDetailFor(row.id);
+                      onNoteOpen(row.id, 'request_changes');
+                    }}
                   >
                     <Pencil className="size-4" aria-hidden /> Modifs
                   </Button>
                   <Button
                     size="sm"
                     variant="danger"
-                    loading={busy}
-                    onClick={() => onDecide(row.id, 'refuse')}
+                    disabled={busy}
+                    onClick={() => {
+                      setDetailFor(row.id);
+                      onNoteOpen(row.id, 'refuse');
+                    }}
                   >
                     <X className="size-4" aria-hidden /> Refuser
                   </Button>
                 </>
+              )}
+              {row.status === 'changes_requested' && (
+                <Button size="sm" loading={busy && !noteFor} onClick={() => onDecide(row.id, 'approve')}>
+                  <Check className="size-4" aria-hidden /> Approuver
+                </Button>
               )}
               {row.status === 'suspended' && (
                 <Button size="sm" variant="secondary" loading={busy} onClick={() => onDecide(row.id, 'reactivate')}>
@@ -197,7 +333,15 @@ export function ValidationsTable({
                 </Button>
               )}
               {row.status === 'published' && (
-                <Button size="sm" variant="secondary" loading={busy} onClick={() => onDecide(row.id, 'suspend')}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => {
+                    setDetailFor(row.id);
+                    onNoteOpen(row.id, 'suspend');
+                  }}
+                >
                   <Ban className="size-4" aria-hidden /> Suspendre
                 </Button>
               )}
@@ -206,7 +350,7 @@ export function ValidationsTable({
         },
       }),
     ],
-    [actingId, noteFor, onDecide, onNoteClose, onNoteOpen, picto],
+    [actingId, detailFor, noteFor, onDecide, onNoteClose, onNoteOpen, picto],
   );
 
   const table = useReactTable({
@@ -239,14 +383,12 @@ export function ValidationsTable({
   const canNext = table.getCanNextPage();
   const currentPage = pagination.pageIndex + 1;
 
-  // Remonte les lignes filtrées au parent (KPI synchronisés avec les filtres).
   const filteredKey = table.getFilteredRowModel().rows.map((r) => r.original.id).join(',');
   useEffect(() => {
     onFilteredChange?.(table.getFilteredRowModel().rows.map((r) => r.original));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredKey]);
 
-  /** Numéros affichés : 1 … (p-1) p (p+1) … N */
   const pageItems: (number | '…')[] = (() => {
     const items: (number | '…')[] = [];
     for (let p = 1; p <= pageCount; p++) {
@@ -268,9 +410,19 @@ export function ValidationsTable({
       enabled ? 'hover:bg-zinc-100 hover:text-zinc-900' : 'cursor-not-allowed opacity-40',
     );
 
+  const noteRequired = noteDecision ? moderationNoteRequired(noteDecision) : false;
+  const noteValid = !noteRequired || note.trim().length >= 10;
+
+  const decisionLabels: Record<ModerationDecision, string> = {
+    approve: 'Approuver',
+    refuse: 'Refuser',
+    request_changes: 'Demander des corrections',
+    suspend: 'Suspendre',
+    reactivate: 'Republier',
+  };
+
   return (
     <div className="space-y-3">
-      {/* Barre d'outils */}
       <div className="flex flex-wrap items-center gap-2">
         <label className="relative w-full flex-1 sm:min-w-52 sm:max-w-xs">
           <span className="sr-only">Rechercher un événement</span>
@@ -313,7 +465,6 @@ export function ValidationsTable({
         </p>
       </div>
 
-      {/* Tableau */}
       <div className="max-w-full overflow-x-auto rounded-xl border border-zinc-200 bg-white">
         <table className="w-full min-w-[880px] text-left text-sm">
           <caption className="sr-only">File de modération des événements</caption>
@@ -365,30 +516,41 @@ export function ValidationsTable({
                   ))}
                 </tr>
                 {row.getIsExpanded() && (
-                  <tr key={`${row.id}-note`}>
+                  <tr key={`${row.id}-detail`}>
                     <td colSpan={columns.length} className="bg-zinc-50/70 px-4 py-3">
-                      <div className="space-y-2 rounded-xl border border-zinc-200 bg-white p-3">
-                        <Textarea
-                          label="Message au partenaire"
-                          rows={2}
-                          placeholder="Ex. : ajoutez l’heure de fin et une affiche en meilleure résolution…"
-                          value={note}
-                          onChange={(ev) => onNoteChange(ev.target.value)}
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            loading={actingId === row.original.id}
-                            disabled={!note.trim()}
-                            onClick={() => onDecide(row.original.id, 'request_changes', note.trim())}
-                          >
-                            Envoyer la demande
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={onNoteClose}>
-                            Annuler
-                          </Button>
-                        </div>
+                      <div className="space-y-3 rounded-xl border border-zinc-200 bg-white p-3 md:p-4">
+                        <VerificationPanel row={row.original} />
+                        {noteFor === row.original.id && noteDecision && (
+                          <div className="space-y-2 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3">
+                            <Textarea
+                              label={`Motif — ${decisionLabels[noteDecision]} (obligatoire, visible par l’organisateur)`}
+                              rows={3}
+                              placeholder="Ex. : l’affiche est illisible, ajoutez les horaires et un tarif étudiant…"
+                              value={note}
+                              onChange={(ev) => onNoteChange(ev.target.value)}
+                            />
+                            {!noteValid && (
+                              <p role="alert" className="text-xs text-red-600">
+                                Motif obligatoire : 10 caractères minimum pour que l’organisateur
+                                puisse corriger.
+                              </p>
+                            )}
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant={noteDecision === 'refuse' ? 'danger' : 'secondary'}
+                                loading={actingId === row.original.id}
+                                disabled={!noteValid}
+                                onClick={() => onDecide(row.original.id, noteDecision, note.trim())}
+                              >
+                                Confirmer — {decisionLabels[noteDecision]}
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={onNoteClose}>
+                                Annuler
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -420,7 +582,6 @@ export function ValidationsTable({
         </table>
       </div>
 
-      {/* Pagination pro */}
       <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className="flex items-center gap-2 text-xs text-zinc-500">

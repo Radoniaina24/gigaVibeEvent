@@ -49,7 +49,8 @@ export function PartnerEventsPage() {
             )}
           </h1>
           <p className="mt-0.5 text-sm text-zinc-500">
-            Brouillons, validations en cours et événements publiés.
+            Brouillons, validations en cours, motifs de rejet, événements publiés et ventes.
+            La publication reste effectuée par Giga Vibe Event après validation.
           </p>
         </div>
         <Link to="/partner/events/new">

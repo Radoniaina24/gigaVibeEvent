@@ -31,6 +31,8 @@ supabase/migrations/0005_platform_v2.sql  -- CDC v2 étape 1 : rôles, partners,
 supabase/migrations/0006_partner_assets.sql -- CDC v2 étape 2 : bucket `partner-assets` isolé
 supabase/migrations/0007_manual_payment.sql  -- CDC v2 étape 4 : paiement manuel + validation GVE/partenaire
 supabase/migrations/0008_partner_logo_self_update.sql -- CDC v2 étape 5 : le partenaire MAJ son logo (trigger : seul logo_url)
+supabase/migrations/0021_event_validation.sql -- Rôles §1 : review_note + historique validations
+supabase/migrations/0022_event_moderation_rpc.sql -- Rôles §1 : RPC modération/suspension + anti-publication directe
 supabase/seed.sql                      -- données de démonstration (DEV)
 ```
 

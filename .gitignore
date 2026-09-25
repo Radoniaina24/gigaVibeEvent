@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 .env
+# Comptes démo (mots de passe en clair — jamais commité)
+comptes-demo.txt
 
 # Editor directories and files
 .vscode/*

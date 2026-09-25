@@ -19,10 +19,12 @@ import {
   useDeletePartnerTicketType,
   useMyPartner,
   usePartnerEvent,
+  usePartnerEventHistory,
   useSubmitEventForReview,
   useUpdatePartnerEvent,
   useUpdatePartnerTicketType,
 } from '../../features/partner/hooks';
+import { ValidationHistoryTimeline } from '../../components/admin/ValidationHistory';
 import { TicketTypesManager } from '../../features/admin/components/TicketTypesManager';
 import { useCategories } from '../../hooks/useEvents';
 import { eventSchema, type EventInput, type TicketTypeInput } from '../../schemas';
@@ -41,7 +43,8 @@ import { ErrorState } from '../../components/ui/States';
 import { PartnerEventFormSkeleton } from './PartnerSkeletons';
 
 const EDITABLE = ['draft', 'pending_review', 'changes_requested', 'cancelled'];
-const SUBMITTABLE = ['draft', 'changes_requested'];
+/** Soumettable : brouillon, corrections demandées, refusé (correction + renvoi). */
+const SUBMITTABLE = ['draft', 'changes_requested', 'cancelled'];
 
 function toLocalInput(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -92,6 +95,7 @@ export function PartnerEventFormPage() {
   const navigate = useNavigate();
   const partner = useMyPartner();
   const { data: existing, isPending, isError, refetch } = usePartnerEvent(id);
+  const history = usePartnerEventHistory(isNew ? null : (id ?? null));
   const categories = useCategories();
   const createEvent = useCreatePartnerEvent();
   const updateEvent = useUpdatePartnerEvent();
@@ -326,6 +330,49 @@ export function PartnerEventFormPage() {
       </div>
 
       {partner.data && <PartnerStatusBanner status={partner.data.status} />}
+
+      {!isNew && existing && existing.review_note?.trim() &&
+        ['changes_requested', 'cancelled', 'suspended'].includes(existing.status) && (
+          <div
+            role="alert"
+            className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900"
+          >
+            <p className="font-bold">
+              {existing.status === 'changes_requested'
+                ? 'Corrections demandées par Giga Vibe Event'
+                : existing.status === 'cancelled'
+                  ? 'Événement refusé — motif ci-dessous'
+                  : 'Événement suspendu — motif ci-dessous'}
+            </p>
+            <p className="mt-1">« {existing.review_note} »</p>
+            <p className="mt-2 text-xs text-amber-800">
+              Corrigez la fiche puis renvoyez-la avec « Soumettre pour validation ».
+            </p>
+          </div>
+        )}
+
+      {!isNew && existing && existing.status === 'pending_review' && (
+        <p
+          role="status"
+          className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"
+        >
+          <strong>En cours de validation</strong> — Giga Vibe Event vérifie images,
+          description, dates, lieu, tarifs, catégorie et organisateur. Vous serez notifié
+          en cas de correction demandée.
+        </p>
+      )}
+
+      {!isNew && history.data && history.data.length > 0 && (
+        <Card className="p-4 md:p-5">
+          <h2 className="text-sm font-bold">Suivi de validation</h2>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            Statuts, motifs de rejet et corrections — même historique que l’administration.
+          </p>
+          <div className="mt-3">
+            <ValidationHistoryTimeline history={history.data} />
+          </div>
+        </Card>
+      )}
 
       {readOnly && (
         <p role="status" className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">

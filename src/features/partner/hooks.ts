@@ -224,9 +224,13 @@ export function useUpdatePartnerEvent() {
   });
 }
 
-const SUBMITTABLE = ['draft', 'changes_requested'] as const;
+const SUBMITTABLE = ['draft', 'changes_requested', 'cancelled'] as const;
 
-/** Soumission pour validation GVE : draft/changes_requested → pending_review (§13). */
+/**
+ * Soumission pour validation GVE : draft/changes_requested/cancelled → pending_review.
+ * Rôles §1 organisateur : soumettre, corriger un rejet puis renvoyer.
+ * Tente la RPC submit_event_for_review (0022), fallback direct + historique.
+ */
 export function useSubmitEventForReview() {
   const qc = useQueryClient();
   const { profile } = useAuth();
@@ -242,16 +246,75 @@ export function useSubmitEventForReview() {
       if (curError) throw curError;
       const row = current as { status: string; title: string };
       if (!(SUBMITTABLE as readonly string[]).includes(row.status)) {
-        throw new Error('Seuls les brouillons peuvent être soumis pour validation.');
+        throw new Error('Seuls les brouillons, corrections et événements refusés peuvent être soumis.');
       }
+      // 1) RPC sécurisée (statut + historique atomiques).
+      try {
+        const { data, error } = await supabase.rpc('submit_event_for_review', {
+          p_event_id: id,
+        });
+        if (!error) {
+          const res = data as { ok?: boolean; reason?: string } | null;
+          if (res?.ok) {
+            await logAudit('event.submitted', 'events', id, { title: row.title });
+            return;
+          }
+          if (res?.reason === 'bad_status') {
+            throw new Error('Seuls les brouillons, corrections et événements refusés peuvent être soumis.');
+          }
+          if (res?.reason && res.reason !== 'not_found') {
+            throw new Error(`Soumission impossible (${res.reason}).`);
+          }
+        }
+      } catch (err) {
+        if (err instanceof Error && /peuvent être soumis|impossible \(/i.test(err.message)) throw err;
+        console.warn('[partner-submit] RPC indisponible, fallback direct :', err);
+      }
+      // 2) Fallback direct (RLS + trigger 0022 autorisent draft/changes/cancelled → pending).
       const { error } = await supabase
         .from('events')
         .update({ status: 'pending_review', updated_at: new Date().toISOString() })
         .eq('id', id);
       if (error) throw error;
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        await supabase.from('event_validation_history').insert({
+          event_id: id,
+          from_status: row.status,
+          to_status: 'pending_review',
+          decision: 'submit',
+          created_by: user?.id ?? null,
+        });
+      } catch (histErr) {
+        console.warn('[partner-submit] historique non persisté :', histErr);
+      }
       await logAudit('event.submitted', 'events', id, { title: row.title });
     },
     onSuccess: () => invalidatePartner(qc),
+  });
+}
+
+/** Historique des validations visible par l'organisateur (motifs de rejet inclus). */
+export function usePartnerEventHistory(eventId: string | null | undefined) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: [...partnerKeys.all, 'validation-history', eventId ?? ''],
+    enabled: Boolean(eventId && profile?.partner_id),
+    staleTime: 15_000,
+    queryFn: async () => {
+      if (!eventId) return [];
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from('event_validation_history')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []) as import('../../types/database').EventValidationHistory[];
+    },
   });
 }
 

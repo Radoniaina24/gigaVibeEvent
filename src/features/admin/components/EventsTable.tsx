@@ -54,14 +54,14 @@ interface EventsTableProps {
   actionPending?: boolean;
   onDuplicate?: (id: string) => void;
   onDelete?: (event: AdminEventRow | PartnerEventRow) => void;
-  /** Si fourni : bouton « Soumettre » pour les brouillons / modifs demandées. */
+  /** Si fourni : bouton « Soumettre » pour brouillons / corrections / refusés. */
   onSubmit?: (id: string) => void;
   submittingId?: string | null;
 }
 
 const PAGE_SIZES = [8, 10, 15, 25] as const;
 
-const SUBMITTABLE = ['draft', 'changes_requested'];
+const SUBMITTABLE = ['draft', 'changes_requested', 'cancelled'];
 
 function stockOf(e: AdminEventRow | PartnerEventRow): { sold: number; total: number } {
   return {
@@ -106,8 +106,13 @@ export function EventsTable({
         header: 'Événement',
         cell: (info) => {
           const row = info.row.original;
+          const reviewNote =
+            'review_note' in row && typeof row.review_note === 'string' ? row.review_note : null;
+          const showNote =
+            Boolean(reviewNote?.trim()) &&
+            ['changes_requested', 'cancelled', 'suspended'].includes(row.status);
           return (
-            <span className="flex min-w-0 items-center gap-2.5">
+            <span className="flex min-w-0 items-start gap-2.5">
               {row.image_url ? (
                 <img
                   src={row.image_url}
@@ -129,6 +134,14 @@ export function EventsTable({
                 <span className="block max-w-64 truncate text-xs text-zinc-500">
                   {row.category?.name ?? '—'} · {row.venue}, {row.city}
                 </span>
+                {showNote && (
+                  <span
+                    className="mt-1 block max-w-64 truncate rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] leading-relaxed text-amber-900"
+                    title={reviewNote ?? ''}
+                  >
+                    Motif GVE : {reviewNote}
+                  </span>
+                )}
               </span>
             </span>
           );

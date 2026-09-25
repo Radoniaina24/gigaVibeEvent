@@ -1180,12 +1180,21 @@ export function useLinkPartnerAccount() {
   });
 }
 
-// ---------- Modération des événements (CDC v2 §13, §26) ----------
+// ---------- Modération des événements (Rôles §1 : admin) ----------
 
 export interface PendingEventRow extends Event {
   partner: Pick<Partner, 'id' | 'name'> | null;
+  category: Pick<Category, 'id' | 'name' | 'slug'> | null;
+  ticket_types: Pick<TicketType, 'id' | 'name' | 'price' | 'quantity' | 'sold'>[];
   tickets_sold: number;
 }
+
+export type { ModerationDecision } from './moderation';
+import {
+  DECISION_STATUS,
+  validateModerationNote,
+  type ModerationDecision as ModerationDecisionType,
+} from './moderation';
 
 const REVIEW_SOURCE = ['pending_review', 'changes_requested', 'suspended', 'published'] as const;
 
@@ -1198,41 +1207,31 @@ export function useModerationQueue() {
       const supabase = getSupabase();
       const { data, error } = await supabase
         .from('events')
-        .select('*, partner:partners(id,name), ticket_types(quantity,sold)')
+        .select(
+          '*, partner:partners(id,name), category:categories(id,name,slug), ticket_types(id,name,price,quantity,sold)',
+        )
         .in('status', [...REVIEW_SOURCE])
         .order('updated_at', { ascending: false })
         .limit(100);
       if (error) throw error;
       return ((data ?? []) as (Event & {
         partner: PendingEventRow['partner'];
-        ticket_types: { quantity: number; sold: number }[];
-      })[]).map((e) => {
-        const { ticket_types: types, ...rest } = e;
-        return {
-          ...rest,
-          tickets_sold: types.reduce((s, t) => s + t.sold, 0),
-        };
-      });
+        category: PendingEventRow['category'];
+        ticket_types: PendingEventRow['ticket_types'];
+      })[]).map((e) => ({
+        ...e,
+        tickets_sold: (e.ticket_types ?? []).reduce((s, t) => s + t.sold, 0),
+      }));
     },
   });
 }
 
-export type ModerationDecision =
-  | 'approve'
-  | 'refuse'
-  | 'request_changes'
-  | 'suspend'
-  | 'reactivate';
-
-const DECISION_STATUS: Record<ModerationDecision, Event['status']> = {
-  approve: 'published',
-  refuse: 'cancelled',
-  request_changes: 'changes_requested',
-  suspend: 'suspended',
-  reactivate: 'published',
-};
-
-/** Approuver / refuser / demander des modifs / suspendre / réactiver (§13, §26). */
+/**
+ * Approuver / refuser / demander des modifs / suspendre / réactiver.
+ * - Motif obligatoire (refus, modifs, suspension) pour informer l'organisateur.
+ * - Persiste review_note + reviewed_at/by et l'historique (0021/0022).
+ * - Tente la RPC atomique moderate_event, avec fallback direct (ancien schéma).
+ */
 export function useModerateEvent() {
   const qc = useQueryClient();
   return useMutation({
@@ -1242,18 +1241,100 @@ export function useModerateEvent() {
       note,
     }: {
       id: string;
-      decision: ModerationDecision;
+      decision: ModerationDecisionType;
       note?: string;
     }): Promise<void> => {
+      const noteError = validateModerationNote(decision, note);
+      if (noteError) throw new Error(noteError);
       const supabase = getSupabase();
+      const cleanNote = note?.trim() ? note.trim() : null;
+
+      // 1) Voie principale : RPC sécurisée 0022 (statut + motif + historique).
+      try {
+        const { data, error } = await supabase.rpc('moderate_event', {
+          p_event_id: id,
+          p_decision: decision,
+          p_note: cleanNote,
+        });
+        if (!error) {
+          const res = data as { ok?: boolean; reason?: string } | null;
+          if (res?.ok) {
+            await qc.invalidateQueries({ queryKey: ['admin', 'moderation'] });
+            await qc.invalidateQueries({ queryKey: ['validation-history'] });
+            return;
+          }
+          if (res?.reason === 'note_required') {
+            throw new Error('Un motif détaillé est obligatoire pour cette décision.');
+          }
+          if (res?.reason && res.reason !== 'not_found') {
+            throw new Error(`Modération impossible (${res.reason}).`);
+          }
+          // not_found ou RPC absente -> fallback ci-dessous.
+        }
+      } catch (err) {
+        if (err instanceof Error && /obligatoire|impossible/i.test(err.message)) throw err;
+        // RPC manquante (migration 0022 non appliquée) -> fallback direct.
+        console.warn('[moderation] RPC indisponible, fallback direct :', err);
+      }
+
+      // 2) Fallback : update direct + historique (RLS admin).
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const { data: current, error: curError } = await supabase
+        .from('events')
+        .select('status')
+        .eq('id', id)
+        .single();
+      if (curError) throw curError;
+      const fromStatus = (current as { status: string }).status;
       const { error } = await supabase
         .from('events')
-        .update({ status: DECISION_STATUS[decision], updated_at: new Date().toISOString() })
+        .update({
+          status: DECISION_STATUS[decision],
+          review_note: cleanNote,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: user?.id ?? null,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', id);
       if (error) throw error;
-      await logAudit(`event.${decision}`, 'events', id, note ? { note } : undefined);
+      try {
+        await supabase.from('event_validation_history').insert({
+          event_id: id,
+          from_status: fromStatus,
+          to_status: DECISION_STATUS[decision],
+          decision,
+          note: cleanNote,
+          created_by: user?.id ?? null,
+        });
+      } catch (histErr) {
+        console.warn('[moderation] historique non persisté :', histErr);
+      }
+      await logAudit(`event.${decision}`, 'events', id, cleanNote ? { note: cleanNote } : undefined);
     },
     onSuccess: () => invalidateAdmin(qc),
+  });
+}
+
+/** Historique des validations d'un événement (admin : tout, RLS). */
+export function useEventValidationHistory(eventId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['validation-history', eventId ?? ''],
+    enabled: Boolean(eventId),
+    staleTime: 15_000,
+    queryFn: async () => {
+      if (!eventId) return [];
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from('event_validation_history')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []) as import('../../types/database').EventValidationHistory[];
+    },
   });
 }
 

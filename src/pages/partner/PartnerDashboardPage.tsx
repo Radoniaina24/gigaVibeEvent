@@ -250,18 +250,39 @@ export function PartnerDashboardPage() {
               </CardContent>
             </Card>
 
-            {/* Paiements */}
+            {/* Paiements / ventes */}
             <Card>
-              <CardHeader>
-                <CardTitle>Paiements en attente</CardTitle>
-                <CardDescription>Commandes clients non encore confirmées.</CardDescription>
+              <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                <div>
+                  <CardTitle>Ventes et billets</CardTitle>
+                  <CardDescription>Commandes clients et paiements de vos événements.</CardDescription>
+                </div>
+                <Link
+                  to="/partner/payments"
+                  className="inline-flex shrink-0 items-center gap-0.5 text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
+                >
+                  Paiements <ArrowUpRight className="size-4" aria-hidden />
+                </Link>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold tabular-nums">{stats.data.pendingPayments}</div>
                 <p className="mt-1 text-xs text-zinc-500">
-                  Selon le réglage de la plateforme, la validation est effectuée par
-                  Giga Vibe Event, par vous, ou automatiquement.
+                  Paiements à vérifier · {stats.data.ticketsSold} billets vendus ·{' '}
+                  {formatAr(stats.data.revenue)} encaissés. La validation est effectuée par
+                  Giga Vibe Event, par vous, ou automatiquement selon le réglage.
                 </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link to="/partner/payments">
+                    <Button size="sm" variant="secondary">
+                      Voir les ventes
+                    </Button>
+                  </Link>
+                  <Link to="/partner/events">
+                    <Button size="sm" variant="secondary">
+                      Événements publiés
+                    </Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           </div>

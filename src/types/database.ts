@@ -139,6 +139,30 @@ export interface Event {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** Modération (migration 0021) : motif visible par l'organisateur. */
+  review_note: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+}
+
+export type ValidationDecision =
+  | 'submit'
+  | 'approve'
+  | 'refuse'
+  | 'request_changes'
+  | 'suspend'
+  | 'reactivate';
+
+/** Ligne de public.event_validation_history (migration 0021). */
+export interface EventValidationHistory {
+  id: string;
+  event_id: string;
+  from_status: string | null;
+  to_status: string;
+  decision: ValidationDecision;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
 }
 
 export interface TicketType {
@@ -244,6 +268,7 @@ export interface Database {
       audit_logs: { Row: AuditLog; Insert: Partial<AuditLog>; Update: Partial<AuditLog>; Relationships: [] };
       partners: { Row: Partner; Insert: Partial<Partner>; Update: Partial<Partner>; Relationships: [] };
       platform_settings: { Row: PlatformSetting; Insert: Partial<PlatformSetting>; Update: Partial<PlatformSetting>; Relationships: [] };
+      event_validation_history: { Row: EventValidationHistory; Insert: Partial<EventValidationHistory>; Update: Partial<EventValidationHistory>; Relationships: [] };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

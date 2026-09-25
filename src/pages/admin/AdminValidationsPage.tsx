@@ -3,9 +3,9 @@ import { BadgeCheck, Ban, Clock3, Pencil } from 'lucide-react';
 import {
   useModerateEvent,
   useModerationQueue,
-  type ModerationDecision,
   type PendingEventRow,
 } from '../../features/admin/hooks';
+import type { ModerationDecision } from '../../features/admin/moderation';
 import { ValidationsTable } from '../../features/admin/components/ValidationsTable';
 import { KpiCard } from '../../components/admin/StatsCard';
 import { ValidationsPageSkeleton } from '../../components/admin/AdminSkeletons';
@@ -17,6 +17,7 @@ export function AdminValidationsPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
   const [noteFor, setNoteFor] = useState<string | null>(null);
+  const [noteDecision, setNoteDecision] = useState<ModerationDecision | null>(null);
   const [note, setNote] = useState('');
   /** Lignes visibles après filtres du tableau (KPI synchronisés). */
   const [visibleRows, setVisibleRows] = useState<PendingEventRow[] | null>(null);
@@ -41,6 +42,7 @@ export function AdminValidationsPage() {
     try {
       await moderate.mutateAsync({ id, decision, note: noteText || undefined });
       setNoteFor(null);
+      setNoteDecision(null);
       setNote('');
     } catch (err) {
       setServerError(err instanceof Error ? err.message : 'Action impossible.');
@@ -54,7 +56,9 @@ export function AdminValidationsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Validations</h1>
         <p className="text-sm text-zinc-500">
-          Approuvez, refusez ou suspendez les événements partenaires.
+          Vérifiez images, descriptions, dates, lieux, tarifs, catégories et organisateur.
+          Approuvez pour publier, refusez ou demandez des corrections avec un motif obligatoire,
+          suspendez si nécessaire. L’historique est consultable dans chaque fiche.
         </p>
       </div>
 
@@ -107,14 +111,17 @@ export function AdminValidationsPage() {
             data={data}
             actingId={actingId}
             noteFor={noteFor}
+            noteDecision={noteDecision}
             note={note}
             onNoteChange={setNote}
-            onNoteOpen={(id) => {
+            onNoteOpen={(id, decision) => {
               setNoteFor(id);
+              setNoteDecision(decision);
               setNote('');
             }}
             onNoteClose={() => {
               setNoteFor(null);
+              setNoteDecision(null);
               setNote('');
             }}
             onDecide={act}
