@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
+  AppWindow,
   AtSign,
   Banknote,
   Bell,
@@ -8,12 +9,16 @@ import {
   Calculator,
   Check,
   Coins,
+  Copy,
+  Database,
   FileText,
+  FlaskConical,
   Globe,
   Hash,
   Image as ImageIcon,
   Info,
   KeyRound,
+  Link2,
   Lock,
   Mail,
   Megaphone,
@@ -37,14 +42,13 @@ import {
   type ConfigPaymentMethodId,
 } from '../../hooks/usePlatformSettings';
 import { useUpdatePlatformSetting } from '../../features/admin/hooks';
-import { PAYMENT_METHODS } from '../../features/payments/providers';
+import { PAYMENT_METHODS, formatPhoneDisplay } from '../../features/payments/providers';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Fields';
 import { OperatorLogo } from '../../components/orders/OperatorLogo';
-import { PaymentMethodBadge } from '../../components/orders/PaymentMethodBadge';
 import { cn, formatAr } from '../../lib/utils';
 
 const METHOD_SHORT: Record<ConfigPaymentMethodId, 'yas' | 'orange' | 'airtel'> = {
@@ -361,6 +365,21 @@ function PaymentMethodsCard() {
   };
 
   const activeCount = draft ? Object.values(draft).filter((d) => d.enabled).length : 0;
+  const [copiedNum, setCopiedNum] = useState<string | null>(null);
+
+  const copyNum = async (id: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedNum(id);
+      window.setTimeout(() => setCopiedNum((c) => (c === id ? null : c)), 2000);
+    } catch {
+      /* presse-papiers indisponible */
+    }
+  };
+
+  const configuredCount = draft
+    ? PAYMENT_METHODS.filter((m) => draft[m.id]?.number.trim()).length
+    : 0;
 
   return (
     <Card className="p-4 sm:p-6">
@@ -372,7 +391,10 @@ function PaymentMethodsCard() {
           tone="bg-gradient-to-br from-brand-600 to-brand-800 shadow-brand-600/30"
         />
         {draft && (
-          <Badge tone={activeCount > 0 ? 'success' : 'warning'}>{activeCount}/3 actifs</Badge>
+          <div className="flex flex-wrap gap-1.5">
+            <Badge tone={activeCount > 0 ? 'success' : 'warning'}>{activeCount}/3 actifs</Badge>
+            <Badge tone={configuredCount === 3 ? 'success' : 'neutral'}>{configuredCount}/3 configurés</Badge>
+          </div>
         )}
       </div>
       {settings.isPending || !draft ? (
@@ -394,66 +416,100 @@ function PaymentMethodsCard() {
           ))}
         </div>
       ) : (
-        <div className="mt-4 space-y-3">
-          {PAYMENT_METHODS.map((meta) => {
-            const d = draft[meta.id];
-            if (!d) return null;
-            return (
-              <div
-                key={meta.id}
-                className={cn(
-                  'rounded-2xl border p-4 transition',
-                  d.enabled ? 'border-zinc-200 bg-white' : 'border-dashed border-zinc-300 bg-zinc-50/60',
-                )}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2.5">
+        <div className="mt-4 space-y-4">
+          <div className="grid items-start gap-3 lg:grid-cols-3">
+            {PAYMENT_METHODS.map((meta) => {
+              const d = draft[meta.id];
+              if (!d) return null;
+              const complete = (d.number.trim() ? 1 : 0) + (d.name.trim() ? 1 : 0);
+              const formatted = d.number.trim() ? formatPhoneDisplay(d.number.trim()) : '';
+              return (
+                <div
+                  key={meta.id}
+                  className={cn(
+                    'flex flex-col rounded-2xl border p-4 transition',
+                    d.enabled ? 'border-zinc-200 bg-white shadow-sm' : 'border-dashed border-zinc-300 bg-zinc-50/60',
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
                     <span
                       aria-hidden
-                      className="flex h-10 shrink-0 items-center justify-center rounded-xl bg-white px-2 shadow-sm ring-1 ring-zinc-200"
+                      className="flex h-11 min-w-24 shrink-0 items-center justify-center rounded-xl bg-white px-2.5 shadow-sm ring-1 ring-zinc-200"
                     >
                       <OperatorLogo
                         src={meta.logo}
                         label={meta.label}
                         initial={meta.brandInitial}
                         bg={meta.brandBg}
-                        imgClassName="max-h-7 w-auto max-w-14 object-contain"
+                        imgClassName="max-h-8 w-auto max-w-20 object-contain"
                         className="size-7 rounded-lg text-sm"
                       />
                     </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-bold">{meta.label}</span>
-                      <span className="mt-0.5 block">
-                        <PaymentMethodBadge method={meta.id} />
-                      </span>
-                    </span>
+                    <Switch checked={d.enabled} onChange={(v) => patch(meta.id, { enabled: v })} label={`Activer ${meta.label}`} />
                   </div>
-                  <span className="flex shrink-0 items-center gap-2">
-                    <span className={cn('text-xs font-semibold', d.enabled ? 'text-emerald-700' : 'text-zinc-400')}>
+                  <p className="mt-2.5 flex items-center gap-2 text-sm font-black">
+                    {meta.label}
+                    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', d.enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-zinc-200 text-zinc-500')}>
                       {d.enabled ? 'Activé' : 'Coupé'}
                     </span>
-                    <Switch checked={d.enabled} onChange={(v) => patch(meta.id, { enabled: v })} label={`Activer ${meta.label}`} />
-                  </span>
+                  </p>
+                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-zinc-100" aria-hidden>
+                    <div className={cn('h-full rounded-full transition-all', complete === 2 ? 'w-full bg-emerald-500' : complete === 1 ? 'w-1/2 bg-amber-500' : 'w-0 bg-zinc-300')} />
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <Input
+                      label="Numéro marchand"
+                      placeholder="+261 …"
+                      value={d.number}
+                      onChange={(e) => patch(meta.id, { number: e.target.value })}
+                    />
+                    <Input
+                      label="Bénéficiaire"
+                      placeholder="Giga Vibe Event"
+                      value={d.name}
+                      onChange={(e) => patch(meta.id, { name: e.target.value })}
+                    />
+                  </div>
+                  {formatted && (
+                    <div className="mt-2.5 flex items-center justify-between gap-2 rounded-xl bg-zinc-950 px-3 py-2 font-mono text-[11px] text-white">
+                      <span className="truncate" title={formatted}>{formatted}</span>
+                      <button
+                        type="button"
+                        onClick={() => copyNum(meta.id, d.number.trim())}
+                        className="grid size-7 shrink-0 place-items-center rounded-lg text-zinc-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                        aria-label={`Copier le numéro ${meta.label}`}
+                        title="Copier"
+                      >
+                        {copiedNum === meta.id ? <Check className="size-3.5 text-emerald-400" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+                      </button>
+                    </div>
+                  )}
+                  <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">{meta.hint} · {meta.prefixHint}</p>
                 </div>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <Input
-                    label="Numéro marchand"
-                    placeholder="+261 …"
-                    value={d.number}
-                    onChange={(e) => patch(meta.id, { number: e.target.value })}
-                  />
-                  <Input
-                    label="Bénéficiaire"
-                    placeholder="Giga Vibe Event"
-                    value={d.name}
-                    onChange={(e) => patch(meta.id, { name: e.target.value })}
-                  />
-                </div>
-                <p className="mt-2 text-[11px] text-zinc-400">{meta.hint} · {meta.prefixHint}</p>
-              </div>
-            );
-          })}
-          <SaveBar dirty={dirty} saving={saving} onSave={save} />
+              );
+            })}
+          </div>
+
+          {/* Aperçu acheteur */}
+          <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Aperçu tunnel d’achat</p>
+            {PAYMENT_METHODS.filter((m) => draft[m.id]?.enabled && draft[m.id]?.number.trim()).length === 0 ? (
+              <p className="text-xs text-zinc-400">Aucun moyen actif configuré — le tunnel sera vide. Activez et renseignez au moins un numéro.</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {PAYMENT_METHODS.filter((m) => draft[m.id]?.enabled && draft[m.id]?.number.trim()).map((m) => (
+                  <li key={m.id} className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-xs shadow-sm">
+                    <span className="font-bold">{m.label}</span>
+                    <span className="truncate font-mono text-zinc-500" title={draft[m.id].number.trim()}>
+                      {formatPhoneDisplay(draft[m.id].number.trim())} · {draft[m.id].name.trim() || 'Giga Vibe Event'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <SaveBar dirty={dirty} saving={saving} onSave={save} idleText={activeCount > 0 && configuredCount === 3 ? 'Marchands à jour.' : 'Vérifiez les numéros manquants.'} />
           {feedback && <FormFeedback tone={feedback.tone} message={feedback.message} />}
         </div>
       )}
@@ -514,28 +570,66 @@ function OperatorPrefsCard() {
 
   return (
     <Card className="p-4 sm:p-6">
-      <SectionHeader
-        icon={Smartphone}
-        title="Préfixes & instructions opérateurs"
-        description="Préfixes nationaux (contrôle doux) et aide USSD affichée dans le tunnel d’achat."
-        tone="bg-gradient-to-br from-sky-500 to-indigo-600 shadow-sky-600/30"
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionHeader
+          icon={Smartphone}
+          title="Préfixes & instructions opérateurs"
+          description="Préfixes nationaux (contrôle doux) et aide USSD affichée dans le tunnel d’achat."
+          tone="bg-gradient-to-br from-sky-500 to-indigo-600 shadow-sky-600/30"
+        />
+        {draft && (
+          <Badge tone={Object.values(draft).every((d) => d.prefixes.trim()) ? 'success' : 'warning'}>
+            {Object.values(draft).filter((d) => d.prefixes.trim()).length}/3 préfixes
+          </Badge>
+        )}
+      </div>
       {settings.isPending || !draft ? (
         <CardSkeleton lines={3} />
       ) : (
-        <div className="mt-4 space-y-3">
-          {PAYMENT_METHODS.map((meta) => {
-            const d = draft[meta.id];
-            return (
-              <div key={meta.id} className="rounded-2xl border border-zinc-200 p-4">
-                <p className="text-sm font-bold">{meta.label}</p>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <Input label="Préfixes (séparés par virgule)" placeholder="034,038" value={d.prefixes} onChange={(e) => patch(meta.id, { prefixes: e.target.value })} />
-                  <Input label="Instruction USSD / aide" placeholder="Ex. : composez *144#…" value={d.instructions} onChange={(e) => patch(meta.id, { instructions: e.target.value })} />
+        <div className="mt-4 space-y-4">
+          <div className="grid items-start gap-3 lg:grid-cols-3">
+            {PAYMENT_METHODS.map((meta) => {
+              const d = draft[meta.id];
+              const chips = d.prefixes.split(',').map((s) => s.trim()).filter(Boolean);
+              return (
+                <div key={meta.id} className="flex flex-col rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <span aria-hidden className="flex h-10 shrink-0 items-center justify-center rounded-xl bg-white px-2 shadow-sm ring-1 ring-zinc-200">
+                      <OperatorLogo
+                        src={meta.logo}
+                        label={meta.label}
+                        initial={meta.brandInitial}
+                        bg={meta.brandBg}
+                        imgClassName="max-h-8 w-auto max-w-20 object-contain"
+                        className="size-7 rounded-lg text-sm"
+                      />
+                    </span>
+                    <p className="text-sm font-black">{meta.label}</p>
+                  </div>
+                  <div className="mt-3">
+                    <Input label="Préfixes (virgules)" placeholder="034,038" value={d.prefixes} onChange={(e) => patch(meta.id, { prefixes: e.target.value })} />
+                  </div>
+                  <div className="mt-2 flex min-h-7 flex-wrap gap-1.5" aria-live="polite">
+                    {chips.length === 0 ? (
+                      <span className="text-[11px] text-zinc-400">Aucun préfixe — contrôle désactivé.</span>
+                    ) : (
+                      chips.map((c) => (
+                        <span key={c} className="rounded-full bg-zinc-950 px-2.5 py-1 font-mono text-[11px] font-bold text-white">{c}</span>
+                      ))
+                    )}
+                  </div>
+                  <div className="mt-2">
+                    <Input label="Instruction USSD / aide" placeholder="Ex. : composez *144#…" value={d.instructions} onChange={(e) => patch(meta.id, { instructions: e.target.value })} />
+                  </div>
+                  {d.instructions.trim() && (
+                    <p className="mt-2 rounded-xl bg-blue-50 px-3 py-2 text-[11px] leading-relaxed text-blue-900">
+                      Acheteur : « {d.instructions.trim().slice(0, 90)}{d.instructions.trim().length > 90 ? '…' : ''} »
+                    </p>
+                  )}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
           <SaveBar dirty={dirty} saving={saving} onSave={save} />
           {feedback && <FormFeedback tone={feedback.tone} message={feedback.message} />}
         </div>
@@ -1602,62 +1696,133 @@ function ContentSeoTab() {
 /* ------------------------------------------------------------------ */
 
 function SystemTab() {
-  const rows: { label: string; value: string; ok: boolean }[] = [
-    { label: 'Nom de l’application', value: env.appName, ok: true },
-    { label: 'URL publique', value: env.appUrl, ok: true },
-    { label: 'Supabase configuré', value: env.supabaseUrl ?? 'manquant (.env)', ok: Boolean(env.supabaseUrl && env.supabaseAnonKey) },
-    { label: 'Simulation de paiement (DEV)', value: env.enablePaymentSimulation ? 'activée' : 'désactivée', ok: true },
+  const [copied, setCopied] = useState<string | null>(null);
+  const rows: { icon: typeof Settings; label: string; value: string; ok: boolean; hint: string; copyable?: boolean }[] = [
+    { icon: AppWindow, label: 'Application', value: env.appName, ok: true, hint: 'VITE_APP_NAME' },
+    { icon: Link2, label: 'URL publique', value: env.appUrl, ok: true, hint: 'Site URL + redirections auth', copyable: true },
+    { icon: Database, label: 'Supabase', value: env.supabaseUrl ?? 'manquant (.env)', ok: Boolean(env.supabaseUrl && env.supabaseAnonKey), hint: 'ANON uniquement côté web', copyable: Boolean(env.supabaseUrl) },
+    { icon: FlaskConical, label: 'Simulation paiement', value: env.enablePaymentSimulation ? 'activée (DEV)' : 'désactivée', ok: true, hint: 'VITE_ENABLE_PAYMENT_SIMULATION' },
+  ];
+  const okCount = rows.filter((r) => r.ok).length;
+
+  const copy = async (key: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(key);
+      window.setTimeout(() => setCopied((c) => (c === key ? null : c)), 2000);
+    } catch {
+      /* presse-papiers indisponible */
+    }
+  };
+
+  const rules = [
+    { title: 'Billets après validation', text: 'Aucun QR généré sans validation manuelle du transfert.' },
+    { title: 'Secrets côté serveur', text: 'service_role et clés Mobile Money dans les Edge Functions.' },
+    { title: 'Audit total', text: 'Triggers + audit_logs sur chaque action sensible.' },
+    { title: 'Scan Phase 6', text: 'Vérification des billets à l’entrée par QR sécurisé.' },
   ];
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <Card className="p-4 sm:p-6">
-        <SectionHeader
-          icon={Server}
-          title="Configuration"
-          description="État des réglages lus depuis l'environnement."
-          tone="bg-gradient-to-br from-sky-500 to-indigo-600 shadow-sky-600/30"
-        />
-        <dl className="mt-4 divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200">
+    <div className="grid items-start gap-4 xl:grid-cols-5">
+      {/* ---- Colonne configuration ---- */}
+      <Card className="p-4 sm:p-6 xl:col-span-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <SectionHeader
+            icon={Server}
+            title="Configuration"
+            description="État des réglages lus depuis l'environnement."
+            tone="bg-gradient-to-br from-sky-500 to-indigo-600 shadow-sky-600/30"
+          />
+          <Badge tone={okCount === rows.length ? 'success' : 'danger'}>{okCount}/{rows.length} OK</Badge>
+        </div>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100" aria-hidden>
+          <div
+            className={cn('h-full rounded-full transition-all', okCount === rows.length ? 'bg-emerald-500' : 'bg-amber-500')}
+            style={{ width: `${(okCount / rows.length) * 100}%` }}
+          />
+        </div>
+        <dl className="mt-4 space-y-2">
           {rows.map((r) => (
-            <div key={r.label} className="flex items-center justify-between gap-3 bg-white px-4 py-3">
-              <dt className="flex min-w-0 items-center gap-2 text-sm text-zinc-600">
-                <span aria-hidden className={cn('size-2 shrink-0 rounded-full', r.ok ? 'bg-emerald-500' : 'bg-red-500')} />
-                <span className="truncate">{r.label}</span>
-              </dt>
-              <dd className="flex min-w-0 shrink-0 items-center gap-2">
-                <span className="max-w-60 truncate font-mono text-xs" title={r.value}>{r.value}</span>
+            <div key={r.label} className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3">
+              <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-xl bg-zinc-100 text-zinc-600">
+                <r.icon className="size-5" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-2 text-sm font-bold">
+                  {r.label}
+                  <span aria-hidden className={cn('size-2 rounded-full', r.ok ? 'bg-emerald-500' : 'bg-red-500')} />
+                </p>
+                <p className="truncate font-mono text-xs text-zinc-500" title={r.value}>{r.value}</p>
+                <p className="text-[11px] text-zinc-400">{r.hint}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {r.copyable && (
+                  <button
+                    type="button"
+                    onClick={() => copy(r.label, r.value)}
+                    className="grid size-8 place-items-center rounded-lg border border-zinc-200 text-zinc-500 transition hover:border-zinc-300 hover:text-zinc-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                    aria-label={`Copier ${r.label}`}
+                    title="Copier"
+                  >
+                    {copied === r.label ? <Check className="size-4 text-emerald-600" aria-hidden /> : <Copy className="size-4" aria-hidden />}
+                  </button>
+                )}
                 <Badge tone={r.ok ? 'success' : 'danger'}>{r.ok ? 'OK' : 'KO'}</Badge>
-              </dd>
+              </div>
             </div>
           ))}
         </dl>
-        <p className="mt-3 text-xs leading-relaxed text-zinc-500">
-          Les secrets (service_role, clés Mobile Money) restent dans les Edge Functions et ne sont jamais exposés ici.
+        <p className="mt-3 flex items-start gap-1.5 rounded-xl bg-zinc-50 px-3 py-2.5 text-[11px] leading-relaxed text-zinc-500">
+          <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-zinc-400" aria-hidden />
+          Les secrets (service_role, sb_secret, clés YAS / Orange / Airtel, RESEND_API_KEY) restent dans les Edge Functions et ne sont jamais exposés ici.
         </p>
       </Card>
 
-      <Card className="border-amber-200 bg-amber-50/60 p-4 sm:p-6">
-        <SectionHeader
-          icon={Lock}
-          title="Rappels de sécurité"
-          description="Règles non négociables de la plateforme."
-          tone="bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/30"
-        />
-        <ul className="mt-4 space-y-2 text-sm text-zinc-700">
-          {[
-            'Un billet n’est généré qu’après validation manuelle du paiement.',
-            'Les clés secrètes (service_role, Mobile Money) restent dans les Edge Functions.',
-            'Toute action sensible est auditée (triggers + audit_logs).',
-            'La vérification des billets par scan arrive en Phase 6.',
-          ].map((rule) => (
-            <li key={rule} className="flex items-start gap-2.5 rounded-xl bg-white/80 px-3 py-2.5 shadow-sm">
-              <Check className="mt-0.5 size-4 shrink-0 text-amber-600" strokeWidth={3} aria-hidden />
-              {rule}
-            </li>
-          ))}
-        </ul>
-      </Card>
+      {/* ---- Colonne posture sécurité ---- */}
+      <div className="space-y-4 xl:col-span-2">
+        <div className="relative overflow-hidden rounded-2xl bg-zinc-950 p-5 text-white shadow-lg">
+          <div aria-hidden className="pointer-events-none absolute inset-0">
+            <div className="absolute -right-16 -top-16 size-48 rounded-full bg-emerald-500/20 blur-3xl" />
+          </div>
+          <div className="relative">
+            <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-400">
+              <ShieldCheck className="size-3.5" aria-hidden /> Posture sécurité
+            </p>
+            <p className="mt-2 font-display text-3xl font-black tracking-tight">
+              {rules.length}/{rules.length}
+              <span className="ml-2 align-middle text-xs font-semibold text-emerald-300">règles actives</span>
+            </p>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10" aria-hidden>
+              <div className="h-full w-full rounded-full bg-emerald-400" />
+            </div>
+          </div>
+        </div>
+
+        <Card className="border-amber-200 bg-amber-50/60 p-4 sm:p-6">
+          <SectionHeader
+            icon={Lock}
+            title="Rappels non négociables"
+            description="Checklist appliquée par triggers, RLS et Edge Functions."
+            tone="bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/30"
+          />
+          <ol className="mt-4 space-y-2">
+            {rules.map((rule, i) => (
+              <li key={rule.title} className="flex items-start gap-3 rounded-2xl bg-white/80 px-3 py-2.5 shadow-sm">
+                <span aria-hidden className="grid size-6 shrink-0 place-items-center rounded-full bg-amber-100 text-xs font-black text-amber-800">
+                  {i + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 text-sm font-bold text-zinc-800">
+                    {rule.title}
+                    <Check className="size-3.5 shrink-0 text-emerald-600" strokeWidth={3} aria-hidden />
+                  </p>
+                  <p className="text-xs leading-relaxed text-zinc-500">{rule.text}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      </div>
     </div>
   );
 }
