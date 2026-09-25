@@ -21,7 +21,12 @@ delete from public.payments;
 delete from public.order_items;
 delete from public.orders;
 delete from public.ticket_types;
-delete from public.event_validation_history;
+-- event_validation_history : peut ne pas exister si migration 0021 non appliquée.
+do $$ begin
+  if exists (select 1 from information_schema.tables where table_schema='public' and table_name='event_validation_history') then
+    delete from public.event_validation_history;
+  end if;
+end $$;
 delete from public.events;
 delete from public.audit_logs;
 

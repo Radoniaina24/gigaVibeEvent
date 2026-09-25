@@ -15,6 +15,7 @@ import {
   Send,
 } from 'lucide-react';
 import { usePageMeta } from '../../hooks/usePageMeta';
+import { usePlatformSettings } from '../../hooks/usePlatformSettings';
 import {
   CONTACT_SUBJECT_LABELS,
   contactSchema,
@@ -27,9 +28,9 @@ import { Textarea } from '../../components/ui/Fields';
 import { SelectField, type SelectOption } from '../../components/ui/Select';
 import { cn } from '../../lib/utils';
 
-const CONTACT_EMAIL = 'contact@ticket.mg';
-const CONTACT_PHONE = '+261 34 12 345 67';
-const CONTACT_PHONE_HREF = 'tel:+261341234567';
+const CONTACT_EMAIL_FALLBACK = 'contact@ticket.mg';
+const CONTACT_PHONE_FALLBACK = '+261 34 12 345 67';
+const CONTACT_PHONE_HREF_FALLBACK = 'tel:+261341234567';
 
 const SUBJECT_OPTIONS: SelectOption<ContactSubject>[] = (
   Object.entries(CONTACT_SUBJECT_LABELS) as [ContactSubject, string][]
@@ -41,20 +42,20 @@ const HERO_CHIPS = [
   { icon: MapPin, label: 'Basés à Antananarivo' },
 ];
 
-const INFO_ROWS = [
+const INFO_ROWS_FALLBACK = [
   {
     icon: Mail,
     title: 'Email',
-    value: CONTACT_EMAIL,
-    href: `mailto:${CONTACT_EMAIL}`,
+    value: CONTACT_EMAIL_FALLBACK,
+    href: `mailto:${CONTACT_EMAIL_FALLBACK}`,
     action: 'copy-email' as const,
     linkLabel: 'Écrire un email',
   },
   {
     icon: Phone,
     title: 'Téléphone',
-    value: CONTACT_PHONE,
-    href: CONTACT_PHONE_HREF,
+    value: CONTACT_PHONE_FALLBACK,
+    href: CONTACT_PHONE_HREF_FALLBACK,
     action: 'call' as const,
     linkLabel: 'Appeler',
   },
@@ -116,6 +117,17 @@ export function ContactPage() {
   const [sent, setSent] = useState<ContactInput | null>(null);
   const [copied, setCopied] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const { data: platformSettings } = usePlatformSettings();
+  const contactEmail = platformSettings?.contactEmail ?? CONTACT_EMAIL_FALLBACK;
+  const contactPhone = platformSettings?.contactPhone ?? CONTACT_PHONE_FALLBACK;
+  const contactPhoneHref = `tel:${contactPhone.replace(/[\s-]/g, '')}`;
+  const infoRows = INFO_ROWS_FALLBACK.map((row) =>
+    row.title === 'Email'
+      ? { ...row, value: contactEmail, href: `mailto:${contactEmail}` }
+      : row.title === 'Téléphone'
+        ? { ...row, value: contactPhone, href: contactPhoneHref }
+        : row,
+  );
 
   const {
     register,
@@ -137,7 +149,7 @@ export function ContactPage() {
 
   const copyEmail = async () => {
     try {
-      await navigator.clipboard.writeText(CONTACT_EMAIL);
+      await navigator.clipboard.writeText(contactEmail);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -289,7 +301,7 @@ export function ContactPage() {
           {/* ----- Colonne infos ----- */}
           <aside aria-label="Coordonnées" className="space-y-4">
             <div className="divide-y divide-zinc-100 rounded-2xl border border-zinc-200 bg-white shadow-sm">
-              {INFO_ROWS.map((row) => (
+              {infoRows.map((row) => (
                 <div key={row.title} className="flex items-start gap-3 p-4">
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
                     <row.icon className="size-5" aria-hidden />
@@ -345,7 +357,7 @@ export function ContactPage() {
                 Billetterie, contrôle QR et reversements : on s’occupe de tout.
               </p>
               <a
-                href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Organiser un événement')}`}
+                href={`mailto:${contactEmail}?subject=${encodeURIComponent('Organiser un événement')}`}
                 className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gold-400 px-4 text-sm font-bold text-night-950 transition hover:bg-gold-300"
               >
                 Parler à l’équipe <ArrowRight className="size-4" aria-hidden />

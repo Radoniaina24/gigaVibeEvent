@@ -94,7 +94,11 @@ export function CheckoutPage() {
   }
 
   const { eventId, eventSlug, eventTitle, items } = parsed;
-  const total = items.reduce((s, i) => s + i.unit_price * i.quantity, 0);
+  const subtotal = items.reduce((s, i) => s + i.unit_price * i.quantity, 0);
+  const totalQty = items.reduce((s, i) => s + i.quantity, 0);
+  const feePerTicket = platformSettings?.serviceFeeFixed ?? 0;
+  const fees = feePerTicket * totalQty;
+  const total = subtotal + fees;
   const buyerName =
     [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') ||
     profile?.email ||
@@ -275,7 +279,7 @@ export function CheckoutPage() {
                   {formatAr(total)}
                 </p>
                 <p className="mt-1 text-xs text-zinc-400">
-                  Sous-total {formatAr(total)} · Frais 0 Ar
+                  Sous-total {formatAr(subtotal)} · Frais {formatAr(fees)}
                 </p>
               </div>
               <div className="bg-white/5 p-5 pt-4">

@@ -1,5 +1,6 @@
 import { formatAr } from '../../lib/utils';
 import type { EventListTicketType } from '../../features/events/eventUtils';
+import { usePlatformSettings } from '../../hooks/usePlatformSettings';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 
@@ -16,14 +17,14 @@ interface Props {
 }
 
 /**
- * Récapitulatif de commande (réutilisé en Phase 3 dans le tunnel d'achat).
- * Frais : 0 Ar (modèle actuel).
+ * Récapitulatif de commande (frais fixes par billet depuis platform_settings).
  */
 export function OrderSummary({ lines, ctaLabel, onSubmit, ctaDisabled }: Props) {
+  const { data: settings } = usePlatformSettings();
   const subtotal = lines.reduce((s, l) => s + l.ticketType.price * l.quantity, 0);
-  const fees = 0;
-  const total = subtotal + fees;
   const count = lines.reduce((s, l) => s + l.quantity, 0);
+  const fees = (settings?.serviceFeeFixed ?? 0) * count;
+  const total = subtotal + fees;
 
   return (
     <Card className="p-5">
