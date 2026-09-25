@@ -2313,16 +2313,30 @@ export function AdminSettingsPage() {
 
       {/* Panneaux */}
       <div className="pb-2">
-        <p className="mb-3 flex items-center gap-2 text-sm text-zinc-500">
-          {activeMeta && <activeMeta.icon className="size-4 text-zinc-400" aria-hidden />}
-          {activeMeta?.desc}
-        </p>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="flex min-w-0 items-center gap-2 text-sm text-zinc-500">
+            {activeMeta && <activeMeta.icon className="size-4 shrink-0 text-zinc-400" aria-hidden />}
+            <span className="truncate">{activeMeta?.desc}</span>
+          </p>
+          {settings.isFetching && !settings.isPending && (
+            <p role="status" className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold text-zinc-400">
+              <span aria-hidden className="size-3.5 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-900" />
+              Actualisation…
+            </p>
+          )}
+        </div>
+        {settings.isFetching && !settings.isPending && (
+          <div aria-hidden className="mb-3 h-1 overflow-hidden rounded-full bg-zinc-200">
+            <div className="h-full w-1/3 animate-pulse rounded-full bg-zinc-900" />
+          </div>
+        )}
         <div
           key={activeTab}
           id={`settings-panel-${activeTab}`}
           role="tabpanel"
           aria-labelledby={`settings-tab-${activeTab}`}
-          className="rise"
+          aria-busy={settings.isFetching}
+          className={cn('rise', settings.isFetching && !settings.isPending && 'pointer-events-none opacity-70 transition')}
         >
           {activeTab === 'validation' && <ValidationCard />}
           {activeTab === 'mobile-money' && (
