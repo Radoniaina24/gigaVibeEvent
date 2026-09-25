@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useEventDetail } from '../../hooks/useEvents';
 import { usePageMeta } from '../../hooks/usePageMeta';
+import { usePlatformSettings } from '../../hooks/usePlatformSettings';
 import { useAuth } from '../../features/auth/AuthContext';
 import { formatAr, formatDate, formatDateTime } from '../../lib/utils';
 import { Badge } from '../../components/ui/Card';
@@ -58,7 +59,7 @@ function useCountdown(targetIso: string) {
   };
 }
 
-const TRUST_ITEMS = [
+const TRUST_ITEMS_FALLBACK = [
   { icon: ShieldCheck, title: 'Paiement sécurisé', text: 'YAS · Orange · Airtel' },
   { icon: QrCode, title: 'QR Code unique', text: 'Vérifié à l’entrée' },
   { icon: RotateCcw, title: 'Remboursé si annulé', text: 'Automatiquement' },
@@ -71,6 +72,12 @@ export function EventDetailPage() {
   const { data: event, isPending, isError, refetch } = useEventDetail(slug);
   const [selection, setSelection] = useState<Record<string, number>>({});
   const [copied, setCopied] = useState(false);
+  const { data: platformSettings } = usePlatformSettings();
+  const trustItems = TRUST_ITEMS_FALLBACK.map((g) =>
+    g.title === 'Remboursé si annulé' && platformSettings?.refundPolicyText
+      ? { ...g, text: platformSettings.refundPolicyText.slice(0, 60) }
+      : g,
+  );
 
   // Restaure la sélection si l'utilisateur revient après une connexion
   // (le brouillon a été sauvegardé avant la redirection vers /login).
@@ -470,7 +477,7 @@ export function EventDetailPage() {
             aria-label="Garanties"
             className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:divide-x sm:divide-zinc-100 sm:gap-0"
           >
-            {TRUST_ITEMS.map((g) => (
+            {trustItems.map((g) => (
               <div key={g.title} className="flex flex-1 items-center gap-3 sm:justify-center sm:px-4 sm:first:pl-0 sm:last:pr-0">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-700">
                   <g.icon className="size-5" aria-hidden />

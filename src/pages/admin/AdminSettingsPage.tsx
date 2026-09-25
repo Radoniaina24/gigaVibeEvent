@@ -1,16 +1,35 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
+  AtSign,
   Banknote,
+  Bell,
+  Building2,
+  Calculator,
   Check,
+  Coins,
+  FileText,
   Globe,
+  Hash,
+  Image as ImageIcon,
+  Info,
+  KeyRound,
   Lock,
   Mail,
+  Megaphone,
+  MessageSquare,
+  Phone,
+  Search,
   Server,
   Settings,
+  Share2,
   ShieldCheck,
   Smartphone,
+  Timer,
+  Upload,
+  User,
   Users,
+  Wallet,
 } from 'lucide-react';
 import { env } from '../../app/config/env';
 import {
@@ -26,7 +45,7 @@ import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Fields';
 import { OperatorLogo } from '../../components/orders/OperatorLogo';
 import { PaymentMethodBadge } from '../../components/orders/PaymentMethodBadge';
-import { cn } from '../../lib/utils';
+import { cn, formatAr } from '../../lib/utils';
 
 const METHOD_SHORT: Record<ConfigPaymentMethodId, 'yas' | 'orange' | 'airtel'> = {
   yas: 'yas',
@@ -34,14 +53,15 @@ const METHOD_SHORT: Record<ConfigPaymentMethodId, 'yas' | 'orange' | 'airtel'> =
   airtel_money: 'airtel',
 };
 
-type SettingsTabId = 'validation' | 'mobile-money' | 'pricing' | 'site' | 'contact' | 'system';
+type SettingsTabId = 'validation' | 'mobile-money' | 'pricing' | 'site' | 'contact' | 'content' | 'system';
 
 const TABS: { id: SettingsTabId; label: string; short: string; icon: typeof Settings; desc: string }[] = [
   { id: 'validation', label: 'Validation paiements', short: 'Validation', icon: ShieldCheck, desc: 'Qui valide les paiements manuels' },
-  { id: 'mobile-money', label: 'Mobile Money', short: 'Mobile Money', icon: Smartphone, desc: 'Numéros marchands YAS · Orange · Airtel' },
+  { id: 'mobile-money', label: 'Mobile Money', short: 'Mobile Money', icon: Smartphone, desc: 'Numéros marchands, préfixes et instructions YAS · Orange · Airtel' },
   { id: 'pricing', label: 'Tarifs & limites', short: 'Tarifs', icon: Banknote, desc: 'Frais fixes, qui paie, plafonds du panier' },
   { id: 'site', label: 'Site & billetterie', short: 'Site', icon: Globe, desc: 'Devise, expiration, maintenance' },
   { id: 'contact', label: 'Site & contact', short: 'Contact', icon: Mail, desc: 'Nom, logo, contact, numérotation, uploads' },
+  { id: 'content', label: 'Contenu & SEO', short: 'Contenu', icon: Megaphone, desc: 'Remboursement, CGU, SEO, réseaux sociaux, emails' },
   { id: 'system', label: 'Système & sécurité', short: 'Système', icon: Server, desc: 'Environnement & rappels' },
 ];
 
@@ -442,6 +462,89 @@ function PaymentMethodsCard() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Mobile Money — préfixes + instructions par opérateur (P1)          */
+/* ------------------------------------------------------------------ */
+
+function OperatorPrefsCard() {
+  const settings = usePlatformSettings();
+  const updateSetting = useUpdatePlatformSetting();
+  const [draft, setDraft] = useState<Record<ConfigPaymentMethodId, { prefixes: string; instructions: string }> | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ tone: 'ok' | 'ko'; message: string } | null>(null);
+
+  useEffect(() => {
+    if (settings.data && draft === null) {
+      setDraft({
+        yas: { prefixes: settings.data.paymentPrefixes.yas, instructions: settings.data.paymentInstructions.yas },
+        orange_money: { prefixes: settings.data.paymentPrefixes.orange_money, instructions: settings.data.paymentInstructions.orange_money },
+        airtel_money: { prefixes: settings.data.paymentPrefixes.airtel_money, instructions: settings.data.paymentInstructions.airtel_money },
+      });
+    }
+  }, [settings.data, draft]);
+
+  const patch = (id: ConfigPaymentMethodId, p: Partial<{ prefixes: string; instructions: string }>) => {
+    setDraft((d) => (d ? { ...d, [id]: { ...d[id], ...p } } : d));
+    setDirty(true);
+    setFeedback(null);
+  };
+
+  const save = async () => {
+    if (!draft) return;
+    setSaving(true);
+    setFeedback(null);
+    try {
+      const map: [ConfigPaymentMethodId, 'yas' | 'orange' | 'airtel'][] = [
+        ['yas', 'yas'],
+        ['orange_money', 'orange'],
+        ['airtel_money', 'airtel'],
+      ];
+      for (const [id, short] of map) {
+        await updateSetting.mutateAsync({ key: `payment_${short}_prefixes`, value: JSON.stringify(draft[id].prefixes.trim() || '0') });
+        await updateSetting.mutateAsync({ key: `payment_instructions_${short}`, value: JSON.stringify(draft[id].instructions.trim()) });
+      }
+      setDirty(false);
+      setFeedback({ tone: 'ok', message: 'Préfixes & instructions enregistrés.' });
+    } catch (err) {
+      setFeedback({ tone: 'ko', message: err instanceof Error ? err.message : 'Enregistrement impossible.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="p-4 sm:p-6">
+      <SectionHeader
+        icon={Smartphone}
+        title="Préfixes & instructions opérateurs"
+        description="Préfixes nationaux (contrôle doux) et aide USSD affichée dans le tunnel d’achat."
+        tone="bg-gradient-to-br from-sky-500 to-indigo-600 shadow-sky-600/30"
+      />
+      {settings.isPending || !draft ? (
+        <CardSkeleton lines={3} />
+      ) : (
+        <div className="mt-4 space-y-3">
+          {PAYMENT_METHODS.map((meta) => {
+            const d = draft[meta.id];
+            return (
+              <div key={meta.id} className="rounded-2xl border border-zinc-200 p-4">
+                <p className="text-sm font-bold">{meta.label}</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <Input label="Préfixes (séparés par virgule)" placeholder="034,038" value={d.prefixes} onChange={(e) => patch(meta.id, { prefixes: e.target.value })} />
+                  <Input label="Instruction USSD / aide" placeholder="Ex. : composez *144#…" value={d.instructions} onChange={(e) => patch(meta.id, { instructions: e.target.value })} />
+                </div>
+              </div>
+            );
+          })}
+          <SaveBar dirty={dirty} saving={saving} onSave={save} />
+          {feedback && <FormFeedback tone={feedback.tone} message={feedback.message} />}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Onglet 3 — Site & billetterie                                      */
 /* ------------------------------------------------------------------ */
 
@@ -508,88 +611,221 @@ function SiteSettingsCard() {
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-5">
-      <Card className="p-4 sm:p-6 lg:col-span-3">
+    <div className="grid items-start gap-4 xl:grid-cols-5">
+      {/* ---- Colonne billetterie ---- */}
+      <Card className="p-4 sm:p-6 xl:col-span-3">
         <SectionHeader
-          icon={Globe}
-          title="Site & billetterie"
+          icon={Coins}
+          title="Billetterie"
           description="Devise affichée, durée de réservation et message du tunnel d'achat."
           tone="bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/30"
         />
         {settings.isPending || !draft ? (
           <CardSkeleton lines={4} />
         ) : (
-          <div className="mt-4 space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Input
-                label="Devise (code ISO)"
-                placeholder="MGA"
-                maxLength={3}
-                value={draft.currency}
-                onChange={(e) => patch({ currency: e.target.value.toUpperCase() })}
-              />
-              <Input
-                label="Expiration commande (minutes)"
-                type="number"
-                min={5}
-                max={1440}
-                hint="Entre 5 et 1440 minutes"
-                value={draft.expiry}
-                onChange={(e) => patch({ expiry: e.target.value })}
-              />
+          <div className="mt-4 space-y-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <div className="flex items-end justify-between gap-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Devise</p>
+                  <p className="font-display text-2xl font-black tracking-tight">
+                    {draft.currency || '—'}
+                    <span className="ml-1 align-middle text-xs font-semibold text-zinc-400">
+                      {draft.currency === 'MGA' ? 'Ariary' : 'ISO'}
+                    </span>
+                  </p>
+                </div>
+                <Input
+                  label="Devise (code ISO)"
+                  placeholder="MGA"
+                  maxLength={3}
+                  value={draft.currency}
+                  onChange={(e) => patch({ currency: e.target.value.toUpperCase() })}
+                />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {['MGA', 'EUR', 'USD'].map((c) => {
+                    const active = draft.currency === c;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => patch({ currency: c })}
+                        aria-pressed={active}
+                        className={cn(
+                          'rounded-full border px-3 py-1 text-xs font-bold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+                          active
+                            ? 'border-zinc-900 bg-zinc-950 text-white shadow'
+                            : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900',
+                        )}
+                      >
+                        {c}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <div className="flex items-end justify-between gap-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Réservation</p>
+                  <p className="font-display text-2xl font-black tabular-nums tracking-tight">
+                    {(() => {
+                      const m = Math.round(Number(draft.expiry) || 0);
+                      if (m >= 60) {
+                        const h = Math.floor(m / 60);
+                        const r = m % 60;
+                        return `${h}h${r === 0 ? '00' : String(r).padStart(2, '0')}`;
+                      }
+                      return `${m} min`;
+                    })()}
+                  </p>
+                </div>
+                <Input
+                  label="Expiration commande (minutes)"
+                  type="number"
+                  min={5}
+                  max={1440}
+                  value={draft.expiry}
+                  onChange={(e) => patch({ expiry: e.target.value })}
+                />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {[15, 30, 60, 120, 240].map((m) => {
+                    const active = Number(draft.expiry) === m;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => patch({ expiry: String(m) })}
+                        aria-pressed={active}
+                        className={cn(
+                          'rounded-full border px-3 py-1 text-xs font-bold tabular-nums transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+                          active
+                            ? 'border-zinc-900 bg-zinc-950 text-white shadow'
+                            : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900',
+                        )}
+                      >
+                        {m >= 60 ? `${m / 60}h` : `${m} min`}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-1.5 flex items-start gap-1.5 text-[11px] leading-relaxed text-zinc-400">
+                  <Timer className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  Entre 5 et 1440 minutes. Lue par create_checkout_order à chaque commande.
+                </p>
+              </div>
             </div>
-            <Textarea
-              label="Instructions affichées dans le tunnel d'achat (vide = masqué)"
-              rows={4}
-              placeholder="Ex. : Envoyez le montant exact au numéro marchand, puis déclarez la référence…"
-              value={draft.instructions}
-              onChange={(e) => patch({ instructions: e.target.value })}
-            />
-            <SaveBar dirty={dirty} saving={saving} onSave={save} idleText="Réglages à jour." />
-            {feedback && <FormFeedback tone={feedback.tone} message={feedback.message} />}
+
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  <MessageSquare className="size-3.5" aria-hidden /> Instructions du tunnel
+                </p>
+                <span className="text-[11px] tabular-nums text-zinc-400">{draft.instructions.trim().length} caractères</span>
+              </div>
+              <Textarea
+                label="Instructions affichées dans le tunnel d'achat (vide = masqué)"
+                rows={4}
+                placeholder="Ex. : Envoyez le montant exact au numéro marchand, puis déclarez la référence…"
+                value={draft.instructions}
+                onChange={(e) => patch({ instructions: e.target.value })}
+              />
+              <div className={cn(
+                'mt-2 rounded-2xl border p-3 text-xs leading-relaxed',
+                draft.instructions.trim()
+                  ? 'border-blue-200 bg-blue-50/70 text-blue-900'
+                  : 'border-dashed border-zinc-300 bg-zinc-50 text-zinc-400',
+              )}>
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider opacity-70">Aperçu acheteur</p>
+                {draft.instructions.trim() || 'Masqué (champ vide = aucune consigne affichée).'}
+              </div>
+            </div>
           </div>
         )}
       </Card>
 
-      <Card className={cn('p-4 sm:p-6 lg:col-span-2', draft?.maintenance ? 'border-amber-300 bg-amber-50/50' : '')}>
-        <SectionHeader
-          icon={Lock}
-          title="Maintenance"
-          description="Masque le site public. /login reste ouvert, les admins passent toujours."
-          tone="bg-gradient-to-br from-zinc-700 to-zinc-950 shadow-zinc-900/30"
-        />
-        {settings.isPending || !draft ? (
-          <CardSkeleton lines={2} />
-        ) : (
-          <div className="mt-4 space-y-3">
-            <div className={cn(
-              'flex items-center justify-between gap-3 rounded-2xl border p-4',
-              draft.maintenance ? 'border-amber-300 bg-amber-50' : 'border-zinc-200 bg-white',
-            )}>
-              <div className="min-w-0">
-                <p className="flex flex-wrap items-center gap-2 text-sm font-bold">
-                  Mode maintenance
-                  <Badge tone={draft.maintenance ? 'warning' : 'success'}>
-                    {draft.maintenance ? 'Actif' : 'Inactif'}
-                  </Badge>
-                </p>
-                <p className="mt-1 text-xs text-zinc-500">Visible immédiatement après enregistrement.</p>
+      {/* ---- Colonne maintenance + aperçu ---- */}
+      <div className="space-y-4 xl:col-span-2">
+        <Card className={cn('p-4 sm:p-6', draft?.maintenance ? 'border-amber-300 bg-amber-50/50' : '')}>
+          <SectionHeader
+            icon={Lock}
+            title="Maintenance"
+            description="Masque le site public. /login reste ouvert, les admins passent toujours."
+            tone="bg-gradient-to-br from-zinc-700 to-zinc-950 shadow-zinc-900/30"
+          />
+          {settings.isPending || !draft ? (
+            <CardSkeleton lines={2} />
+          ) : (
+            <div className="mt-4 space-y-3">
+              <div className={cn(
+                'flex items-center justify-between gap-3 rounded-2xl border p-4 transition',
+                draft.maintenance ? 'border-amber-300 bg-amber-50' : 'border-zinc-200 bg-white',
+              )}>
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-bold">
+                    Mode maintenance
+                    <Badge tone={draft.maintenance ? 'warning' : 'success'}>
+                      {draft.maintenance ? 'Actif' : 'En ligne'}
+                    </Badge>
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">Visible immédiatement après enregistrement.</p>
+                </div>
+                <Switch checked={draft.maintenance} onChange={(v) => patch({ maintenance: v })} label="Activer le mode maintenance" />
               </div>
-              <Switch checked={draft.maintenance} onChange={(v) => patch({ maintenance: v })} label="Activer le mode maintenance" />
+              {draft.maintenance ? (
+                <Textarea
+                  label="Message de maintenance"
+                  rows={3}
+                  value={draft.maintenanceMessage}
+                  onChange={(e) => patch({ maintenanceMessage: e.target.value })}
+                />
+              ) : (
+                <p className="rounded-xl bg-zinc-50 px-3 py-2.5 text-[11px] leading-relaxed text-zinc-400">
+                  Activez pour afficher une page de maintenance publique avec votre message personnalisé.
+                </p>
+              )}
             </div>
-            {draft.maintenance && (
-              <Textarea
-                label="Message de maintenance"
-                rows={3}
-                value={draft.maintenanceMessage}
-                onChange={(e) => patch({ maintenanceMessage: e.target.value })}
-              />
-            )}
-            <SaveBar dirty={dirty} saving={saving} onSave={save} idleText="État à jour." />
-            {feedback && <FormFeedback tone={feedback.tone} message={feedback.message} />}
+          )}
+        </Card>
+
+        <div className="relative overflow-hidden rounded-2xl bg-zinc-950 p-5 text-white shadow-lg">
+          <div aria-hidden className="pointer-events-none absolute inset-0">
+            <div className="absolute -right-16 -top-16 size-48 rounded-full bg-amber-500/20 blur-3xl" />
           </div>
-        )}
-      </Card>
+          <div className="relative">
+            <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-400">
+              <Globe className="size-3.5" aria-hidden /> Aperçu tunnel
+            </p>
+            <dl className="mt-3 space-y-1.5 text-sm">
+              <div className="flex justify-between text-zinc-300">
+                <dt>Devise</dt>
+                <dd className="font-bold">{draft?.currency || '—'}</dd>
+              </div>
+              <div className="flex justify-between text-zinc-300">
+                <dt>Réservation</dt>
+                <dd className="font-bold tabular-nums">{draft?.expiry || '—'} min</dd>
+              </div>
+              <div className="flex justify-between text-zinc-300">
+                <dt>Consignes</dt>
+                <dd className="font-bold">{draft?.instructions.trim() ? 'Visibles' : 'Masquées'}</dd>
+              </div>
+              <div className="flex justify-between border-t border-white/10 pt-2 text-zinc-300">
+                <dt>État du site</dt>
+                <dd className={cn('font-bold', draft?.maintenance ? 'text-amber-300' : 'text-emerald-300')}>
+                  {draft?.maintenance ? 'Maintenance' : 'En ligne'}
+                </dd>
+              </div>
+            </dl>
+            {draft?.maintenance && draft.maintenanceMessage.trim() && (
+              <p className="mt-3 rounded-xl bg-amber-400/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
+                « {draft.maintenanceMessage.trim().slice(0, 120)}{draft.maintenanceMessage.trim().length > 120 ? '…' : ''} »
+              </p>
+            )}
+          </div>
+        </div>
+
+        <SaveBar dirty={dirty} saving={saving} onSave={save} idleText="Réglages à jour." dirtyText="Aperçu non enregistré." />
+        {feedback && <FormFeedback tone={feedback.tone} message={feedback.message} />}
+      </div>
     </div>
   );
 }
@@ -599,10 +835,12 @@ function SiteSettingsCard() {
 /* ------------------------------------------------------------------ */
 
 const FEES_PAYER_OPTIONS = [
-  { value: 'buyer', title: 'Acheteur', description: 'Les frais s’ajoutent au total payé par le client.' },
-  { value: 'organizer', title: 'Organisateur', description: 'Les frais sont déduits côté organisateur.' },
-  { value: 'split', title: 'Partagés', description: 'Frais partagés (logique métier à venir).' },
+  { value: 'buyer', title: 'Acheteur', description: 'Frais ajoutés au total client.', icon: User },
+  { value: 'organizer', title: 'Organisateur', description: 'Frais déduits côté organisateur.', icon: Building2 },
+  { value: 'split', title: 'Partagés', description: 'Moitié / moitié (indicatif).', icon: Users },
 ] as const;
+
+const FEE_PRESETS = [0, 500, 1000, 2000, 5000];
 
 function PricingCard() {
   const settings = usePlatformSettings();
@@ -613,6 +851,8 @@ function PricingCard() {
     maxPerType: string;
     maxLines: string;
     maxTotal: string;
+    minAmount: string;
+    feeCap: string;
   } | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -626,6 +866,8 @@ function PricingCard() {
         maxPerType: String(settings.data.maxTicketsPerType),
         maxLines: String(settings.data.maxLinesPerOrder),
         maxTotal: String(settings.data.maxTicketsPerOrder),
+        minAmount: String(settings.data.minOrderAmount),
+        feeCap: String(settings.data.serviceFeeCap),
       });
     }
   }, [settings.data, draft]);
@@ -642,6 +884,8 @@ function PricingCard() {
     const maxPerType = Math.min(50, Math.max(1, Math.round(Number(draft.maxPerType) || 10)));
     const maxLines = Math.min(50, Math.max(1, Math.round(Number(draft.maxLines) || 10)));
     const maxTotal = Math.min(200, Math.max(1, Math.round(Number(draft.maxTotal) || 20)));
+    const minAmount = Math.min(1000000, Math.max(0, Math.round(Number(draft.minAmount) || 0)));
+    const feeCap = Math.min(1000000, Math.max(0, Math.round(Number(draft.feeCap) || 0)));
     if (!['buyer', 'organizer', 'split'].includes(draft.payer)) {
       setFeedback({ tone: 'ko', message: 'Qui paie invalide.' });
       return;
@@ -655,6 +899,8 @@ function PricingCard() {
         ['max_tickets_per_type', String(maxPerType)],
         ['max_lines_per_order', String(maxLines)],
         ['max_tickets_per_order', String(maxTotal)],
+        ['min_order_amount', String(minAmount)],
+        ['service_fee_cap', String(feeCap)],
       ];
       for (const [key, value] of entries) {
         await updateSetting.mutateAsync({ key, value });
@@ -668,31 +914,75 @@ function PricingCard() {
     }
   };
 
+  const preview = useMemo(() => {
+    if (!draft) return null;
+    const fee = Math.min(100000, Math.max(0, Math.round(Number(draft.feeFixed) || 0)));
+    const cap = Math.min(1000000, Math.max(0, Math.round(Number(draft.feeCap) || 0)));
+    const min = Math.min(1000000, Math.max(0, Math.round(Number(draft.minAmount) || 0)));
+    const qty = 2;
+    const price = 15000;
+    const subtotal = qty * price;
+    const rawFees = fee * qty;
+    const fees = cap > 0 ? Math.min(rawFees, cap) : rawFees;
+    const total = subtotal + fees;
+    return { qty, price, subtotal, rawFees, fees, total, min, capped: cap > 0 && rawFees > cap };
+  }, [draft]);
+
   return (
-    <Card className="p-4 sm:p-6">
-      <SectionHeader
-        icon={Banknote}
-        title="Tarifs & limites"
-        description="Frais fixes par billet (Ar), qui paie, et plafonds anti-scalping du panier."
-        tone="bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-600/30"
-      />
-      {settings.isPending || !draft ? (
-        <CardSkeleton lines={4} />
-      ) : (
-        <div className="mt-4 space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input
-              label="Frais fixes par billet (Ar)"
-              type="number"
-              min={0}
-              max={100000}
-              value={draft.feeFixed}
-              onChange={(e) => patch({ feeFixed: e.target.value })}
-              hint="0 = sans frais. Appliqué aux prochaines commandes."
-            />
+    <div className="grid items-start gap-4 xl:grid-cols-5">
+      {/* ---- Colonne frais ---- */}
+      <Card className="p-4 sm:p-6 xl:col-span-3">
+        <SectionHeader
+          icon={Wallet}
+          title="Frais de service"
+          description="Montant prélevé par billet et qui le supporte. Appliqué aux prochaines commandes."
+          tone="bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-600/30"
+        />
+        {settings.isPending || !draft ? (
+          <CardSkeleton lines={4} />
+        ) : (
+          <div className="mt-4 space-y-5">
             <div>
-              <p className="mb-1 block text-xs font-medium text-zinc-600">Qui paie les frais</p>
-              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Qui paie les frais">
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Frais par billet</p>
+                <p className="font-display text-3xl font-black tabular-nums tracking-tight">
+                  {formatAr(Math.max(0, Math.round(Number(draft.feeFixed) || 0)))}
+                </p>
+              </div>
+              <Input
+                label="Frais fixes par billet (Ar)"
+                type="number"
+                min={0}
+                max={100000}
+                value={draft.feeFixed}
+                onChange={(e) => patch({ feeFixed: e.target.value })}
+              />
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {FEE_PRESETS.map((p) => {
+                  const active = Number(draft.feeFixed) === p;
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => patch({ feeFixed: String(p) })}
+                      aria-pressed={active}
+                      className={cn(
+                        'rounded-full border px-3 py-1 text-xs font-bold tabular-nums transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+                        active
+                          ? 'border-zinc-900 bg-zinc-950 text-white shadow'
+                          : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900',
+                      )}
+                    >
+                      {p === 0 ? 'Gratuit' : formatAr(p)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-400">Qui paie les frais</p>
+              <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Qui paie les frais">
                 {FEES_PAYER_OPTIONS.map((o) => {
                   const selected = draft.payer === o.value;
                   return (
@@ -701,52 +991,150 @@ function PricingCard() {
                       type="button"
                       role="radio"
                       aria-checked={selected}
-                      title={o.description}
                       onClick={() => patch({ payer: o.value })}
                       className={cn(
-                        'rounded-xl border px-2 py-2.5 text-xs font-bold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
-                        selected ? 'border-zinc-900 bg-zinc-950 text-white shadow' : 'border-zinc-200 bg-white hover:border-zinc-300',
+                        'group rounded-2xl border p-3 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+                        selected
+                          ? 'border-zinc-900 bg-zinc-950 text-white shadow-lg'
+                          : 'border-zinc-200 bg-white hover:-translate-y-px hover:border-zinc-300 hover:shadow-md',
                       )}
                     >
-                      {o.title}
+                      <span className={cn(
+                        'grid size-9 place-items-center rounded-xl transition',
+                        selected ? 'bg-white/10 text-white' : 'bg-zinc-100 text-zinc-600 group-hover:bg-zinc-200',
+                      )}>
+                        <o.icon className="size-4" aria-hidden />
+                      </span>
+                      <span className={cn('mt-2 block text-sm font-bold', selected ? 'text-white' : 'text-zinc-900')}>
+                        {o.title}
+                      </span>
+                      <span className={cn('mt-0.5 block text-[11px] leading-snug', selected ? 'text-zinc-300' : 'text-zinc-500')}>
+                        {o.description}
+                      </span>
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'mt-2 grid size-5 place-items-center rounded-full border-2 transition',
+                          selected ? 'border-emerald-400 bg-emerald-400 text-zinc-950' : 'border-zinc-300 text-transparent',
+                        )}
+                      >
+                        <Check className="size-3" strokeWidth={3} />
+                      </span>
                     </button>
                   );
                 })}
               </div>
-              <p className="mt-1 text-xs text-zinc-500">{FEES_PAYER_OPTIONS.find((o) => o.value === draft.payer)?.description}</p>
+            </div>
+
+            <div className="grid gap-3 rounded-2xl bg-zinc-50 p-4 sm:grid-cols-2">
+              <Input
+                label="Panier minimum (Ar)"
+                type="number"
+                min={0}
+                max={1000000}
+                value={draft.minAmount}
+                onChange={(e) => patch({ minAmount: e.target.value })}
+                hint="0 = pas de minimum"
+              />
+              <Input
+                label="Plafond frais / commande (Ar)"
+                type="number"
+                min={0}
+                max={1000000}
+                value={draft.feeCap}
+                onChange={(e) => patch({ feeCap: e.target.value })}
+                hint="0 = pas de plafond"
+              />
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Input
-              label="Max / type de billet"
-              type="number"
-              min={1}
-              max={50}
-              value={draft.maxPerType}
-              onChange={(e) => patch({ maxPerType: e.target.value })}
-            />
-            <Input
-              label="Max lignes / commande"
-              type="number"
-              min={1}
-              max={50}
-              value={draft.maxLines}
-              onChange={(e) => patch({ maxLines: e.target.value })}
-            />
-            <Input
-              label="Max billets / commande"
-              type="number"
-              min={1}
-              max={200}
-              value={draft.maxTotal}
-              onChange={(e) => patch({ maxTotal: e.target.value })}
-            />
+        )}
+      </Card>
+
+      {/* ---- Colonne limites + simulation ---- */}
+      <div className="space-y-4 xl:col-span-2">
+        <Card className="p-4 sm:p-6">
+          <SectionHeader
+            icon={ShieldCheck}
+            title="Limites anti-scalping"
+            description="Plafonds du panier, lus par create_checkout_order."
+            tone="bg-gradient-to-br from-brand-600 to-brand-800 shadow-brand-600/30"
+          />
+          {settings.isPending || !draft ? (
+            <CardSkeleton lines={3} />
+          ) : (
+            <div className="mt-4 space-y-2">
+              {([
+                ['maxPerType', 'Par type de billet', '1 – 50', '10 max / VIP par ex.'],
+                ['maxLines', 'Lignes par commande', '1 – 50', '10 types différents max'],
+                ['maxTotal', 'Billets par commande', '1 – 200', '20 billets max au total'],
+              ] as const).map(([key, label, range, hint]) => (
+                <div key={key} className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold">{label}</p>
+                    <p className="text-[11px] text-zinc-400">{hint} · {range}</p>
+                  </div>
+                  <input
+                    type="number"
+                    aria-label={label}
+                    min={key === 'maxTotal' ? 1 : 1}
+                    max={key === 'maxTotal' ? 200 : 50}
+                    value={draft[key]}
+                    onChange={(e) => patch({ [key]: e.target.value } as Partial<NonNullable<typeof draft>>)}
+                    className="h-10 w-20 rounded-xl border border-zinc-300 bg-white px-2 text-center text-sm font-bold tabular-nums outline-none transition focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10"
+                  />
+                </div>
+              ))}
+              <p className="flex items-start gap-1.5 rounded-xl bg-blue-50 px-3 py-2.5 text-[11px] leading-relaxed text-blue-800">
+                <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                Le backend refuse tout panier hors limites avec un message explicite (ex. « max 10 par type »).
+              </p>
+            </div>
+          )}
+        </Card>
+
+        <div className="relative overflow-hidden rounded-2xl bg-zinc-950 p-5 text-white shadow-lg">
+          <div aria-hidden className="pointer-events-none absolute inset-0">
+            <div className="absolute -right-16 -top-16 size-48 rounded-full bg-brand-600/30 blur-3xl" />
           </div>
-          <SaveBar dirty={dirty} saving={saving} onSave={save} />
-          {feedback && <FormFeedback tone={feedback.tone} message={feedback.message} />}
+          <div className="relative">
+            <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-400">
+              <Calculator className="size-3.5" aria-hidden /> Simulation live · 2 × 15 000 Ar
+            </p>
+            {preview ? (
+              <dl className="mt-3 space-y-1.5 text-sm">
+                <div className="flex justify-between text-zinc-300">
+                  <dt>Sous-total</dt>
+                  <dd className="tabular-nums">{formatAr(preview.subtotal)}</dd>
+                </div>
+                <div className="flex justify-between text-zinc-300">
+                  <dt>
+                    Frais {preview.capped ? '(plafonnés)' : ''}
+                  </dt>
+                  <dd className="tabular-nums">{formatAr(preview.fees)}</dd>
+                </div>
+                <div className="flex items-baseline justify-between border-t border-white/10 pt-2">
+                  <dt className="font-bold">Total client</dt>
+                  <dd className="font-display text-2xl font-black tabular-nums">{formatAr(preview.total)}</dd>
+                </div>
+              </dl>
+            ) : (
+              <div aria-hidden className="skeleton mt-3 h-20 w-full rounded-xl" />
+            )}
+            <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
+              {draft?.payer === 'organizer'
+                ? 'Le client paie le sous-total, les frais sont absorbés par l’organisateur.'
+                : draft?.payer === 'split'
+                  ? 'Frais partagés entre client et organisateur (indicatif).'
+                  : 'Les frais s’ajoutent au total payé par le client.'}
+              {preview && preview.min > 0 && ` · Minimum ${formatAr(preview.min)}.`}
+            </p>
+          </div>
         </div>
-      )}
-    </Card>
+
+        <SaveBar dirty={dirty} saving={saving} onSave={save} idleText="Tarifs à jour." dirtyText="Simulation non enregistrée." />
+        {feedback && <FormFeedback tone={feedback.tone} message={feedback.message} />}
+      </div>
+    </div>
   );
 }
 
@@ -834,59 +1222,377 @@ function ContactCard() {
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <Card className="p-4 sm:p-6">
+    <div className="grid items-start gap-4 xl:grid-cols-5">
+      {/* ---- Colonne identité ---- */}
+      <Card className="p-4 sm:p-6 xl:col-span-3">
         <SectionHeader
-          icon={Mail}
-          title="Branding & contact"
-          description="Nom du site, logo et coordonnées affichées (page Contact)."
+          icon={ImageIcon}
+          title="Identité & contact"
+          description="Nom du site, logo et coordonnées reprises sur la page Contact et le footer."
           tone="bg-gradient-to-br from-sky-500 to-indigo-600 shadow-sky-600/30"
         />
         {settings.isPending || !draft ? (
           <CardSkeleton lines={4} />
         ) : (
-          <div className="mt-4 space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Input label="Nom du site" value={draft.siteName} onChange={(e) => patch({ siteName: e.target.value })} />
-              <Input label="URL du logo" placeholder="/logo.jpeg" value={draft.logoUrl} onChange={(e) => patch({ logoUrl: e.target.value })} />
+          <div className="mt-4 space-y-5">
+            <div className="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-zinc-50/60 p-4">
+              <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200">
+                {draft.logoUrl.trim() ? (
+                  <img src={draft.logoUrl.trim()} alt="Aperçu du logo" className="max-h-12 w-auto max-w-16 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                ) : (
+                  <ImageIcon className="size-6 text-zinc-300" aria-hidden />
+                )}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-lg font-black tracking-tight">{draft.siteName.trim() || 'Nom du site'}</p>
+                <p className="truncate text-xs text-zinc-500">{draft.logoUrl.trim() || 'Aucun logo configuré'}</p>
+              </div>
+              <Badge tone="info">Aperçu</Badge>
             </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
-              <Input label="Email de contact" type="email" value={draft.email} onChange={(e) => patch({ email: e.target.value })} />
-              <Input label="Téléphone de contact" value={draft.phone} onChange={(e) => patch({ phone: e.target.value })} />
+              <Input label="Nom du site" value={draft.siteName} onChange={(e) => patch({ siteName: e.target.value })} placeholder="Giga Vibe Event" />
+              <Input label="URL du logo" placeholder="/logo.jpeg" value={draft.logoUrl} onChange={(e) => patch({ logoUrl: e.target.value })} hint="Public : /logo.jpeg ou https://…" />
             </div>
-            <SaveBar dirty={dirty} saving={saving} onSave={save} />
-            {feedback && <FormFeedback tone={feedback.tone} message={feedback.message} />}
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Input label="Email de contact" type="email" value={draft.email} onChange={(e) => patch({ email: e.target.value })} placeholder="contact@ticket.mg" />
+                {draft.email.trim() && (
+                  <a href={`mailto:${draft.email.trim()}`} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:underline">
+                    <AtSign className="size-3" aria-hidden /> Tester le mailto
+                  </a>
+                )}
+              </div>
+              <div>
+                <Input label="Téléphone de contact" value={draft.phone} onChange={(e) => patch({ phone: e.target.value })} placeholder="+261 34 …" />
+                {draft.phone.trim().length >= 8 && (
+                  <a href={`tel:${draft.phone.replace(/[\s-]/g, '')}`} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:underline">
+                    <Phone className="size-3" aria-hidden /> {draft.phone.trim()}
+                  </a>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </Card>
+
+      {/* ---- Colonne numérotation + accès ---- */}
+      <div className="space-y-4 xl:col-span-2">
+        <Card className="p-4 sm:p-6">
+          <SectionHeader
+            icon={Hash}
+            title="Numérotation"
+            description="Préfixes des billets et commandes à venir."
+            tone="bg-gradient-to-br from-zinc-700 to-zinc-950 shadow-zinc-900/30"
+          />
+          {settings.isPending || !draft ? (
+            <CardSkeleton lines={2} />
+          ) : (
+            <div className="mt-4 space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input label="Préfixe billets" placeholder="GVE-" value={draft.ticketPrefix} onChange={(e) => patch({ ticketPrefix: e.target.value })} />
+                <Input label="Préfixe commandes" placeholder="ORDER-" value={draft.orderPrefix} onChange={(e) => patch({ orderPrefix: e.target.value })} />
+              </div>
+              <div className="grid gap-2 rounded-2xl bg-zinc-950 p-4 font-mono text-xs text-white">
+                <p className="flex justify-between gap-2">
+                  <span className="text-zinc-400">Billet</span>
+                  <strong className="tabular-nums">{(draft.ticketPrefix || 'GVE-') + '000123'}</strong>
+                </p>
+                <p className="flex justify-between gap-2 border-t border-white/10 pt-2">
+                  <span className="text-zinc-400">Commande</span>
+                  <strong className="tabular-nums">{(draft.orderPrefix || 'ORDER-') + new Date().getFullYear() + '-000123'}</strong>
+                </p>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        <Card className="p-4 sm:p-6">
+          <SectionHeader
+            icon={KeyRound}
+            title="Uploads & liens"
+            description="Taille max des images et durée de vie des liens."
+            tone="bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/30"
+          />
+          {settings.isPending || !draft ? (
+            <CardSkeleton lines={3} />
+          ) : (
+            <div className="mt-4 space-y-3">
+              <div>
+                <Input label="Upload max (Mo)" type="number" min={1} max={50} value={draft.uploadMb} onChange={(e) => patch({ uploadMb: e.target.value })} />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {[2, 5, 10, 20].map((m) => {
+                    const active = Number(draft.uploadMb) === m;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => patch({ uploadMb: String(m) })}
+                        aria-pressed={active}
+                        className={cn(
+                          'rounded-full border px-3 py-1 text-xs font-bold tabular-nums transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+                          active
+                            ? 'border-zinc-900 bg-zinc-950 text-white shadow'
+                            : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900',
+                        )}
+                      >
+                        {m} Mo
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Input label="Invitations (j)" type="number" min={1} max={30} value={draft.inviteDays} onChange={(e) => patch({ inviteDays: e.target.value })} />
+                <Input label="Confirm. (min)" type="number" min={5} max={1440} value={draft.confirmExpiry} onChange={(e) => patch({ confirmExpiry: e.target.value })} />
+                <Input label="Reset (min)" type="number" min={5} max={1440} value={draft.resetExpiry} onChange={(e) => patch({ resetExpiry: e.target.value })} />
+              </div>
+              <p className="flex items-start gap-1.5 rounded-xl bg-zinc-50 px-3 py-2.5 text-[11px] leading-relaxed text-zinc-500">
+                <Upload className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                Reçus Mobile Money, logos et affiches : JPEG / PNG / WebP uniquement.
+              </p>
+            </div>
+          )}
+        </Card>
+
+        <SaveBar dirty={dirty} saving={saving} onSave={save} idleText="Site & contact à jour." dirtyText="Aperçu non enregistré." />
+        {feedback && <FormFeedback tone={feedback.tone} message={feedback.message} />}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Onglet — Contenu & SEO (P1)                                        */
+/* ------------------------------------------------------------------ */
+
+function ContentSeoTab() {
+  const settings = usePlatformSettings();
+  const updateSetting = useUpdatePlatformSetting();
+  const [draft, setDraft] = useState<{
+    refund: string;
+    terms: string;
+    seoTitle: string;
+    seoDesc: string;
+    seoOg: string;
+    seoKw: string;
+    fb: string;
+    ig: string;
+    tiktok: string;
+    wa: string;
+    yt: string;
+    brand: string;
+    footer: string;
+    support: string;
+    nVal: boolean;
+    nRej: boolean;
+    nPub: boolean;
+  } | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ tone: 'ok' | 'ko'; message: string } | null>(null);
+
+  useEffect(() => {
+    if (settings.data && draft === null) {
+      setDraft({
+        refund: settings.data.refundPolicyText,
+        terms: settings.data.termsUrl,
+        seoTitle: settings.data.seoSiteTitle,
+        seoDesc: settings.data.seoSiteDescription,
+        seoOg: settings.data.seoOgImageUrl,
+        seoKw: settings.data.seoKeywords,
+        fb: settings.data.socialFacebookUrl,
+        ig: settings.data.socialInstagramUrl,
+        tiktok: settings.data.socialTiktokUrl,
+        wa: settings.data.socialWhatsapp,
+        yt: settings.data.socialYoutubeUrl,
+        brand: settings.data.emailBrandName,
+        footer: settings.data.emailFooterText,
+        support: settings.data.emailSupportUrl,
+        nVal: settings.data.notifyPaymentValidated,
+        nRej: settings.data.notifyPaymentRejected,
+        nPub: settings.data.notifyEventPublished,
+      });
+    }
+  }, [settings.data, draft]);
+
+  const patch = (p: Partial<NonNullable<typeof draft>>) => {
+    setDraft((d) => (d ? { ...d, ...p } : d));
+    setDirty(true);
+    setFeedback(null);
+  };
+
+  const save = async () => {
+    if (!draft) return;
+    setSaving(true);
+    setFeedback(null);
+    try {
+      const entries: [string, string][] = [
+        ['refund_policy_text', JSON.stringify(draft.refund.trim() || 'En cas d’annulation, remboursement automatique.')],
+        ['terms_url', JSON.stringify(draft.terms.trim() || '/cgu')],
+        ['seo_site_title', JSON.stringify(draft.seoTitle.trim())],
+        ['seo_site_description', JSON.stringify(draft.seoDesc.trim())],
+        ['seo_og_image_url', JSON.stringify(draft.seoOg.trim() || '/logo.jpeg')],
+        ['seo_keywords', JSON.stringify(draft.seoKw.trim())],
+        ['social_facebook_url', JSON.stringify(draft.fb.trim())],
+        ['social_instagram_url', JSON.stringify(draft.ig.trim())],
+        ['social_tiktok_url', JSON.stringify(draft.tiktok.trim())],
+        ['social_whatsapp', JSON.stringify(draft.wa.trim())],
+        ['social_youtube_url', JSON.stringify(draft.yt.trim())],
+        ['email_brand_name', JSON.stringify(draft.brand.trim() || 'Giga Vibe Event')],
+        ['email_footer_text', JSON.stringify(draft.footer.trim())],
+        ['email_support_url', JSON.stringify(draft.support.trim() || '/contact')],
+        ['notify_payment_validated', JSON.stringify(draft.nVal)],
+        ['notify_payment_rejected', JSON.stringify(draft.nRej)],
+        ['notify_event_published', JSON.stringify(draft.nPub)],
+      ];
+      for (const [key, value] of entries) {
+        await updateSetting.mutateAsync({ key, value });
+      }
+      setDirty(false);
+      setFeedback({ tone: 'ok', message: 'Contenu & SEO enregistrés.' });
+    } catch (err) {
+      setFeedback({ tone: 'ko', message: err instanceof Error ? err.message : 'Enregistrement impossible.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (settings.isPending || !draft) {
+    return (
       <Card className="p-4 sm:p-6">
-        <SectionHeader
-          icon={Settings}
-          title="Numérotation, uploads & auth"
-          description="Préfixes billets/commandes, taille max d’upload et durées des liens."
-          tone="bg-gradient-to-br from-zinc-700 to-zinc-950 shadow-zinc-900/30"
-        />
-        {settings.isPending || !draft ? (
-          <CardSkeleton lines={4} />
-        ) : (
-          <div className="mt-4 space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Input label="Préfixe billets" placeholder="GVE-" value={draft.ticketPrefix} onChange={(e) => patch({ ticketPrefix: e.target.value })} hint="Appliqué aux prochains billets" />
-              <Input label="Préfixe commandes" placeholder="ORDER-" value={draft.orderPrefix} onChange={(e) => patch({ orderPrefix: e.target.value })} hint="+ année + compteur" />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Input label="Upload max (Mo)" type="number" min={1} max={50} value={draft.uploadMb} onChange={(e) => patch({ uploadMb: e.target.value })} />
-              <Input label="Expiration invitations (jours)" type="number" min={1} max={30} value={draft.inviteDays} onChange={(e) => patch({ inviteDays: e.target.value })} />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Input label="Lien confirmation (min)" type="number" min={5} max={1440} value={draft.confirmExpiry} onChange={(e) => patch({ confirmExpiry: e.target.value })} />
-              <Input label="Lien reset password (min)" type="number" min={5} max={1440} value={draft.resetExpiry} onChange={(e) => patch({ resetExpiry: e.target.value })} />
-            </div>
-            <SaveBar dirty={dirty} saving={saving} onSave={save} />
-            {feedback && <FormFeedback tone={feedback.tone} message={feedback.message} />}
-          </div>
-        )}
+        <SectionHeader icon={Megaphone} title="Contenu & SEO" description="Remboursement, CGU, SEO, réseaux sociaux, emails." tone="bg-gradient-to-br from-brand-600 to-brand-800 shadow-brand-600/30" />
+        <CardSkeleton lines={6} />
       </Card>
+    );
+  }
+
+  return (
+    <div className="grid items-start gap-4 xl:grid-cols-5">
+      {/* ---- Colonne SEO + contenu ---- */}
+      <div className="space-y-4 xl:col-span-3">
+        <Card className="p-4 sm:p-6">
+          <SectionHeader icon={Search} title="SEO & partages" description="Titre, description, image Open Graph et mots-clés." tone="bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/30" />
+          <div className="mt-4 space-y-3">
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Titre · idéal ≤ 60</p>
+                <span className={cn('text-[11px] font-bold tabular-nums', draft.seoTitle.trim().length > 60 ? 'text-amber-600' : 'text-zinc-400')}>
+                  {draft.seoTitle.trim().length}/60
+                </span>
+              </div>
+              <Input label="Titre SEO" value={draft.seoTitle} onChange={(e) => patch({ seoTitle: e.target.value })} />
+            </div>
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Description · idéal ≤ 160</p>
+                <span className={cn('text-[11px] font-bold tabular-nums', draft.seoDesc.trim().length > 160 ? 'text-amber-600' : 'text-zinc-400')}>
+                  {draft.seoDesc.trim().length}/160
+                </span>
+              </div>
+              <Textarea label="Description SEO" rows={3} value={draft.seoDesc} onChange={(e) => patch({ seoDesc: e.target.value })} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input label="Image OG (URL)" value={draft.seoOg} onChange={(e) => patch({ seoOg: e.target.value })} placeholder="/logo.jpeg" />
+              <Input label="Mots-clés (virgules)" value={draft.seoKw} onChange={(e) => patch({ seoKw: e.target.value })} />
+            </div>
+            {/* Aperçu Google */}
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Aperçu Google</p>
+              <div className="flex items-start gap-3">
+                {draft.seoOg.trim() && (
+                  <img src={draft.seoOg.trim()} alt="" aria-hidden className="size-10 shrink-0 rounded-xl object-cover ring-1 ring-zinc-200" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] text-zinc-500">{new URL(draft.support.startsWith('http') ? draft.support : 'https://giga-vibe-event.vercel.app').hostname || 'giga-vibe-event.vercel.app'}</p>
+                  <p className="truncate text-base font-medium text-[#1a0dab]">{draft.seoTitle.trim() || 'Titre SEO'}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-zinc-600">{draft.seoDesc.trim() || 'Description SEO…'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 sm:p-6">
+          <SectionHeader icon={FileText} title="Contenu billetterie" description="Texte de remboursement et lien CGU dans le tunnel." tone="bg-gradient-to-br from-brand-600 to-brand-800 shadow-brand-600/30" />
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Input label="Politique de remboursement" value={draft.refund} onChange={(e) => patch({ refund: e.target.value })} hint="Affichée page événement" />
+            <Input label="URL des CGU" placeholder="/cgu" value={draft.terms} onChange={(e) => patch({ terms: e.target.value })} hint="Lien footer + tunnel" />
+          </div>
+          <p className="mt-3 rounded-xl bg-zinc-50 px-3 py-2.5 text-[11px] leading-relaxed text-zinc-500">
+            « {draft.refund.trim().slice(0, 90) || '…'} » · CGU : <span className="font-mono">{draft.terms.trim() || '/cgu'}</span>
+          </p>
+        </Card>
+      </div>
+
+      {/* ---- Colonne social + emails ---- */}
+      <div className="space-y-4 xl:col-span-2">
+        <Card className="p-4 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <SectionHeader icon={Share2} title="Réseaux sociaux" description="Vide = lien masqué dans le footer." tone="bg-gradient-to-br from-sky-500 to-indigo-600 shadow-sky-600/30" />
+            <Badge tone={(draft.fb || draft.ig || draft.tiktok || draft.wa || draft.yt) ? 'success' : 'neutral'}>
+              {[draft.fb, draft.ig, draft.tiktok, draft.wa, draft.yt].filter((v) => v.trim()).length}/5 actifs
+            </Badge>
+          </div>
+          <div className="mt-4 space-y-2">
+            {([
+              ['fb', 'Facebook', 'https://facebook.com/…'],
+              ['ig', 'Instagram', 'https://instagram.com/…'],
+              ['tiktok', 'TikTok', 'https://tiktok.com/…'],
+              ['yt', 'YouTube', 'https://youtube.com/…'],
+              ['wa', 'WhatsApp', '+261 …'],
+            ] as const).map(([key, label, ph]) => {
+              const val = draft[key];
+              const on = val.trim().length > 0;
+              return (
+                <div key={key} className={cn('flex items-center gap-2 rounded-2xl border p-2.5 transition', on ? 'border-zinc-200 bg-white' : 'border-dashed border-zinc-300 bg-zinc-50/60')}>
+                  <span aria-hidden className={cn('size-2 shrink-0 rounded-full', on ? 'bg-emerald-500' : 'bg-zinc-300')} />
+                  <div className="min-w-0 flex-1">
+                    <Input label={label} placeholder={ph} value={val} onChange={(e) => patch({ [key]: e.target.value } as Partial<NonNullable<typeof draft>>)} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card className="p-4 sm:p-6">
+          <SectionHeader icon={Bell} title="Emails & notifications" description="Textes non sensibles + toggles (clés API côté serveur)." tone="bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-600/30" />
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Input label="Marque (emails)" value={draft.brand} onChange={(e) => patch({ brand: e.target.value })} />
+            <Input label="URL support" value={draft.support} onChange={(e) => patch({ support: e.target.value })} />
+          </div>
+          <div className="mt-3">
+            <Input label="Pied de page (emails)" value={draft.footer} onChange={(e) => patch({ footer: e.target.value })} />
+          </div>
+          <div className="mt-3 overflow-hidden rounded-2xl border border-zinc-200">
+            <div className="border-b border-zinc-100 bg-zinc-50 px-4 py-2.5">
+              <p className="text-sm font-bold">{draft.brand.trim() || 'Marque'}</p>
+              <p className="truncate text-[11px] text-zinc-400">{draft.footer.trim() || 'Pied de page…'}</p>
+            </div>
+            <div className="divide-y divide-zinc-100">
+              {([
+                ['nVal', 'Paiement validé', 'Billet envoyé après validation', draft.nVal],
+                ['nRej', 'Paiement refusé', 'Motif envoyé au client', draft.nRej],
+                ['nPub', 'Événement publié', 'Annonce aux abonnés', draft.nPub],
+              ] as const).map(([key, label, hint, val]) => (
+                <div key={key} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-bold">{label}</p>
+                    <p className="truncate text-[11px] text-zinc-400">{hint}</p>
+                  </div>
+                  <Switch checked={val} onChange={(v) => patch({ [key]: v } as Partial<NonNullable<typeof draft>>)} label={label} />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-4">
+            <SaveBar dirty={dirty} saving={saving} onSave={save} idleText="Contenu à jour." dirtyText="Aperçu non enregistré." />
+            {feedback && <div className="mt-3"><FormFeedback tone={feedback.tone} message={feedback.message} /></div>}
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -1087,10 +1793,16 @@ export function AdminSettingsPage() {
           className="rise"
         >
           {activeTab === 'validation' && <ValidationCard />}
-          {activeTab === 'mobile-money' && <PaymentMethodsCard />}
+          {activeTab === 'mobile-money' && (
+            <div className="space-y-4">
+              <PaymentMethodsCard />
+              <OperatorPrefsCard />
+            </div>
+          )}
           {activeTab === 'pricing' && <PricingCard />}
           {activeTab === 'site' && <SiteSettingsCard />}
           {activeTab === 'contact' && <ContactCard />}
+          {activeTab === 'content' && <ContentSeoTab />}
           {activeTab === 'system' && <SystemTab />}
         </div>
       </div>

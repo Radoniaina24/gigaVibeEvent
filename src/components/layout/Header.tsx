@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
+import { usePlatformSettings } from '../../hooks/usePlatformSettings';
 import { Button } from '../ui/Button';
 import { Logo } from '../brand/Logo';
 import { cn } from '../../lib/utils';
@@ -331,6 +332,22 @@ export function Header() {
 }
 
 export function Footer() {
+  const { data: settings } = usePlatformSettings();
+  const socials = [
+    settings?.socialFacebookUrl ? { label: 'Facebook', href: settings.socialFacebookUrl } : null,
+    settings?.socialInstagramUrl ? { label: 'Instagram', href: settings.socialInstagramUrl } : null,
+    settings?.socialTiktokUrl ? { label: 'TikTok', href: settings.socialTiktokUrl } : null,
+    settings?.socialYoutubeUrl ? { label: 'YouTube', href: settings.socialYoutubeUrl } : null,
+    settings?.socialWhatsapp
+      ? {
+          label: 'WhatsApp',
+          href: settings.socialWhatsapp.startsWith('http')
+            ? settings.socialWhatsapp
+            : `https://wa.me/${settings.socialWhatsapp.replace(/\D/g, '')}`,
+        }
+      : null,
+  ].filter((s): s is { label: string; href: string } => Boolean(s));
+  const termsUrl = settings?.termsUrl || '/cgu';
   return (
     <footer className="border-t border-zinc-200 bg-white">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-3">
@@ -371,10 +388,28 @@ export function Footer() {
           <p className="mt-2 text-sm text-zinc-500">
             YAS · Orange Money · Airtel Money (via Edge Functions sécurisées).
           </p>
+          {socials.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {socials.map((s) => (
+                <li key={s.label}>
+                  <a
+                    href={s.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900"
+                  >
+                    {s.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
       <div className="border-t border-zinc-100 py-4 text-center text-xs text-zinc-400">
-        © 2026 {env.appName} — Concerts, festivals, sport et conférences à Madagascar.
+        © 2026 {settings?.siteName || env.appName} — Concerts, festivals, sport et conférences à Madagascar.
+        {' · '}
+        <Link className="hover:underline" to={termsUrl}>CGU</Link>
       </div>
     </footer>
   );

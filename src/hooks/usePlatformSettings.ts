@@ -54,6 +54,33 @@ export interface PlatformSettings {
   authConfirmExpiryMinutes: number;
   authResetExpiryMinutes: number;
   invitationExpiryDays: number;
+  /** Opérateurs : préfixes + instructions par opérateur (migration 0024). */
+  paymentPrefixes: Record<ConfigPaymentMethodId, string>;
+  paymentInstructions: Record<ConfigPaymentMethodId, string>;
+  /** Tarifs P1 (migration 0024). */
+  minOrderAmount: number;
+  serviceFeeCap: number;
+  /** Contenu (migration 0024). */
+  refundPolicyText: string;
+  termsUrl: string;
+  /** SEO (migration 0024). */
+  seoSiteTitle: string;
+  seoSiteDescription: string;
+  seoOgImageUrl: string;
+  seoKeywords: string;
+  /** Social (migration 0024, vide = masqué). */
+  socialFacebookUrl: string;
+  socialInstagramUrl: string;
+  socialTiktokUrl: string;
+  socialWhatsapp: string;
+  socialYoutubeUrl: string;
+  /** Emails & notifications (migration 0024, textes non sensibles). */
+  emailBrandName: string;
+  emailFooterText: string;
+  emailSupportUrl: string;
+  notifyPaymentValidated: boolean;
+  notifyPaymentRejected: boolean;
+  notifyEventPublished: boolean;
 }
 
 const DEFAULTS: PlatformSettings = {
@@ -83,6 +110,28 @@ const DEFAULTS: PlatformSettings = {
   authConfirmExpiryMinutes: 60,
   authResetExpiryMinutes: 30,
   invitationExpiryDays: 7,
+  paymentPrefixes: { yas: '034,038', orange_money: '032,037', airtel_money: '033' },
+  paymentInstructions: { yas: '', orange_money: '', airtel_money: '' },
+  minOrderAmount: 1000,
+  serviceFeeCap: 10000,
+  refundPolicyText: 'En cas d’annulation, remboursement automatique.',
+  termsUrl: '/cgu',
+  seoSiteTitle: 'Giga Vibe Event — Billetterie événementielle',
+  seoSiteDescription:
+    'Billetterie événementielle à Madagascar — concerts, festivals, sport, conférences. Paiement Mobile Money (YAS, Orange Money, Airtel Money).',
+  seoOgImageUrl: '/logo.jpeg',
+  seoKeywords: 'billetterie madagascar, concert antananarivo, yas money, orange money, airtel money',
+  socialFacebookUrl: '',
+  socialInstagramUrl: '',
+  socialTiktokUrl: '',
+  socialWhatsapp: '',
+  socialYoutubeUrl: '',
+  emailBrandName: 'Giga Vibe Event',
+  emailFooterText: 'Email automatique, merci de ne pas y répondre.',
+  emailSupportUrl: '/contact',
+  notifyPaymentValidated: true,
+  notifyPaymentRejected: true,
+  notifyEventPublished: true,
 };
 
 const METHOD_IDS: ConfigPaymentMethodId[] = ['yas', 'orange_money', 'airtel_money'];
@@ -170,6 +219,35 @@ export function usePlatformSettings() {
         authConfirmExpiryMinutes: num('auth_confirm_expiry_minutes', 60, 5, 1440),
         authResetExpiryMinutes: num('auth_reset_expiry_minutes', 30, 5, 1440),
         invitationExpiryDays: num('invitation_expiry_days', 7, 1, 30),
+        paymentPrefixes: {
+          yas: asText(map.get('payment_yas_prefixes'), '034,038') || '034,038',
+          orange_money: asText(map.get('payment_orange_prefixes'), '032,037') || '032,037',
+          airtel_money: asText(map.get('payment_airtel_prefixes'), '033') || '033',
+        },
+        paymentInstructions: {
+          yas: asText(map.get('payment_instructions_yas'), ''),
+          orange_money: asText(map.get('payment_instructions_orange'), ''),
+          airtel_money: asText(map.get('payment_instructions_airtel'), ''),
+        },
+        minOrderAmount: num('min_order_amount', 1000, 0, 1000000),
+        serviceFeeCap: num('service_fee_cap', 10000, 0, 1000000),
+        refundPolicyText: asText(map.get('refund_policy_text'), DEFAULTS.refundPolicyText) || DEFAULTS.refundPolicyText,
+        termsUrl: asText(map.get('terms_url'), DEFAULTS.termsUrl) || DEFAULTS.termsUrl,
+        seoSiteTitle: asText(map.get('seo_site_title'), DEFAULTS.seoSiteTitle) || DEFAULTS.seoSiteTitle,
+        seoSiteDescription: asText(map.get('seo_site_description'), DEFAULTS.seoSiteDescription) || DEFAULTS.seoSiteDescription,
+        seoOgImageUrl: asText(map.get('seo_og_image_url'), DEFAULTS.seoOgImageUrl) || DEFAULTS.seoOgImageUrl,
+        seoKeywords: asText(map.get('seo_keywords'), DEFAULTS.seoKeywords) || DEFAULTS.seoKeywords,
+        socialFacebookUrl: asText(map.get('social_facebook_url'), ''),
+        socialInstagramUrl: asText(map.get('social_instagram_url'), ''),
+        socialTiktokUrl: asText(map.get('social_tiktok_url'), ''),
+        socialWhatsapp: asText(map.get('social_whatsapp'), ''),
+        socialYoutubeUrl: asText(map.get('social_youtube_url'), ''),
+        emailBrandName: asText(map.get('email_brand_name'), DEFAULTS.emailBrandName) || DEFAULTS.emailBrandName,
+        emailFooterText: asText(map.get('email_footer_text'), DEFAULTS.emailFooterText) || DEFAULTS.emailFooterText,
+        emailSupportUrl: asText(map.get('email_support_url'), DEFAULTS.emailSupportUrl) || DEFAULTS.emailSupportUrl,
+        notifyPaymentValidated: asBool(map.get('notify_payment_validated'), true),
+        notifyPaymentRejected: asBool(map.get('notify_payment_rejected'), true),
+        notifyEventPublished: asBool(map.get('notify_event_published'), true),
       };
     },
   });
