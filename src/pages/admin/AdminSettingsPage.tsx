@@ -172,12 +172,330 @@ function FormFeedback({ tone, message }: { tone: 'ok' | 'ko'; message: string })
   );
 }
 
-function CardSkeleton({ lines = 3 }: { lines?: number }) {
+/* ------------------------------------------------------------------ */
+/*  Skeletons pro — chaque onglet a son squelette calqué sur sa mise  */
+/*  en page (header + corps + aperçu sombre). Coquille instantanée :   */
+/*  le hero et les onglets s'affichent aussitôt, seul le panneau      */
+/*  montre son skeleton pendant le chargement des réglages.           */
+/* ------------------------------------------------------------------ */
+
+function Sk({ className }: { className?: string }) {
+  return <div aria-hidden className={cn('skeleton', className)} />;
+}
+
+function DarkSk({ className }: { className?: string }) {
+  return <div aria-hidden className={cn('rounded-md bg-white/10 skeleton-shimmer', className)} />;
+}
+
+function FieldSkeleton() {
   return (
-    <div role="status" aria-label="Chargement" className="mt-4 space-y-3">
-      {Array.from({ length: lines }).map((_, i) => (
-        <div key={i} aria-hidden className="skeleton h-14 w-full rounded-2xl" />
+    <div className="space-y-1.5">
+      <Sk className="h-3 w-24" />
+      <Sk className="h-10 w-full !rounded-lg" />
+    </div>
+  );
+}
+
+/** Validation : 2 options + circuit sombre. */
+function ValidationSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement de la validation" className="mt-4 grid gap-3">
+      {[0, 1].map((i) => (
+        <div key={i} className="flex items-start gap-3 rounded-2xl border border-zinc-200 p-4">
+          <Sk className="size-11 shrink-0 !rounded-2xl" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Sk className="h-4 w-1/3" />
+            <Sk className="h-3 w-full" />
+            <Sk className="h-3 w-2/3" />
+          </div>
+          <Sk className="size-6 shrink-0 !rounded-full" />
+        </div>
       ))}
+    </div>
+  );
+}
+
+/** Mobile Money : 3 cartes opérateurs + aperçu. */
+function MerchantCardsSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement des moyens de paiement" className="mt-4 space-y-4">
+      <div className="grid items-start gap-3 lg:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="rounded-2xl border border-zinc-200 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <Sk className="h-11 w-24 !rounded-xl" />
+              <Sk className="h-6 w-11 !rounded-full" />
+            </div>
+            <Sk className="mt-2.5 h-4 w-1/2" />
+            <Sk className="mt-1 h-1 w-full" />
+            <div className="mt-3 space-y-2">
+              <FieldSkeleton />
+              <FieldSkeleton />
+            </div>
+            <Sk className="mt-2.5 h-8 w-full !rounded-xl" />
+          </div>
+        ))}
+      </div>
+      <Sk className="h-20 w-full !rounded-2xl" />
+    </div>
+  );
+}
+
+/** Préfixes & instructions : 3 cartes compactes. */
+function OperatorPrefsSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement des préférences opérateurs" className="mt-4 grid items-start gap-3 lg:grid-cols-3">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="rounded-2xl border border-zinc-200 p-4">
+          <div className="flex items-center gap-2.5">
+            <Sk className="h-10 w-20 !rounded-xl" />
+            <Sk className="h-4 w-20" />
+          </div>
+          <div className="mt-3">
+            <FieldSkeleton />
+          </div>
+          <div className="mt-2 flex gap-1.5">
+            <Sk className="h-6 w-12 !rounded-full" />
+            <Sk className="h-6 w-12 !rounded-full" />
+          </div>
+          <div className="mt-2">
+            <FieldSkeleton />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Tarifs : montant + presets + qui-paie. */
+function PricingFeesSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement des tarifs" className="mt-4 space-y-5">
+      <div className="flex items-end justify-between gap-2">
+        <Sk className="h-3 w-28" />
+        <Sk className="h-8 w-32" />
+      </div>
+      <FieldSkeleton />
+      <div className="flex flex-wrap gap-1.5">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Sk key={i} className="h-6 w-16 !rounded-full" />
+        ))}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <Sk key={i} className="h-28 w-full !rounded-2xl" />
+        ))}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FieldSkeleton />
+        <FieldSkeleton />
+      </div>
+    </div>
+  );
+}
+
+/** Limites : 3 lignes stepper + note. */
+function LimitsSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement des limites" className="mt-4 space-y-2">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="flex items-center gap-3 rounded-2xl border border-zinc-200 p-3">
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Sk className="h-4 w-2/3" />
+            <Sk className="h-3 w-1/2" />
+          </div>
+          <Sk className="h-10 w-20 !rounded-xl" />
+        </div>
+      ))}
+      <Sk className="h-12 w-full !rounded-xl" />
+    </div>
+  );
+}
+
+/** Site : devise + réservation + consignes. */
+function SiteMainSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement de la billetterie" className="mt-4 space-y-5">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <div className="flex items-end justify-between gap-2">
+            <Sk className="h-3 w-16" />
+            <Sk className="h-7 w-20" />
+          </div>
+          <div className="mt-2">
+            <FieldSkeleton />
+          </div>
+          <div className="mt-2 flex gap-1.5">
+            <Sk className="h-6 w-14 !rounded-full" />
+            <Sk className="h-6 w-14 !rounded-full" />
+            <Sk className="h-6 w-14 !rounded-full" />
+          </div>
+        </div>
+        <div>
+          <div className="flex items-end justify-between gap-2">
+            <Sk className="h-3 w-24" />
+            <Sk className="h-7 w-16" />
+          </div>
+          <div className="mt-2">
+            <FieldSkeleton />
+          </div>
+          <div className="mt-2 flex gap-1.5">
+            <Sk className="h-6 w-14 !rounded-full" />
+            <Sk className="h-6 w-14 !rounded-full" />
+            <Sk className="h-6 w-14 !rounded-full" />
+          </div>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Sk className="h-3 w-40" />
+        <Sk className="h-24 w-full !rounded-lg" />
+        <Sk className="h-16 w-full !rounded-2xl" />
+      </div>
+    </div>
+  );
+}
+
+/** Maintenance : toggle + aperçu. */
+function MaintenanceSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement de la maintenance" className="mt-4 space-y-3">
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 p-4">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <Sk className="h-4 w-2/3" />
+          <Sk className="h-3 w-full" />
+        </div>
+        <Sk className="h-6 w-11 shrink-0 !rounded-full" />
+      </div>
+      <Sk className="h-14 w-full !rounded-xl" />
+    </div>
+  );
+}
+
+/** Identité : aperçu marque + 4 champs. */
+function IdentitySkeleton() {
+  return (
+    <div role="status" aria-label="Chargement de l’identité" className="mt-4 space-y-5">
+      <div className="flex items-center gap-4 rounded-2xl border border-zinc-200 p-4">
+        <Sk className="size-14 shrink-0 !rounded-2xl" />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <Sk className="h-5 w-1/2" />
+          <Sk className="h-3 w-2/3" />
+        </div>
+        <Sk className="h-6 w-16 shrink-0 !rounded-full" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FieldSkeleton />
+        <FieldSkeleton />
+        <FieldSkeleton />
+        <FieldSkeleton />
+      </div>
+    </div>
+  );
+}
+
+/** Numérotation : 2 champs + exemples mono. */
+function NumberingSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement de la numérotation" className="mt-4 space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FieldSkeleton />
+        <FieldSkeleton />
+      </div>
+      <div className="space-y-2 rounded-2xl bg-zinc-950 p-4">
+        <div className="flex justify-between gap-2">
+          <DarkSk className="h-3 w-16" />
+          <DarkSk className="h-3 w-28" />
+        </div>
+        <div className="flex justify-between gap-2">
+          <DarkSk className="h-3 w-20" />
+          <DarkSk className="h-3 w-36" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Uploads & liens : champ + chips + durées. */
+function UploadsSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement des uploads" className="mt-4 space-y-3">
+      <FieldSkeleton />
+      <div className="flex gap-1.5">
+        {[0, 1, 2, 3].map((i) => (
+          <Sk key={i} className="h-6 w-14 !rounded-full" />
+        ))}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <FieldSkeleton />
+        <FieldSkeleton />
+        <FieldSkeleton />
+      </div>
+      <Sk className="h-12 w-full !rounded-xl" />
+    </div>
+  );
+}
+
+/** Contenu & SEO : onglet complet (grille 2 colonnes). */
+function ContentSkeleton() {
+  return (
+    <div role="status" aria-label="Chargement du contenu" className="grid items-start gap-4 xl:grid-cols-5">
+      <div className="space-y-4 xl:col-span-3">
+        <Card className="p-4 sm:p-6">
+          <div className="flex items-start gap-3">
+            <Sk className="size-10 shrink-0 !rounded-xl" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Sk className="h-4 w-1/3" />
+              <Sk className="h-3 w-3/4" />
+            </div>
+          </div>
+          <div className="mt-4 space-y-3">
+            <FieldSkeleton />
+            <FieldSkeleton />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FieldSkeleton />
+              <FieldSkeleton />
+            </div>
+            <Sk className="h-24 w-full !rounded-2xl" />
+          </div>
+        </Card>
+        <Card className="p-4 sm:p-6">
+          <div className="flex items-start gap-3">
+            <Sk className="size-10 shrink-0 !rounded-xl" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Sk className="h-4 w-1/4" />
+              <Sk className="h-3 w-2/3" />
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <FieldSkeleton />
+            <FieldSkeleton />
+          </div>
+        </Card>
+      </div>
+      <div className="space-y-4 xl:col-span-2">
+        <Card className="p-4 sm:p-6">
+          <div className="flex items-start gap-3">
+            <Sk className="size-10 shrink-0 !rounded-xl" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Sk className="h-4 w-1/2" />
+              <Sk className="h-3 w-3/4" />
+            </div>
+          </div>
+          <div className="mt-4 space-y-2">
+            {[0, 1, 2].map((i) => (
+              <Sk key={i} className="h-14 w-full !rounded-2xl" />
+            ))}
+          </div>
+        </Card>
+        <div className="rounded-2xl bg-zinc-950 p-5">
+          <DarkSk className="h-3 w-40" />
+          <div className="mt-3 space-y-2">
+            <DarkSk className="h-3 w-full" />
+            <DarkSk className="h-3 w-5/6" />
+            <DarkSk className="h-7 w-1/2" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -191,6 +509,10 @@ const VALIDATION_OPTIONS = [
     value: 'gve',
     title: 'Giga Vibe Event',
     description: 'Contrôle centralisé par le backoffice admin avant génération des billets.',
+    ideal: 'Idéal : lancement, petits volumes, contrôle maximal.',
+    delay: 'Vérification sous ~24h ouvrées',
+    security: 'Sécurité maximale',
+    steps: ['Client déclare le transfert', 'Admin GVE vérifie', 'Billets QR générés'],
     icon: ShieldCheck,
     tile: 'bg-gradient-to-br from-brand-600 to-brand-800 shadow-brand-600/30',
   },
@@ -198,6 +520,10 @@ const VALIDATION_OPTIONS = [
     value: 'partner',
     title: 'Chaque partenaire',
     description: 'Chaque organisateur vérifie les transferts de ses propres événements.',
+    ideal: 'Idéal : gros volumes, organisateurs autonomes.',
+    delay: 'Vérification par l’organisateur',
+    security: 'Traçé + audité',
+    steps: ['Client déclare le transfert', 'Organisateur vérifie', 'Billets QR générés'],
     icon: Users,
     tile: 'bg-gradient-to-br from-sky-500 to-indigo-600 shadow-sky-600/30',
   },
@@ -212,103 +538,159 @@ function ValidationCard() {
 
   const currentMode = validationMode ?? settings.data?.paymentValidation ?? 'gve';
   const modeDirty = settings.data != null && currentMode !== settings.data.paymentValidation;
+  const currentOpt = VALIDATION_OPTIONS.find((o) => o.value === currentMode) ?? VALIDATION_OPTIONS[0];
+  const notifyOn = settings.data?.notifyPaymentValidated ?? true;
+
+  const onSave = async () => {
+    setSettingError(null);
+    try {
+      await updateSetting.mutateAsync({ key: 'payment_validation', value: currentMode });
+      setValidationMode(null);
+      setSaved(true);
+    } catch (err) {
+      setSettingError(err instanceof Error ? err.message : 'Enregistrement impossible.');
+    }
+  };
 
   return (
-    <Card className="p-4 sm:p-6">
-      <SectionHeader
-        icon={ShieldCheck}
-        title="Validation des paiements manuels"
-        description="Qui vérifie les transferts déclarés par les clients avant génération des billets."
-        tone="bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-600/30"
-      />
-      {settings.isPending ? (
-        <CardSkeleton lines={2} />
-      ) : (
-        <>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Responsable de validation">
-            {VALIDATION_OPTIONS.map((opt) => {
-              const selected = currentMode === opt.value;
-              const isActive = settings.data?.paymentValidation === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => {
-                    setValidationMode(opt.value);
-                    setSaved(false);
-                    setSettingError(null);
-                  }}
-                  className={cn(
-                    'group flex items-start gap-3 rounded-2xl border p-4 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
-                    selected
-                      ? 'border-zinc-900 bg-zinc-950 text-white shadow-lg'
-                      : 'border-zinc-200 bg-white hover:-translate-y-px hover:border-zinc-300 hover:shadow-md',
-                  )}
-                >
-                  <span aria-hidden className={cn('grid size-10 shrink-0 place-items-center rounded-xl text-white shadow-sm', opt.tile)}>
-                    <opt.icon className="size-5" aria-hidden />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className={cn('flex flex-wrap items-center gap-2 text-sm font-bold', selected ? 'text-white' : 'text-zinc-900')}>
-                      {opt.title}
-                      {isActive && (
-                        <span className={cn(
-                          'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
-                          selected ? 'bg-emerald-400/20 text-emerald-300' : 'bg-emerald-100 text-emerald-800',
-                        )}>
-                          Actif
-                        </span>
-                      )}
-                    </span>
-                    <span className={cn('mt-1 block text-xs leading-relaxed', selected ? 'text-zinc-300' : 'text-zinc-500')}>
-                      {opt.description}
-                    </span>
-                  </span>
-                  <span
-                    aria-hidden
+    <div className="grid items-start gap-4 xl:grid-cols-5">
+      {/* ---- Colonne choix ---- */}
+      <Card className="p-4 sm:p-6 xl:col-span-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <SectionHeader
+            icon={ShieldCheck}
+            title="Validation des paiements manuels"
+            description="Qui vérifie les transferts déclarés par les clients avant génération des billets."
+            tone="bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-600/30"
+          />
+          {!settings.isPending && (
+            <Badge tone={modeDirty ? 'warning' : 'success'}>{modeDirty ? 'Non enregistré' : 'En vigueur'}</Badge>
+          )}
+        </div>
+        {settings.isPending ? (
+          <ValidationSkeleton />
+        ) : (
+          <>
+            <div className="mt-4 grid gap-3" role="radiogroup" aria-label="Responsable de validation">
+              {VALIDATION_OPTIONS.map((opt, idx) => {
+                const selected = currentMode === opt.value;
+                const isActive = settings.data?.paymentValidation === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => {
+                      setValidationMode(opt.value);
+                      setSaved(false);
+                      setSettingError(null);
+                    }}
                     className={cn(
-                      'grid size-6 shrink-0 place-items-center rounded-full border-2 transition',
-                      selected ? 'border-emerald-400 bg-emerald-400 text-zinc-950' : 'border-zinc-300 bg-white text-transparent group-hover:border-zinc-400',
+                      'group flex items-start gap-3 rounded-2xl border p-4 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+                      selected
+                        ? 'border-zinc-900 bg-zinc-950 text-white shadow-lg'
+                        : 'border-zinc-200 bg-white hover:-translate-y-px hover:border-zinc-300 hover:shadow-md',
                     )}
                   >
-                    <Check className="size-3.5" strokeWidth={3} />
+                    <span aria-hidden className={cn('grid size-11 shrink-0 place-items-center rounded-2xl text-sm font-black text-white shadow-sm', opt.tile)}>
+                      {idx + 1}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className={cn('flex flex-wrap items-center gap-2 text-sm font-bold', selected ? 'text-white' : 'text-zinc-900')}>
+                        <opt.icon className={cn('size-4', selected ? 'text-white' : 'text-zinc-400')} aria-hidden />
+                        {opt.title}
+                        {isActive && (
+                          <span className={cn(
+                            'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                            selected ? 'bg-emerald-400/20 text-emerald-300' : 'bg-emerald-100 text-emerald-800',
+                          )}>
+                            Actif
+                          </span>
+                        )}
+                        {selected && !isActive && (
+                          <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+                            Aperçu
+                          </span>
+                        )}
+                      </span>
+                      <span className={cn('mt-1 block text-xs leading-relaxed', selected ? 'text-zinc-300' : 'text-zinc-500')}>
+                        {opt.description}
+                      </span>
+                      <span className={cn('mt-2 block text-[11px]', selected ? 'text-zinc-400' : 'text-zinc-400')}>
+                        {opt.ideal} · {opt.delay}
+                      </span>
+                    </span>
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'grid size-6 shrink-0 place-items-center rounded-full border-2 transition',
+                        selected ? 'border-emerald-400 bg-emerald-400 text-zinc-950' : 'border-zinc-300 bg-white text-transparent group-hover:border-zinc-400',
+                      )}
+                    >
+                      <Check className="size-3.5" strokeWidth={3} />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {settingError && (
+              <div className="mt-3"><FormFeedback tone="ko" message={settingError} /></div>
+            )}
+            {saved && !modeDirty && (
+              <div className="mt-3"><FormFeedback tone="ok" message="Réglage enregistré." /></div>
+            )}
+          </>
+        )}
+      </Card>
+
+      {/* ---- Colonne circuit ---- */}
+      <div className="space-y-4 xl:col-span-2">
+        <div className="relative overflow-hidden rounded-2xl bg-zinc-950 p-5 text-white shadow-lg">
+          <div aria-hidden className="pointer-events-none absolute inset-0">
+            <div className="absolute -right-16 -top-16 size-48 rounded-full bg-emerald-500/20 blur-3xl" />
+          </div>
+          <div className="relative">
+            <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-400">
+              <currentOpt.icon className="size-3.5" aria-hidden /> Circuit · {currentOpt.title}
+            </p>
+            <ol className="mt-3 space-y-0">
+              {currentOpt.steps.map((s, i) => (
+                <li key={s} className="relative flex gap-3 pb-4 last:pb-0">
+                  {i < currentOpt.steps.length - 1 && (
+                    <span aria-hidden className="absolute left-[13px] top-7 h-[calc(100%-1.5rem)] w-px bg-white/15" />
+                  )}
+                  <span aria-hidden className={cn(
+                    'grid size-7 shrink-0 place-items-center rounded-full text-[11px] font-black',
+                    i < 2 ? 'bg-emerald-400 text-zinc-950' : 'bg-white/10 text-white ring-1 ring-white/15',
+                  )}>
+                    {i + 1}
                   </span>
-                </button>
-              );
-            })}
+                  <div className="min-w-0 pt-0.5">
+                    <p className="text-[13px] font-bold leading-snug">{s}</p>
+                    {i === 1 && (
+                      <p className="mt-0.5 text-[11px] text-zinc-400">{currentOpt.delay} · {currentOpt.security}</p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-3 flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-2 text-[11px] text-zinc-300">
+              <Bell className={cn('size-3.5 shrink-0', notifyOn ? 'text-emerald-300' : 'text-zinc-500')} aria-hidden />
+              {notifyOn ? 'Email billet envoyé après validation.' : 'Notification email coupée (onglet Contenu & SEO).'}
+            </p>
           </div>
-          <div className="mt-4">
-            <SaveBar
-              dirty={modeDirty}
-              saving={updateSetting.isPending}
-              idleText={saved ? 'Réglage enregistré.' : 'Configuration à jour.'}
-              onSave={async () => {
-                setSettingError(null);
-                try {
-                  await updateSetting.mutateAsync({ key: 'payment_validation', value: currentMode });
-                  setValidationMode(null);
-                  setSaved(true);
-                } catch (err) {
-                  setSettingError(err instanceof Error ? err.message : 'Enregistrement impossible.');
-                }
-              }}
-            />
-          </div>
-          {settingError && (
-            <div className="mt-3"><FormFeedback tone="ko" message={settingError} /></div>
-          )}
-          {saved && !modeDirty && (
-            <div className="mt-3"><FormFeedback tone="ok" message="Réglage enregistré." /></div>
-          )}
-          <p className="mt-3 rounded-xl bg-zinc-50 px-3 py-2.5 text-xs leading-relaxed text-zinc-500">
-            Un billet n’est généré qu’après validation manuelle. Le mode <strong>GVE</strong> centralise le contrôle côté admin,
-            le mode <strong>partenaire</strong> délègue la vérification à chaque organisateur.
-          </p>
-        </>
-      )}
-    </Card>
+        </div>
+
+        <SaveBar
+          dirty={modeDirty}
+          saving={updateSetting.isPending}
+          idleText={saved ? 'Réglage enregistré.' : 'Configuration à jour.'}
+          dirtyText="Circuit non enregistré."
+          onSave={onSave}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -398,23 +780,7 @@ function PaymentMethodsCard() {
         )}
       </div>
       {settings.isPending || !draft ? (
-        <div role="status" aria-label="Chargement des moyens de paiement" className="mt-4 space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} aria-hidden className="rounded-2xl border border-zinc-200 p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="skeleton h-10 w-14 rounded-xl" />
-                  <div className="skeleton h-5 w-16 rounded-full" />
-                </div>
-                <div className="skeleton h-6 w-11 rounded-full" />
-              </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <div className="skeleton h-10 w-full rounded-lg" />
-                <div className="skeleton h-10 w-full rounded-lg" />
-              </div>
-            </div>
-          ))}
-        </div>
+        <MerchantCardsSkeleton />
       ) : (
         <div className="mt-4 space-y-4">
           <div className="grid items-start gap-3 lg:grid-cols-3">
@@ -584,7 +950,7 @@ function OperatorPrefsCard() {
         )}
       </div>
       {settings.isPending || !draft ? (
-        <CardSkeleton lines={3} />
+        <OperatorPrefsSkeleton />
       ) : (
         <div className="mt-4 space-y-4">
           <div className="grid items-start gap-3 lg:grid-cols-3">
@@ -715,7 +1081,7 @@ function SiteSettingsCard() {
           tone="bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/30"
         />
         {settings.isPending || !draft ? (
-          <CardSkeleton lines={4} />
+          <SiteMainSkeleton />
         ) : (
           <div className="mt-4 space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -847,7 +1213,7 @@ function SiteSettingsCard() {
             tone="bg-gradient-to-br from-zinc-700 to-zinc-950 shadow-zinc-900/30"
           />
           {settings.isPending || !draft ? (
-            <CardSkeleton lines={2} />
+            <MaintenanceSkeleton />
           ) : (
             <div className="mt-4 space-y-3">
               <div className={cn(
@@ -1033,7 +1399,7 @@ function PricingCard() {
           tone="bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-600/30"
         />
         {settings.isPending || !draft ? (
-          <CardSkeleton lines={4} />
+          <PricingFeesSkeleton />
         ) : (
           <div className="mt-4 space-y-5">
             <div>
@@ -1154,7 +1520,7 @@ function PricingCard() {
             tone="bg-gradient-to-br from-brand-600 to-brand-800 shadow-brand-600/30"
           />
           {settings.isPending || !draft ? (
-            <CardSkeleton lines={3} />
+            <LimitsSkeleton />
           ) : (
             <div className="mt-4 space-y-2">
               {([
@@ -1212,7 +1578,11 @@ function PricingCard() {
                 </div>
               </dl>
             ) : (
-              <div aria-hidden className="skeleton mt-3 h-20 w-full rounded-xl" />
+              <div aria-hidden className="mt-3 space-y-2">
+                <div className="h-3 w-2/3 rounded-md bg-white/10 skeleton-shimmer" />
+                <div className="h-3 w-1/2 rounded-md bg-white/10 skeleton-shimmer" />
+                <div className="h-8 w-1/3 rounded-md bg-white/10 skeleton-shimmer" />
+              </div>
             )}
             <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
               {draft?.payer === 'organizer'
@@ -1326,7 +1696,7 @@ function ContactCard() {
           tone="bg-gradient-to-br from-sky-500 to-indigo-600 shadow-sky-600/30"
         />
         {settings.isPending || !draft ? (
-          <CardSkeleton lines={4} />
+          <IdentitySkeleton />
         ) : (
           <div className="mt-4 space-y-5">
             <div className="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-zinc-50/60 p-4">
@@ -1381,7 +1751,7 @@ function ContactCard() {
             tone="bg-gradient-to-br from-zinc-700 to-zinc-950 shadow-zinc-900/30"
           />
           {settings.isPending || !draft ? (
-            <CardSkeleton lines={2} />
+            <NumberingSkeleton />
           ) : (
             <div className="mt-4 space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1410,7 +1780,7 @@ function ContactCard() {
             tone="bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/30"
           />
           {settings.isPending || !draft ? (
-            <CardSkeleton lines={3} />
+            <UploadsSkeleton />
           ) : (
             <div className="mt-4 space-y-3">
               <div>
@@ -1555,10 +1925,7 @@ function ContentSeoTab() {
 
   if (settings.isPending || !draft) {
     return (
-      <Card className="p-4 sm:p-6">
-        <SectionHeader icon={Megaphone} title="Contenu & SEO" description="Remboursement, CGU, SEO, réseaux sociaux, emails." tone="bg-gradient-to-br from-brand-600 to-brand-800 shadow-brand-600/30" />
-        <CardSkeleton lines={6} />
-      </Card>
+      <ContentSkeleton />
     );
   }
 
