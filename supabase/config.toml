@@ -33,6 +33,10 @@ verify_jwt = false
 enabled = true
 verify_jwt = true
 
+[functions.admin-users]
+enabled = true
+verify_jwt = true
+
 [functions.ticket-email]
 enabled = true
 verify_jwt = true

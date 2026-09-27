@@ -18,6 +18,14 @@ import type {
   PartnerInput,
   TicketTypeInput,
 } from '../../schemas';
+import {
+  apiAdminCreateUser,
+  apiAdminDeleteUser,
+  apiAdminListInvitations,
+  apiAdminResendInvitation,
+  apiAdminRevokeInvitation,
+  type PendingInvitation,
+} from '../../lib/edgeFunctions';
 import { logAudit } from './audit';
 
 export const adminKeys = {
@@ -514,6 +522,10 @@ export function useUpdateAdminUser() {
         }
         if (!input.is_active) {
           await supabase.from('user_roles').update({ is_active: false }).eq('user_id', id);
+        } else {
+          // Réactivation : restaure TOUS les rôles (les secondaires scopés
+          // partenaire seraient sinon perdus définitivement).
+          await supabase.from('user_roles').update({ is_active: true }).eq('user_id', id);
         }
       } catch {
         // Table user_roles pas encore migrée : le trigger 0020 la remplira.
@@ -526,8 +538,7 @@ export function useUpdateAdminUser() {
 }
 
 /** Ajoute/retire un rôle secondaire sans écraser les autres (multi-rôles pro). */
-export function useSetUserRole() {
-  const qc = useQueryClient();
+export function useSetUserRole() {  const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({
       id,
@@ -568,6 +579,60 @@ export function useSetUserRole() {
       await logAudit('user.role_changed', 'profiles', id, { role, enabled, partner_id });
     },
     onSuccess: () => invalidateAdmin(qc),
+  });
+}
+
+/** Création directe admin (compte actif immédiat, Edge Function admin-users). */
+export function useAdminCreateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      email: string;
+      password: string;
+      first_name?: string;
+      last_name?: string;
+      phone?: string;
+      role: string;
+      partner_id?: string;
+    }) => apiAdminCreateUser(input),
+    onSuccess: () => invalidateAdmin(qc),
+  });
+}
+
+/** Suppression définitive (sans commandes) ou anonymisation RGPD. */
+export function useAdminDeleteUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (user_id: string) => apiAdminDeleteUser(user_id),
+    onSuccess: () => invalidateAdmin(qc),
+  });
+}
+
+/** Invitations en attente (table fermée au frontend, via Edge Function). */
+export function useAdminInvitations() {
+  return useQuery({
+    queryKey: ['admin', 'invitations'] as const,
+    staleTime: 30_000,
+    queryFn: async (): Promise<PendingInvitation[]> => {
+      const res = await apiAdminListInvitations();
+      return res.invitations;
+    },
+  });
+}
+
+export function useResendInvitation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (invitation_id: string) => apiAdminResendInvitation(invitation_id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'invitations'] }),
+  });
+}
+
+export function useRevokeInvitation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (invitation_id: string) => apiAdminRevokeInvitation(invitation_id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'invitations'] }),
   });
 }
 

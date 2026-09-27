@@ -47,6 +47,13 @@ serve(async (req: Request) => {
     if (!(ROLES as readonly string[]).includes(role)) {
       return json(req, { error: 'Rôle invalide.' }, 400);
     }
+    // Cohérence rôle / scope : pas de partenaire global involontaire.
+    if (role === 'partner' && !partnerId) {
+      return json(req, { error: 'Un partenaire doit être rattaché à un organisateur.' }, 400);
+    }
+    if (partnerId && role !== 'partner') {
+      return json(req, { error: 'Seul le rôle partenaire accepte un rattachement organisateur.' }, 400);
+    }
     if (partnerId) {
       const { data: partner } = await admin
         .from('partners')

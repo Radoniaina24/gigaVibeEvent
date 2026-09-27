@@ -16,6 +16,7 @@ export type EdgeFunctionName =
   | 'auth-forgot-password'
   | 'auth-reset-password'
   | 'admin-invite-user'
+  | 'admin-users'
   | 'invitation-accept'
   | 'ticket-email';
 
@@ -147,6 +148,55 @@ export function apiInviteUser(input: {
   partner_id?: string;
 }): Promise<GenericOkResponse> {
   return invokeEdgeFunction<GenericOkResponse>('admin-invite-user', input);
+}
+
+export interface PendingInvitation {
+  id: string;
+  email: string;
+  role: string;
+  partner_id: string | null;
+  partner_name: string | null;
+  expires_at: string;
+  created_at: string;
+  invited_by: string | null;
+  inviter_name: string | null;
+  expired: boolean;
+}
+
+export function apiAdminCreateUser(input: {
+  email: string;
+  password: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  role: string;
+  partner_id?: string;
+}): Promise<{ ok: boolean; id: string; email: string; message: string }> {
+  return invokeEdgeFunction('admin-users', { action: 'create', ...input });
+}
+
+export function apiAdminListInvitations(): Promise<{ ok: boolean; invitations: PendingInvitation[] }> {
+  return invokeEdgeFunction('admin-users', { action: 'list-invitations' });
+}
+
+export function apiAdminResendInvitation(invitation_id: string): Promise<GenericOkResponse> {
+  return invokeEdgeFunction<GenericOkResponse>('admin-users', {
+    action: 'resend-invitation',
+    invitation_id,
+  });
+}
+
+export function apiAdminRevokeInvitation(invitation_id: string): Promise<GenericOkResponse> {
+  return invokeEdgeFunction<GenericOkResponse>('admin-users', {
+    action: 'revoke-invitation',
+    invitation_id,
+  });
+}
+
+export function apiAdminDeleteUser(
+  user_id: string,
+): Promise<{ ok: boolean; mode: 'deleted' | 'anonymized'; message: string }> {
+  return invokeEdgeFunction('admin-users', { action: 'delete', user_id });
 }
 
 export function apiAcceptInvitation(input: {

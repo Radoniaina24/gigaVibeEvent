@@ -79,12 +79,46 @@ export const acceptInvitationSchema = z
   });
 export type AcceptInvitationInput = z.infer<typeof acceptInvitationSchema>;
 
-export const inviteUserSchema = z.object({
-  email: z.string().min(1, 'Email requis').email('Email invalide'),
-  role: z.enum(['user', 'partner', 'controller', 'admin']),
-  partner_id: z.string().uuid('Partenaire invalide').optional().or(z.literal('')),
-});
+export const inviteUserSchema = z
+  .object({
+    email: z.string().min(1, 'Email requis').email('Email invalide'),
+    role: z.enum(['user', 'partner', 'controller', 'admin']),
+    partner_id: z.string().uuid('Partenaire invalide').optional().or(z.literal('')),
+  })
+  .refine((d) => d.role !== 'partner' || Boolean(d.partner_id), {
+    message: 'Un partenaire doit être rattaché à un organisateur',
+    path: ['partner_id'],
+  })
+  .refine((d) => !d.partner_id || d.role === 'partner', {
+    message: 'Seul le rôle partenaire accepte un organisateur',
+    path: ['role'],
+  });
 export type InviteUserInput = z.infer<typeof inviteUserSchema>;
+
+/** Création directe admin : compte actif immédiat + mot de passe temporaire. */
+export const adminCreateUserSchema = z
+  .object({
+    email: z.string().min(1, 'Email requis').email('Email invalide'),
+    password: z.string().min(8, '8 caractères minimum').max(72),
+    first_name: z.string().max(80).optional().or(z.literal('')),
+    last_name: z.string().max(80).optional().or(z.literal('')),
+    phone: z
+      .string()
+      .regex(/^\+?[0-9\s-]{8,20}$/, 'Numéro de téléphone invalide')
+      .optional()
+      .or(z.literal('')),
+    role: z.enum(['user', 'partner', 'controller', 'admin']),
+    partner_id: z.string().uuid('Partenaire invalide').optional().or(z.literal('')),
+  })
+  .refine((d) => d.role !== 'partner' || Boolean(d.partner_id), {
+    message: 'Un partenaire doit être rattaché à un organisateur',
+    path: ['partner_id'],
+  })
+  .refine((d) => !d.partner_id || d.role === 'partner', {
+    message: 'Seul le rôle partenaire accepte un organisateur',
+    path: ['role'],
+  });
+export type AdminCreateUserInput = z.infer<typeof adminCreateUserSchema>;
 
 export const profileSchema = z.object({
   first_name: z.string().min(1, 'Prénom requis').max(80),

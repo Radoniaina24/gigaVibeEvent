@@ -21,6 +21,7 @@ import {
   ChevronsUpDown,
   Eye,
   Search,
+  Trash2,
   UserCheck,
   UserX,
 } from 'lucide-react';
@@ -45,11 +46,20 @@ const ROLE_FILTER_OPTIONS = [
   ...ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label })),
 ] as const;
 
+const STATUS_FILTER_OPTIONS = [
+  { value: '', label: 'Tous les statuts' },
+  { value: 'active', label: 'Actifs' },
+  { value: 'inactive', label: 'Désactivés' },
+] as const;
+
 interface UsersTableProps {
   data: AdminUserRow[];
   updating: boolean;
+  /** Id de l'admin connecté : ses propres actions sont verrouillées. */
+  currentUserId?: string;
   onRoleChange: (user: AdminUserRow, role: UserRole) => void;
   onToggleActive: (user: AdminUserRow) => void;
+  onDelete: (user: AdminUserRow) => void;
 }
 
 const PAGE_SIZES = [8, 15, 25, 50] as const;
@@ -65,13 +75,20 @@ function SortIcon({ sorted }: { sorted: false | 'asc' | 'desc' }) {
  * recherche, filtre rôle (shadcn), tri, pagination (shadcn).
  * Le changement de rôle / statut passe par une confirmation (page parente).
  */
-export function UsersTable({ data, updating, onRoleChange, onToggleActive }: UsersTableProps) {
+export function UsersTable({ data, updating, currentUserId, onRoleChange, onToggleActive, onDelete }: UsersTableProps) {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'created_at', desc: true }]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 15 });
 
   const roleFilter = (columnFilters.find((f) => f.id === 'role')?.value as string) ?? '';
+  const statusFilter = (columnFilters.find((f) => f.id === 'is_active')?.value as string) ?? '';
+
+  const setFilter = (id: string, value: string) =>
+    setColumnFilters((prev) => [
+      ...prev.filter((f) => f.id !== id),
+      ...(value ? [{ id, value }] : []),
+    ]);
 
   useEffect(() => {
     setPagination((p) => ({ ...p, pageIndex: 0 }));
@@ -110,6 +127,7 @@ export function UsersTable({ data, updating, onRoleChange, onToggleActive }: Use
         cell: (info) => {
           const row = info.row.original;
           const roles = row.roles ?? [row.role];
+          const isSelf = currentUserId != null && row.id === currentUserId;
           return (
             <span className="flex flex-wrap items-center gap-1.5">
               <MiniSelect
@@ -119,9 +137,14 @@ export function UsersTable({ data, updating, onRoleChange, onToggleActive }: Use
                   if (v !== row.role) onRoleChange(row, v as UserRole);
                 }}
                 options={ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }))}
-                disabled={updating}
+                disabled={updating || isSelf}
                 className="min-w-36 justify-between"
               />
+              {isSelf && (
+                <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[11px] font-bold text-white">
+                  Vous
+                </span>
+              )}
               {roles.length > 1 && (
                 <span
                   title={roles.join(', ')}
@@ -136,6 +159,10 @@ export function UsersTable({ data, updating, onRoleChange, onToggleActive }: Use
       }),
       columnHelper.accessor('is_active', {
         header: 'Statut',
+        filterFn: (row, _columnId, filterValue) => {
+          if (!filterValue) return true;
+          return filterValue === 'active' ? row.original.is_active : !row.original.is_active;
+        },
         cell: (info) => (
           <Badge tone={info.getValue() ? 'success' : 'danger'}>
             {info.getValue() ? 'Actif' : 'Désactivé'}
@@ -158,6 +185,7 @@ export function UsersTable({ data, updating, onRoleChange, onToggleActive }: Use
         enableSorting: false,
         cell: (info) => {
           const row = info.row.original;
+          const isSelf = currentUserId != null && row.id === currentUserId;
           const ActiveIcon = row.is_active ? UserX : UserCheck;
           const toggleClass = row.is_active
             ? 'border-red-200 text-red-600 hover:border-red-600 hover:bg-red-600 hover:text-white focus-visible:outline-red-600'
@@ -174,20 +202,30 @@ export function UsersTable({ data, updating, onRoleChange, onToggleActive }: Use
               </Link>
               <button
                 type="button"
-                title={row.is_active ? 'Désactiver' : 'Réactiver'}
+                title={isSelf ? 'Votre propre compte (verrouillé)' : row.is_active ? 'Désactiver' : 'Réactiver'}
                 aria-label={`${row.is_active ? 'Désactiver' : 'Réactiver'} ${row.email}`}
-                disabled={updating}
+                disabled={updating || isSelf}
                 onClick={() => onToggleActive(row)}
                 className={`group inline-grid size-9 place-items-center rounded-full border bg-white shadow-sm transition hover:-translate-y-px hover:shadow focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm ${toggleClass}`}
               >
                 <ActiveIcon className="size-4 transition group-hover:scale-110" aria-hidden />
+              </button>
+              <button
+                type="button"
+                title={isSelf ? 'Votre propre compte (verrouillé)' : 'Supprimer (définitif ou anonymisé)'}
+                aria-label={`Supprimer ${row.email}`}
+                disabled={updating || isSelf}
+                onClick={() => onDelete(row)}
+                className="group inline-grid size-9 place-items-center rounded-full border border-zinc-300 bg-white text-zinc-400 shadow-sm transition hover:-translate-y-px hover:border-red-600 hover:bg-red-600 hover:text-white hover:shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
+              >
+                <Trash2 className="size-4 transition group-hover:scale-110" aria-hidden />
               </button>
             </span>
           );
         },
       }),
     ],
-    [onRoleChange, onToggleActive, updating],
+    [currentUserId, onDelete, onRoleChange, onToggleActive, updating],
   );
 
   const table = useReactTable({
@@ -271,13 +309,15 @@ export function UsersTable({ data, updating, onRoleChange, onToggleActive }: Use
         <MiniSelect
           ariaLabel="Filtrer par rôle"
           value={roleFilter}
-          onChange={(v) =>
-            setColumnFilters((prev) => [
-              ...prev.filter((f) => f.id !== 'role'),
-              ...(v ? [{ id: 'role', value: v }] : []),
-            ])
-          }
+          onChange={(v) => setFilter('role', v)}
           options={ROLE_FILTER_OPTIONS.map((r) => ({ value: r.value, label: r.label }))}
+          className="h-9 w-full justify-between sm:w-auto sm:min-w-44"
+        />
+        <MiniSelect
+          ariaLabel="Filtrer par statut"
+          value={statusFilter}
+          onChange={(v) => setFilter('is_active', v)}
+          options={STATUS_FILTER_OPTIONS.map((r) => ({ value: r.value, label: r.label }))}
           className="h-9 w-full justify-between sm:w-auto sm:min-w-44"
         />
         <p aria-live="polite" className="text-xs tabular-nums text-zinc-500">
