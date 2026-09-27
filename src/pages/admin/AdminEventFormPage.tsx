@@ -531,6 +531,17 @@ export function AdminEventFormPage() {
               <Input label="Ville" error={errors.city?.message} {...register('city')} />
             </div>
             <Input label="Adresse" placeholder="Rue, quartier…" error={errors.address?.message} {...register('address')} />
+            {!isNew && existing?.partner && (
+              <p className="flex flex-wrap items-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-sm text-zinc-600">
+                Partenaire créateur :{' '}
+                <Link
+                  to={`/admin/partners/${existing.partner.id}/edit`}
+                  className="font-bold text-zinc-900 underline underline-offset-2 hover:text-brand-700"
+                >
+                  {existing.partner.name}
+                </Link>
+              </p>
+            )}
             <Input label="Organisateur" placeholder="ShowPro MG" error={errors.organizer?.message} {...register('organizer')} />
             <details className="group rounded-xl border border-zinc-200 bg-zinc-50/60 px-4 py-3">
               <summary className="cursor-pointer text-sm font-semibold text-zinc-700 transition hover:text-zinc-900">

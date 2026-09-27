@@ -89,6 +89,7 @@ export function PartnerEventsPage() {
           actionPending={submit.isPending}
           onSubmit={handleSubmit}
           submittingId={submittingId}
+          showPartner={false}
         />
       )}
     </div>

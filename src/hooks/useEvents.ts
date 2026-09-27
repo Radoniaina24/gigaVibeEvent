@@ -75,42 +75,40 @@ async function fetchEventDetail(slug: string): Promise<EventWithStats | null> {
     mapped.ticket_types.sort((a, b) => a.price - b.price);
     return mapped;
   };
+  // Aperçu staff : un visiteur anonyme ne voit que le publié ; un utilisateur
+  // connecté peut aussi ouvrir un événement non publié (brouillon, en
+  // validation…). La visibilité reste imposée par le RLS côté serveur
+  // (admin = tout, partenaire = ses événements, autres = publié uniquement).
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const publishedOnly = !user;
+  const buildQuery = (select: string) => {
+    let q = supabase.from('events').select(select).eq('slug', slug);
+    if (publishedOnly) q = q.eq('status', 'published');
+    return q.maybeSingle();
+  };
   if (!shouldTryPartnerEmbed()) {
-    const { data, error } = await supabase
-      .from('events')
-      .select(EVENT_WITH_RELATIONS_NO_PARTNER)
-      .eq('slug', slug)
-      .eq('status', 'published')
-      .maybeSingle();
+    const { data, error } = await buildQuery(EVENT_WITH_RELATIONS_NO_PARTNER);
     if (error) throw error;
     if (!data) return null;
-    return mapDetail(data as RawEventRow);
+    return mapDetail(data as unknown as RawEventRow);
   }
-  const { data, error } = await supabase
-    .from('events')
-    .select(EVENT_WITH_RELATIONS)
-    .eq('slug', slug)
-    .eq('status', 'published')
-    .maybeSingle();
+  const { data, error } = await buildQuery(EVENT_WITH_RELATIONS);
   if (!error) {
     markPartnerEmbedSupported(true);
     if (!data) return null;
-    return mapDetail(data as RawEventRow);
+    return mapDetail(data as unknown as RawEventRow);
   }
   if (isMissingRelationshipError(error)) {
     markPartnerEmbedSupported(false);
     console.warn(
       '[events] `events.partner_id` introuvable — appliquez supabase/migrations/0005_platform_v2.sql. Fallback sans partenaire.',
     );
-    const retry = await supabase
-      .from('events')
-      .select(EVENT_WITH_RELATIONS_NO_PARTNER)
-      .eq('slug', slug)
-      .eq('status', 'published')
-      .maybeSingle();
+    const retry = await buildQuery(EVENT_WITH_RELATIONS_NO_PARTNER);
     if (retry.error) throw retry.error;
     if (!retry.data) return null;
-    return mapDetail(retry.data as RawEventRow);
+    return mapDetail(retry.data as unknown as RawEventRow);
   }
   throw error;
 }

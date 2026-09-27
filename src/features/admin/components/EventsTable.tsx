@@ -47,6 +47,26 @@ const STATUS_OPTIONS = [
   { value: 'completed', label: 'Terminé' },
 ] as const;
 
+export interface PartnerFilterOption {
+  value: string;
+  label: string;
+}
+
+/** Valeur du filtre « sans partenaire » (anciens événements, compte GVE). */
+export const NO_PARTNER_FILTER = '__none__';
+
+type EventRowWithPartner = AdminEventRow | PartnerEventRow;
+
+function partnerIdOf(row: EventRowWithPartner): string | null {
+  return 'partner' in row ? (row.partner?.id ?? null) : null;
+}
+
+/** Nom affiché : partenaire rattaché, sinon texte libre, sinon « — ». */
+export function partnerNameOf(row: EventRowWithPartner): string {
+  if ('partner' in row && row.partner?.name) return row.partner.name;
+  return row.organizer?.trim() ? row.organizer : '—';
+}
+
 interface EventsTableProps {
   data: (AdminEventRow | PartnerEventRow)[];
   /** Base des liens d'édition (défaut : backoffice admin). */
@@ -57,6 +77,10 @@ interface EventsTableProps {
   /** Si fourni : bouton « Soumettre » pour brouillons / corrections / refusés. */
   onSubmit?: (id: string) => void;
   submittingId?: string | null;
+  /** Colonne + filtre partenaire (défaut : visible ; masqué côté partenaire). */
+  showPartner?: boolean;
+  /** Options du filtre partenaire (admin : tous les organisateurs). */
+  partnerOptions?: readonly PartnerFilterOption[];
 }
 
 const PAGE_SIZES = [8, 10, 15, 25] as const;
@@ -88,6 +112,8 @@ export function EventsTable({
   onDelete,
   onSubmit,
   submittingId = null,
+  showPartner = true,
+  partnerOptions,
 }: EventsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'starts_at', desc: true }]);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -95,6 +121,8 @@ export function EventsTable({
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
 
   const statusFilter = (columnFilters.find((f) => f.id === 'status')?.value as string) ?? '';
+  const partnerFilter = (columnFilters.find((f) => f.id === 'partner')?.value as string) ?? '';
+  const showPartnerFilter = showPartner && (partnerOptions?.length ?? 0) > 0;
 
   useEffect(() => {
     setPagination((p) => ({ ...p, pageIndex: 0 }));
@@ -147,6 +175,34 @@ export function EventsTable({
           );
         },
       }),
+      ...(showPartner
+        ? [
+            columnHelper.accessor((row) => partnerNameOf(row), {
+              id: 'partner',
+              header: 'Partenaire',
+              filterFn: (row, _columnId, filterValue) => {
+                if (!filterValue) return true;
+                const pid = partnerIdOf(row.original);
+                if (filterValue === NO_PARTNER_FILTER) return pid === null;
+                return pid === filterValue;
+              },
+              cell: (info) => {
+                const row = info.row.original;
+                const pid = partnerIdOf(row);
+                const name = info.getValue();
+                return (
+                  <span className="block max-w-44 truncate text-xs" title={name}>
+                    {pid ? (
+                      <span className="font-medium text-zinc-800">{name}</span>
+                    ) : (
+                      <span className="text-zinc-500">{name}</span>
+                    )}
+                  </span>
+                );
+              },
+            }),
+          ]
+        : []),
       columnHelper.accessor('starts_at', {
         header: 'Date',
         cell: (info) => (
@@ -255,7 +311,7 @@ export function EventsTable({
         },
       }),
     ],
-    [editBasePath, onDuplicate, onDelete, onSubmit, submittingId, actionPending],
+    [editBasePath, onDuplicate, onDelete, onSubmit, submittingId, actionPending, showPartner],
   );
 
   const table = useReactTable({
@@ -274,7 +330,7 @@ export function EventsTable({
       const q = String(filterValue).trim().toLowerCase();
       if (!q) return true;
       const r = row.original;
-      return `${r.title} ${r.venue} ${r.city} ${r.category?.name ?? ''}`
+      return `${r.title} ${r.venue} ${r.city} ${r.category?.name ?? ''} ${partnerNameOf(r)}`
         .toLowerCase()
         .includes(q);
     },
@@ -332,7 +388,7 @@ export function EventsTable({
           <input
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
-            placeholder="Titre, lieu, ville…"
+            placeholder="Titre, lieu, ville, partenaire…"
             type="search"
             className="h-9 w-full rounded-lg border border-zinc-300 bg-white pl-9 pr-8 text-sm outline-none transition placeholder:text-zinc-400 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10"
           />
@@ -359,6 +415,24 @@ export function EventsTable({
           options={STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
           className="h-9 w-full justify-between sm:w-auto sm:min-w-64"
         />
+        {showPartnerFilter && (
+          <MiniSelect
+            ariaLabel="Filtrer par partenaire"
+            value={partnerFilter}
+            onChange={(v) =>
+              setColumnFilters((prev) => [
+                ...prev.filter((f) => f.id !== 'partner'),
+                ...(v ? [{ id: 'partner', value: v }] : []),
+              ])
+            }
+            options={[
+              { value: '', label: 'Tous les partenaires' },
+              ...(partnerOptions ?? []).map((p) => ({ value: p.value, label: p.label })),
+              { value: NO_PARTNER_FILTER, label: 'Sans partenaire' },
+            ]}
+            className="h-9 w-full justify-between sm:w-auto sm:min-w-64"
+          />
+        )}
         <p aria-live="polite" className="text-xs tabular-nums text-zinc-500">
           {filteredCount} résultat{filteredCount > 1 ? 's' : ''}
         </p>
@@ -366,7 +440,7 @@ export function EventsTable({
 
       {/* Tableau */}
       <div className="max-w-full overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full min-w-[640px] text-left text-sm">
+        <table className="w-full min-w-[760px] text-left text-sm">
           <caption className="sr-only">Liste des événements</caption>
           <thead>
             {table.getHeaderGroups().map((hg) => (

@@ -291,22 +291,18 @@ export function AdminUserDetailPage() {
           )}
           {!isSelf && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <select
-                aria-label="Ajouter un organisateur"
+              <MiniSelect
+                ariaLabel="Ajouter un organisateur"
                 value={partnerPick}
-                onChange={(e) => setPartnerPick(e.target.value)}
+                onChange={setPartnerPick}
                 disabled={busy}
-                className="h-9 rounded-lg border border-zinc-300 bg-white px-2 text-sm"
-              >
-                <option value="">— Ajouter un organisateur —</option>
-                {(partners.data ?? [])
-                  .filter((p) => !user.partner_ids.includes(p.id))
-                  .map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-              </select>
+                options={[
+                  { value: '', label: '— Ajouter un organisateur —' },
+                  ...(partners.data ?? [])
+                    .filter((p) => !user.partner_ids.includes(p.id))
+                    .map((p) => ({ value: p.id, label: p.name })),
+                ]}
+              />
               <Button size="sm" variant="secondary" disabled={busy || !partnerPick} onClick={addPartnerScope}>
                 Rattacher
               </Button>

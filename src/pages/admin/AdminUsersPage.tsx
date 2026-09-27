@@ -35,6 +35,7 @@ import { Badge, Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
+import { SelectField, type SelectOption } from '../../components/ui/Select';
 import { UsersTable } from '../../features/admin/components/UsersTable';
 import { UsersTableSkeleton } from '../../components/admin/AdminSkeletons';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -250,6 +251,13 @@ function randomPassword(length = 12): string {
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
 }
 
+const ROLE_OPTIONS: SelectOption<UserRole>[] = [
+  { value: 'user', label: 'Client' },
+  { value: 'partner', label: 'Partenaire' },
+  { value: 'controller', label: 'Contrôleur' },
+  { value: 'admin', label: 'Admin' },
+];
+
 function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const create = useAdminCreateUser();
   const partners = useAdminPartners();
@@ -268,6 +276,7 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
     defaultValues: { role: 'user', partner_id: '' },
   });
   const role = watch('role');
+  const partnerId = watch('partner_id');
 
   const close = () => {
     onClose();
@@ -363,30 +372,27 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input label="Téléphone (optionnel)" placeholder="+261 …" error={errors.phone?.message} {...register('phone')} />
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-zinc-700">Rôle</span>
-              <select className="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm" {...register('role')}>
-                <option value="user">Client</option>
-                <option value="partner">Partenaire</option>
-                <option value="controller">Contrôleur</option>
-                <option value="admin">Admin</option>
-              </select>
-              {errors.role?.message && <span className="mt-1 block text-xs text-red-600">{errors.role.message}</span>}
-            </label>
+            <SelectField
+              label="Rôle"
+              value={role}
+              onChange={(v) => setValue('role', v, { shouldValidate: true, shouldDirty: true })}
+              options={ROLE_OPTIONS}
+              error={errors.role?.message}
+            />
           </div>
           {role === 'partner' && (
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-zinc-700">Organisateur (requis pour partenaire)</span>
-              <select className="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm" {...register('partner_id')}>
-                <option value="">— Choisir —</option>
-                {(partners.data ?? []).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              {errors.partner_id?.message && <span className="mt-1 block text-xs text-red-600">{errors.partner_id.message}</span>}
-            </label>
+            <SelectField
+              label="Organisateur (requis pour partenaire)"
+              value={partnerId ?? ''}
+              onChange={(v) => setValue('partner_id', v, { shouldValidate: true, shouldDirty: true })}
+              options={[
+                { value: '', label: '— Choisir —' },
+                ...(partners.data ?? []).map((p) => ({ value: p.id, label: p.name })),
+              ]}
+              error={errors.partner_id?.message}
+              placeholder="— Choisir —"
+              disabled={partners.isPending}
+            />
           )}
           {serverError && (
             <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
@@ -420,12 +426,14 @@ function InviteUserModal({ open, onClose }: { open: boolean; onClose: () => void
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<InviteUserInput>({
     resolver: zodResolver(inviteUserSchema),
     defaultValues: { role: 'user', partner_id: '' },
   });
   const role = watch('role');
+  const partnerId = watch('partner_id');
 
   const close = () => {
     onClose();
@@ -459,29 +467,26 @@ function InviteUserModal({ open, onClose }: { open: boolean; onClose: () => void
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-3" noValidate>
         <Input label="Email" type="email" placeholder="invite@exemple.mg" error={errors.email?.message} {...register('email')} />
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium text-zinc-700">Rôle</span>
-            <select className="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm" {...register('role')}>
-              <option value="user">Client</option>
-              <option value="partner">Partenaire</option>
-              <option value="controller">Contrôleur</option>
-              <option value="admin">Admin</option>
-            </select>
-            {errors.role?.message && <span className="mt-1 block text-xs text-red-600">{errors.role.message}</span>}
-          </label>
+          <SelectField
+            label="Rôle"
+            value={role}
+            onChange={(v) => setValue('role', v, { shouldValidate: true, shouldDirty: true })}
+            options={ROLE_OPTIONS}
+            error={errors.role?.message}
+          />
           {role === 'partner' && (
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-zinc-700">Organisateur (requis)</span>
-              <select className="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm" {...register('partner_id')}>
-                <option value="">— Choisir —</option>
-                {(partners.data ?? []).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              {errors.partner_id?.message && <span className="mt-1 block text-xs text-red-600">{errors.partner_id.message}</span>}
-            </label>
+            <SelectField
+              label="Organisateur (requis)"
+              value={partnerId ?? ''}
+              onChange={(v) => setValue('partner_id', v, { shouldValidate: true, shouldDirty: true })}
+              options={[
+                { value: '', label: '— Choisir —' },
+                ...(partners.data ?? []).map((p) => ({ value: p.id, label: p.name })),
+              ]}
+              error={errors.partner_id?.message}
+              placeholder="— Choisir —"
+              disabled={partners.isPending}
+            />
           )}
         </div>
         {feedback && (

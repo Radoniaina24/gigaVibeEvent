@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import {
   useAdminEvents,
+  useAdminPartners,
   useDeleteEvent,
   useDuplicateEvent,
   type AdminEventRow,
@@ -20,6 +21,7 @@ import {
 
 export function AdminEventsPage() {
   const { data, isPending, isError, refetch } = useAdminEvents();
+  const partners = useAdminPartners();
   const { toast } = useToast();
   const deleteEvent = useDeleteEvent();
   const duplicateEvent = useDuplicateEvent();
@@ -110,7 +112,8 @@ export function AdminEventsPage() {
           data={data}
           actionPending={deleteEvent.isPending || duplicateEvent.isPending}
           onDuplicate={handleDuplicate}
-          onDelete={setToDelete}
+          onDelete={(e) => setToDelete(e as AdminEventRow)}
+          partnerOptions={(partners.data ?? []).map((p) => ({ value: p.id, label: p.name }))}
         />
       )}
 

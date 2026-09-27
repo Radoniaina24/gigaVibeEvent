@@ -50,6 +50,7 @@ async function invalidateAdmin(qc: ReturnType<typeof useQueryClient>) {
 // ---------- Événements ----------
 
 export interface AdminEventRow extends Event {
+  partner: Pick<Partner, 'id' | 'name'> | null;
   category: Pick<Category, 'id' | 'name' | 'slug'> | null;
   ticket_types: Pick<TicketType, 'id' | 'quantity' | 'sold'>[];
 }
@@ -62,7 +63,7 @@ export function useAdminEvents() {
       const supabase = getSupabase();
       const { data, error } = await supabase
         .from('events')
-        .select('*, category:categories(id,name,slug), ticket_types(id,quantity,sold)')
+        .select('*, partner:partners(id,name), category:categories(id,name,slug), ticket_types(id,quantity,sold)')
         .order('starts_at', { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -72,6 +73,7 @@ export function useAdminEvents() {
 }
 
 export interface AdminEventDetail extends Event {
+  partner: Pick<Partner, 'id' | 'name'> | null;
   category: Pick<Category, 'id' | 'name' | 'slug'> | null;
   ticket_types: TicketType[];
 }
@@ -85,7 +87,7 @@ export function useAdminEvent(id: string | undefined) {
       const supabase = getSupabase();
       const { data, error } = await supabase
         .from('events')
-        .select('*, category:categories(id,name,slug), ticket_types(*)')
+        .select('*, partner:partners(id,name), category:categories(id,name,slug), ticket_types(*)')
         .eq('id', id)
         .maybeSingle();
       if (error) throw error;

@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Check,
   Clock,
+  Eye,
   Flame,
   MapPin,
   QrCode,
@@ -64,6 +65,17 @@ const TRUST_ITEMS_FALLBACK = [
   { icon: QrCode, title: 'QR Code unique', text: 'Vérifié à l’entrée' },
   { icon: RotateCcw, title: 'Remboursé si annulé', text: 'Automatiquement' },
 ];
+
+/** Libellés des statuts non publiés (bandeau d'aperçu staff). */
+const PREVIEW_STATUS_LABEL: Record<string, string> = {
+  draft: 'Brouillon',
+  pending_review: 'En validation',
+  changes_requested: 'Modifs demandées',
+  suspended: 'Suspendu',
+  cancelled: 'Annulé',
+  sold_out: 'Complet',
+  completed: 'Terminé',
+};
 
 export function EventDetailPage() {
   const { slug } = useParams();
@@ -172,8 +184,13 @@ export function EventDetailPage() {
     }
   };
 
+  // Aperçu staff : événement non publié (brouillon, en validation…).
+  // Visible uniquement si le RLS l'autorise (admin ou partenaire propriétaire).
+  const isPreview = event.status !== 'published';
+  const previewLabel = PREVIEW_STATUS_LABEL[event.status] ?? event.status;
+
   const handleBuy = () => {
-    if (lines.length === 0) return;
+    if (isPreview || lines.length === 0) return;
     // Panier persisté : survit au détour par /login (next=/checkout) ou au refresh.
     const draft = {
       eventId: event.id,
@@ -196,6 +213,15 @@ export function EventDetailPage() {
 
   return (
     <article className="space-y-8 pb-20 md:space-y-10 lg:pb-0">
+      {isPreview && (
+        <p
+          role="status"
+          className="flex items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900"
+        >
+          <Eye className="size-4 shrink-0" aria-hidden />
+          Aperçu — cet événement n’est pas publié ({previewLabel}). La billetterie est désactivée.
+        </p>
+      )}
       {/* ===== Hero affiche ===== */}
       <section aria-label={event.title} className="bleed grain relative overflow-hidden bg-night-950 text-white">
         <div aria-hidden className="hero-glow pointer-events-none absolute inset-0" />
@@ -287,7 +313,11 @@ export function EventDetailPage() {
               )}
 
               <div className="mt-7 hidden items-center gap-5 lg:flex">
-                {soldOut ? (
+                {isPreview ? (
+                  <span className="inline-flex items-center gap-2 rounded-xl bg-amber-400/15 px-7 py-3.5 font-bold text-amber-200 ring-1 ring-amber-300/30">
+                    <Eye className="size-5" aria-hidden /> Aperçu {previewLabel}
+                  </span>
+                ) : soldOut ? (
                   <span className="inline-flex h-13 items-center rounded-xl bg-white/10 px-7 py-3.5 font-bold text-zinc-400">
                     Événement complet
                   </span>
@@ -453,6 +483,12 @@ export function EventDetailPage() {
                 Cet événement affiche complet. Revenez sur la liste pour découvrir d’autres sorties.
               </p>
             )}
+            {isPreview && (
+              <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+                Aperçu {previewLabel} : les tarifs sont visibles mais l’achat est désactivé tant que
+                l’événement n’est pas publié.
+              </p>
+            )}
             {event.ticket_types.length === 0 ? (
               <EmptyState
                 title="Billetterie à venir."
@@ -467,6 +503,7 @@ export function EventDetailPage() {
                   onQuantityChange={(q) =>
                     setSelection((s) => ({ ...s, [t.id]: q }))
                   }
+                  disabled={isPreview}
                 />
               ))
             )}
@@ -493,15 +530,24 @@ export function EventDetailPage() {
 
         {/* Récapitulatif sticky */}
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start" aria-label="Commande">
-          <OrderSummary
-            lines={lines}
-            ctaLabel={user ? 'Acheter maintenant' : 'Se connecter pour acheter'}
-            onSubmit={handleBuy}
-          />
-          {!user && lines.length > 0 && (
-            <p className="text-center text-xs text-zinc-500">
-              Connectez-vous pour passer au paiement Mobile Money.
+          {isPreview ? (
+            <p role="status" className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm font-medium text-amber-900">
+              <Eye className="size-4 shrink-0" aria-hidden />
+              Commande désactivée en mode aperçu ({previewLabel}).
             </p>
+          ) : (
+            <>
+              <OrderSummary
+                lines={lines}
+                ctaLabel={user ? 'Acheter maintenant' : 'Se connecter pour acheter'}
+                onSubmit={handleBuy}
+              />
+              {!user && lines.length > 0 && (
+                <p className="text-center text-xs text-zinc-500">
+                  Connectez-vous pour passer au paiement Mobile Money.
+                </p>
+              )}
+            </>
           )}
           <div className="rounded-2xl bg-night-950 p-5 text-white">
             <p className="flex items-center gap-2 text-sm font-bold">
@@ -518,6 +564,12 @@ export function EventDetailPage() {
 
       {/* ===== Barre d'achat mobile ===== */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
+        {isPreview ? (
+          <p role="status" className="flex items-center justify-center gap-2 text-center text-sm font-semibold text-amber-800">
+            <Eye className="size-4 shrink-0" aria-hidden />
+            Aperçu {previewLabel} — achat désactivé
+          </p>
+        ) : (
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-lg font-bold tabular-nums leading-tight">
@@ -542,6 +594,7 @@ export function EventDetailPage() {
             </a>
           )}
         </div>
+        )}
       </div>
     </article>
   );

@@ -10,6 +10,8 @@ interface Props {
   ticketType: EventListTicketType;
   quantity: number;
   onQuantityChange: (quantity: number) => void;
+  /** Aperçu staff (événement non publié) : sélection désactivée. */
+  disabled?: boolean;
 }
 
 function saleState(t: EventListTicketType): { label: string; tone: 'success' | 'neutral' | 'danger' | 'warning' } {
@@ -22,9 +24,9 @@ function saleState(t: EventListTicketType): { label: string; tone: 'success' | '
   return { label: `${t.available} places`, tone: 'success' };
 }
 
-export function TicketTypeCard({ ticketType: t, quantity, onQuantityChange }: Props) {
+export function TicketTypeCard({ ticketType: t, quantity, onQuantityChange, disabled = false }: Props) {
   const state = saleState(t);
-  const selectable = t.onSale;
+  const selectable = t.onSale && !disabled;
   const max = Math.min(MAX_PER_TYPE, t.available);
 
   return (
